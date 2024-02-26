@@ -1,0 +1,15 @@
+*) There is inconsistency in the agents, sometimes they don't deliver the output in json and as a file
+*) Need to manage data files differently from insight files.
+*) Trend radar - probably need to change from plotly. Matplotlib is not better. This could be that going to R
+   provides more robust visual tooling than Python
+*) Capabilities - needs some visual tweaks
+*) Expanding data sources - need to understand how to capture more real data and how this data is not subject to
+   being processed away. Go with the original distinction between insights and data - the latter is not something
+   that should be heavily processed
+*) Expert reports : introduce agents that will create a summary report on a specialist topic. For exmaple
+   financial analyst, strategic analyst, governance analyst, leadership analyst
+*) Use run_steps for more information?
+*) Parallelism - each agent can actually handle many files, so what is the ideal splitting?
+*) Parallelism for improved quality: we can send many agents the same data and aggregate results
+*) Testing and improving the quality of the document processing, e.g. retrieval, condensing, splitting, insight generation etc.
+*) Polling - report on the steps and then respond back to agent depending on the responses
