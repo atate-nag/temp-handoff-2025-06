@@ -52,7 +52,7 @@ if not DEBUG_RUN:
 
     # TODO: hide this in the run_assistant_thread module (or its replacement)
 
-    def trend_analysis(client, company_insights):
+    def trend_analysis(client, market_insights):
         trends_file = overseer_manage_assistant(client, run_trends_analysis, market_insights,
                                                 company_data)
         return trends_file
@@ -64,7 +64,7 @@ if not DEBUG_RUN:
     ## parallel execution of the future and capabilities assistants
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        future_trends = executor.submit(trend_analysis,client, company_insights)
+        future_trends = executor.submit(trend_analysis,client, market_insights)
         future_capabilities = executor.submit(capabilities_analysis,client, company_insights)
 
     ## wait for prallel execution to end
