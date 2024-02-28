@@ -5,20 +5,33 @@ from run_assistant_thread import (run_trends_analysis, run_challenges_analysis, 
                                   run_actions, overseer_manage_assistant, import_data_file, parallel_file_process)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from challenges import find_top_right_challenge
+from langchain_openai import OpenAIEmbeddings
 from powerpoint import create_powerpoint
 import concurrent.futures
+from core_components.src.RAG.rag import RAG
+from core_components.src.DocumentLoader.document_retriever_sharepoint import SharePointRetriever
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import json
 import sys
-
 load_dotenv()
+from retrieval import retrieve_docs
+
+
+print(os.getenv("OPENAI_API_KEY"))
+retrieve_docs("Shared Documents/Research/Incubation/Socrates/Documents/test_retrieval/",'',.7)
+
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 company_insights = []
 market_insights = []
 
 index = 0
-company_insight_dir = "Files-INSIGHT"  # Directory containing the insight files (insights need to be extracted)
-market_insight_dir = "Files-MARKET"
-data_dir = "Files-DATA"        # Directory containing background data files (Data will be used directly)
+company_insight_dir = "Files-INSIGHT-retrieved"  # Directory containing the insight files (insights need to be extracted)
+market_insight_dir = "Files-MARKET-retrieved"
+data_dir = "Files-DATA-retrieved"        # Directory containing background data files (Data will be used directly)
+
+# company_insight_dir = "Files-INSIGHT"  # Directory containing the insight files (insights need to be extracted)
+# market_insight_dir = "Files-Market"
+# data_dir = "Files-DATA"   
 
 # debug run is for the latter stages so that you can read files and not prduce them again
 DEBUG_RUN = None
@@ -52,7 +65,7 @@ if not DEBUG_RUN:
 
     # TODO: hide this in the run_assistant_thread module (or its replacement)
 
-    def trend_analysis(client, company_insights):
+    def trend_analysis(client, market_insights):
         trends_file = overseer_manage_assistant(client, run_trends_analysis, market_insights,
                                                 company_data)
         return trends_file
@@ -64,7 +77,7 @@ if not DEBUG_RUN:
     ## parallel execution of the future and capabilities assistants
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        future_trends = executor.submit(trend_analysis,client, company_insights)
+        future_trends = executor.submit(trend_analysis,client, market_insights)
         future_capabilities = executor.submit(capabilities_analysis,client, company_insights)
 
     ## wait for prallel execution to end
