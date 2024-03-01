@@ -55,13 +55,13 @@ for query in queries:
             client, queries_agent["id"], query
         )
         messages = client.beta.threads.messages.list(thread_id=result_thread.id)
-        queries = []
+        increased_queries = [query]
         for message in messages:
             if message.role == "assistant":
-                queries.extend(message.content[0].text.value.split("\n"))
+                increased_queries.extend(message.content[0].text.value.split("\n"))
 
         
-        researches.append(queries)
+        researches.append(increased_queries)
         
 print(f"Researches: {researches}")
 for queries, folder in zip(researches,["Files-DATA-retrieved", "Files-INSIGHT-retrieved", "Files-MARKET-retrieved"]):
