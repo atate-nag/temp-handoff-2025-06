@@ -12,8 +12,6 @@ import sys
 
 load_dotenv()
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-company_insights = []
-market_insights = []
 
 index = 0
 company_insight_dir = "Files-COMPANY"  # Directory containing the insight files (insights need to be extracted)
@@ -32,16 +30,16 @@ if not DEBUG_RUN:
     print(f"Main: Company data imported: file_id={company_data.id}")
 
     # step 2: Run through the insight files on the company, extract and collect in company_insights
-    company_insights.append(parallel_file_process(client, company_insight_dir, company_data,
-                                                  "company",PRODUCE_INTERMEDIATES))
+    company_insights = parallel_file_process(client, company_insight_dir, company_data,
+                                                  "company",PRODUCE_INTERMEDIATES)
     print(f"Main: Company insights extracted: file_ids ={company_insights}")
     # for company_insight_file in company_insights:
     #     print(company_insight_file)
 
     # step 3 : run through the insight files on the markets and extract into insights_environment
 
-    market_insights.append(parallel_file_process(client, market_insight_dir, company_data,
-                                                 "market", PRODUCE_INTERMEDIATES))
+    market_insights = parallel_file_process(client, market_insight_dir, company_data,
+                                                 "market", PRODUCE_INTERMEDIATES)
     print(f"Main: Market insights extracted: file_ids ={market_insights}")
 
     # for market_insight_file in market_insights:

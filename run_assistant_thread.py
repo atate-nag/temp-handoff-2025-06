@@ -33,7 +33,7 @@ def success_criteria_met(client,thread):
             return file_from_response
     return None
 
-def overseer_manage_assistant(client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3):
+def overseer_manage_assistant(client, write_intermediate, prefix, index, assistant_function, *args, max_retries=2):
     for attempt in range(max_retries):
         print(f"Attempt {attempt + 1} for {assistant_function.__name__}")
         run_steps, retrieve_response, thread = assistant_function(client, *args)
@@ -162,6 +162,7 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
         file_dir, f))]
     index = 0
     # # parallel loop - submit the process_file function on as many threads as there are files
+    return_files = []
     # TODO: change the number of files per worker (single file per worker currently)
     with ThreadPoolExecutor(max_workers=len(files)) as executor:
         future_to_file = {executor.submit(process_file, client, file_name, index + i, file_dir, company_data, prefix,
@@ -171,10 +172,11 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
             file_name = future_to_file[future]
             try:
                 result = future.result()
-                return result
+                if result is not None:
+                    return_files.append(result)
             except Exception as exc:
                 print(f"Generated an exception: {exc}")
-    return None
+    return return_files
 
 # TODO move file handling into appropriate module
 def import_data_files(client, data_dir):
@@ -240,15 +242,15 @@ def download_content_and_write(client,agent_file,local_filename):
     return json_file
 def run_insight_analysis(client, condense_file, data_file):
     insight_prompt = (f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
-                      f"with basic information contained in the file {data_file} and potential insights "
+                      f"with basic information contained in the file {data_file.id} and potential insights "
                       f"in {condense_file}")
     insight_steps, insight_response, insight_thread = run_assistant(client, insight_agent, insight_prompt,
-                                                                   file_ids=[condense_file],
+                                                                   file_ids=[data_file.id,condense_file],
                                                                    description=insight_description)
     return insight_steps, insight_response, insight_thread
 
 def run_condense_analysis(client, raw_file):
-    condense_prompt = f"Condense the json file {raw_file}"
+    condense_prompt = f"Condense the json file {raw_file.id}"
     condense_steps, condense_response, condense_thread = run_assistant(client, condense_agent, condense_prompt,
                                                                    file_ids=[raw_file.id],
                                                                    description=condense_description)
@@ -256,19 +258,19 @@ def run_condense_analysis(client, raw_file):
 
 def run_trends_analysis(client, insight_files, data_file):
     trends_prompt = (f"Generate the trends that are affecting NAG Or Numerical Algorithms Group with basic information "
-                     f"contained in the file {data_file} and collected insights in {insight_files}")
+                     f"contained in the file {data_file.id} and collected insights in {insight_files}")
 
     trends_steps, trends_response, trends_thread = run_assistant(client, trends_agent, trends_prompt,
-                                                                 file_ids=insight_files,
+                                                                 file_ids=[data_file.id] + insight_files,
                                                                  description=trends_description)
     return trends_steps, trends_response, trends_thread  # Modified to return necessary info
 
 
 def run_capabilities_analysis(client, insight_files, data_file):
     capabilities_prompt = (f"Generate the capabilities possessed by NAG Or Numerical Algorithms Group with basic information "
-                     f"contained in the file {data_file} and collected insights in {insight_files}")
+                     f"contained in the file {data_file.id} and collected insights in {insight_files}")
     capabilities_steps, capabilities_response, capabilities_thread = run_assistant(client, capabilities_agent, capabilities_prompt,
-                                                                 file_ids=insight_files,
+                                                                 file_ids=[data_file.id] + insight_files,
                                                                  description=capabilities_description)
     return capabilities_steps, capabilities_response, capabilities_thread
 
