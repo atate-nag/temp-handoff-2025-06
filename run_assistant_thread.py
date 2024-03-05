@@ -246,7 +246,7 @@ def process_file(client, file_name, index, insight_dir, company_data, prefix, wr
                                               json_openai_response)
 
     if condense_file:
-        insight_file = overseer_manage_assistant(client, run_insight_analysis, condense_file)
+        insight_file = overseer_manage_assistant(client, write_intermediate, prefix, index,  run_insight_analysis, condense_file, company_data)
         return insight_file
     else:
         return None

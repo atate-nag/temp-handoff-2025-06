@@ -23,7 +23,7 @@ from tika import parser
 from langchain.docstore.document import Document
 from core_components.src.agents.openAI import load_agents, query_assistant, client
 import shutil
-from run_assistant_thread import parallel_file_process, overseer_manage_assistant, run_performance_retrieval_evaluation
+from run_assistant_thread import parallel_file_process, overseer_manage_assistant, run_performance_retrieval_evaluation, import_data_files
 import concurrent.futures
 
 load_dotenv()
@@ -112,19 +112,20 @@ def retrieve_docs(files, queries, threshold=0.7):
     print(f"\nretrieved_docs: {retrieved_docs}\n")
     return retrieved_docs
 
-def performance_analysis(client,insight_files, queries):
+
+def performance_analysis(client,insight_files, queries, write_intermediate=False, prefix='retrieval', index=''):
         performance_file = overseer_manage_assistant(
-            client, run_performance_retrieval_evaluation, insight_files, queries
+            client, write_intermediate, prefix, index,run_performance_retrieval_evaluation, insight_files, queries
         )
         return performance_file
 
-def evaluate_query_retrieval(folder, queries):
+def evaluate_query_retrieval(folder, queries, company_data=None, prefix="retrieval",PRODUCE_INTERMEDIATES=False):
     insight_files=[]
-    insight_files.append(parallel_file_process(client, folder))
+    insight_files.append(parallel_file_process(client, folder, company_data, prefix, PRODUCE_INTERMEDIATES))
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        future_perfs = executor.submit(performance_analysis, client, insight_files, queries)
-    perfs_file = future_perfs.result()
-    return perfs_file
+        future_perfs = [executor.submit(performance_analysis, client, insight_file, queries) for insight_file in insight_files]
+    perfs_files = [future_perf.result() for future_perf in future_perfs]
+    return perfs_files
         
 # pdf:docinfo:creator
 # Content-Type
@@ -160,9 +161,9 @@ def evaluate_query_retrieval(folder, queries):
 if __name__ == "__main__":
     agents = load_agents("openAI_agents.yml")
     queries_agent = agents["OpenAI"]["queries_agent"]
-    files = find_and_download_files(
-        "Shared Documents/Research/Incubation/Socrates/Documents/test_retrieval/"
-    )
+    # files = find_and_download_files(
+    #     "Shared Documents/Research/Incubation/Socrates/Documents/test_retrieval/"
+    # )
 
 
     queries = ["What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets"]
@@ -180,26 +181,29 @@ if __name__ == "__main__":
             
     print(f"Researches: {increased_queries}")
     folder ="Files-MARKET-retrieved"
+    company_data = "Files-COMPANY-retrieved"
+    company_data = import_data_files(client, "Files-COMPANY-retrieved" )
     print(f"Queries: {queries}")
-    retrieved_docs = retrieve_docs(
-        files, increased_queries
-    )
-    files_to_remove = [
-                os.path.join(folder, f)
-                for f in os.listdir(folder)
-                if os.path.isfile(os.path.join(folder, f))
-            ]
-    for f in files_to_remove:
-        os.remove(f)
+    # retrieved_docs = retrieve_docs(
+    #     files, increased_queries
+    # )
+    # files_to_remove = [
+    #             os.path.join(folder, f)
+    #             for f in os.listdir(folder)
+    #             if os.path.isfile(os.path.join(folder, f))
+    #         ]
+    # for f in files_to_remove:
+    #     os.remove(f)
         
         
-    for file in retrieved_docs[:6]:
-        print(os.path.join(folder, file.split("/")[-1]))
-        shutil.copyfile(file, os.path.join(folder, file.split("/")[-1]))
-        # os.rename(file,os.path.join(name,file.split("/")[-1]))
-    res = evaluate_query_retrieval('Files-Market-retrieved', queries)
+    # for file in retrieved_docs[:6]:
+    #     print(os.path.join(folder, file.split("/")[-1]))
+    #     shutil.copyfile(file, os.path.join(folder, file.split("/")[-1]))
+    #     # os.rename(file,os.path.join(name,file.split("/")[-1]))
+    res = evaluate_query_retrieval('Files-Market-retrieved', queries, company_data=company_data)
     print(res)
-    res_content = client.files.retrieve_content(res)
-    print(res_content)
-    json_retrieval = json.loads(res_content)
-    print(json_retrieval)
+    for f in res:
+        res_content = client.files.retrieve_content(f)
+        print(res_content)
+        json_retrieval = json.loads(res_content)
+        print(json_retrieval)
