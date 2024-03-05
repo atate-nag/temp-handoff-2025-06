@@ -23,6 +23,8 @@ from tika import parser
 from langchain.docstore.document import Document
 from core_components.src.agents.openAI import load_agents, query_assistant, client
 import shutil
+from run_assistant_thread import parallel_file_process, overseer_manage_assistant, run_performance_retrieval_evaluation
+import concurrent.futures
 
 load_dotenv()
 sharepoint_base_url = os.environ["sharepoint_base_url"]
@@ -109,10 +111,21 @@ def retrieve_docs(files, queries, threshold=0.7):
     retrieved_docs = list(set(retrieved_docs))
     print(f"\nretrieved_docs: {retrieved_docs}\n")
     return retrieved_docs
-        
-        
 
+def performance_analysis(client,insight_files, queries):
+        performance_file = overseer_manage_assistant(
+            client, run_performance_retrieval_evaluation, insight_files, queries
+        )
+        return performance_file
 
+def evaluate_query_retrieval(folder, queries):
+    insight_files=[]
+    insight_files.append(parallel_file_process(client, folder))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_perfs = executor.submit(performance_analysis, client, insight_files, queries)
+    perfs_file = future_perfs.result()
+    return perfs_file
+        
 # pdf:docinfo:creator
 # Content-Type
 
@@ -143,3 +156,50 @@ def retrieve_docs(files, queries, threshold=0.7):
 #  'X-TIKA:Parsed-By': ['org.apache.tika.parser.DefaultParser', 'org.apache.tika.parser.pdf.PDFParser'],
 #  'X-TIKA:parse_time_millis': '182', 'X-TIKA:embedded_depth': '0', 'access_permission:can_modify': 'true', 'pdf:docinfo:producer': 'macOS Version 12.3.1 (Build 21E258) Quartz PDFContext',
 #  'pdf:docinfo:created': '2022-04-25T08:50:04Z', 'pdf:containsDamagedFont': 'false'}
+
+if __name__ == "__main__":
+    agents = load_agents("openAI_agents.yml")
+    queries_agent = agents["OpenAI"]["queries_agent"]
+    files = find_and_download_files(
+        "Shared Documents/Research/Incubation/Socrates/Documents/test_retrieval/"
+    )
+
+
+    queries = ["What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets"]
+    for query in queries:
+        result_steps, result_response, result_thread = query_assistant(
+            client, queries_agent["id"], query
+        )
+        messages = client.beta.threads.messages.list(thread_id=result_thread.id)
+        increased_queries = [query]
+        for message in messages:
+            if message.role == "assistant":
+                increased_queries.extend(message.content[0].text.value.split("\n"))
+
+        
+            
+    print(f"Researches: {increased_queries}")
+    folder ="Files-MARKET-retrieved"
+    print(f"Queries: {queries}")
+    retrieved_docs = retrieve_docs(
+        files, increased_queries
+    )
+    files_to_remove = [
+                os.path.join(folder, f)
+                for f in os.listdir(folder)
+                if os.path.isfile(os.path.join(folder, f))
+            ]
+    for f in files_to_remove:
+        os.remove(f)
+        
+        
+    for file in retrieved_docs[:6]:
+        print(os.path.join(folder, file.split("/")[-1]))
+        shutil.copyfile(file, os.path.join(folder, file.split("/")[-1]))
+        # os.rename(file,os.path.join(name,file.split("/")[-1]))
+    res = evaluate_query_retrieval('Files-Market-retrieved', queries)
+    print(res)
+    res_content = client.files.retrieve_content(res)
+    print(res_content)
+    json_retrieval = json.loads(res_content)
+    print(json_retrieval)

@@ -80,7 +80,7 @@ for queries, folder in zip(researches,["Files-DATA-retrieved", "Files-INSIGHT-re
         print(os.path.join(folder, file.split("/")[-1]))
         shutil.copyfile(file, os.path.join(folder, file.split("/")[-1]))
         # os.rename(file,os.path.join(name,file.split("/")[-1]))
-assert False
+
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 company_insights = []
 market_insights = []

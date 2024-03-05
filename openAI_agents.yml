@@ -20,3 +20,7 @@ OpenAI:
   queries_agent:
     id: "asst_7GwWGBGllvTpyGGX1APZhAhd"
     description: "Queries Agent"
+  retrieval_performance_evaluator:
+    id: "asst_2W0phlXtRg0AX3fqPsMUMdvz"
+    description: "Query Performance Evaluator"
+
