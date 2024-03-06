@@ -1,27 +1,105 @@
 import os
 import openai
 from dotenv import load_dotenv
+load_dotenv()
 from run_assistant_thread import (run_trends_analysis, run_challenges_analysis, run_capabilities_analysis,
                                   run_actions, overseer_manage_assistant, import_data_files, parallel_file_process)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from challenges import find_top_right_challenge
+from langchain_openai import OpenAIEmbeddings
 from powerpoint import create_powerpoint
 import concurrent.futures
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import json
 import sys
+import shutil
 
-load_dotenv()
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# from core_components.src.RAG.rag import RAG
+from core_components.src.DocumentLoader.document_retriever_sharepoint import (
+    SharePointRetriever,
+)
+from core_components.src.agents.openAI import load_agents, query_assistant, client
+from retrieval import retrieve_docs, find_and_download_files
 
-index = 0
-company_insight_dir = "Files-COMPANY"  # Directory containing the insight files (insights need to be extracted)
-market_insight_dir = "Files-MARKET"
-data_dir = "Files-DATA"        # Directory containing background data files (Data will be used directly)
+RETRIEVAL_PIPELINE=False
+DEBUG_RUN = None
+PRODUCE_INTERMEDIATES = True
+
+if RETRIEVAL_PIPELINE:
+# print(os.getenv("OPENAI_API_KEY"))
+    agents = load_agents("openAI_agents.yml")
+    queries_agent = agents["OpenAI"]["queries_agent"]
+    files = find_and_download_files(
+        "Shared Documents/Research/Incubation/Socrates/Documents/test_retrieval/"
+    )
+    researches = [
+            [
+                "NAG",
+                "Numerical Algorithms Group",
+                "NAG provides industry-leading numerical software and technical services to banking and finance, energy, engineering, and market research, as well as academic and government institutions.",
+                "leadership",
+                "Services",
+            ]
+        ]
+
+    queries = [
+            "Can you tell me more about NAG (Numerical Algorithm Group) insights, perspective, risks, opportunities, and challenges?",
+            "What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets",
+        ]
+    print(files)
+    for query in queries:
+            result_steps, result_response, result_thread = query_assistant(
+                client, queries_agent["id"], query
+            )
+            messages = client.beta.threads.messages.list(thread_id=result_thread.id)
+            increased_queries = [query]
+            for message in messages:
+                if message.role == "assistant":
+                    increased_queries.extend(message.content[0].text.value.split("\n"))
+
+            
+            researches.append(increased_queries)
+            
+    print(f"Researches: {researches}")
+    for queries, folder in zip(researches,["Files-DATA-retrieved", "Files-COMPANY-retrieved", "Files-MARKET-retrieved"]):
+        print(f"Queries: {queries}")
+        retrieved_docs = retrieve_docs(
+            files, queries
+        )
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        files_to_remove = [
+                    os.path.join(folder, f)
+                    for f in os.listdir(folder)
+                    if os.path.isfile(os.path.join(folder, f))
+                ]
+        for f in files_to_remove:
+            os.remove(f)
+        for file in retrieved_docs:
+            print(os.path.join(folder, file.split("/")[-1]))
+            shutil.copyfile(file, os.path.join(folder, file.split("/")[-1]))
+            # os.rename(file,os.path.join(name,file.split("/")[-1]))
+
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    index = 0
+    company_insight_dir = "Files-COMPANY-retrieved"  # Directory containing the insight files (insights need to be extracted)
+    market_insight_dir = "Files-MARKET-retrieved"
+    data_dir = "Files-DATA-retrieved"  # Directory containing background data files (Data will be used directly)
+else:
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    index = 0
+    company_insight_dir = "Files-COMPANY"  # Directory containing the insight files (insights need to be extracted)
+    market_insight_dir = "Files-MARKET"
+    data_dir = "Files-DATA"
+# company_insight_dir = "Files-INSIGHT"  # Directory containing the insight files (insights need to be extracted)
+# market_insight_dir = "Files-Market"
+# data_dir = "Files-DATA"
 
 # debug run is for the latter stages so that you can read files and not prduce them again
-DEBUG_RUN = None
-# some intermediates files are created neccesarily, but this forces all to be created
-PRODUCE_INTERMEDIATES = True
+
 
 if not DEBUG_RUN:
     # read contents of the Files-COMPANY directory
@@ -108,7 +186,7 @@ if not DEBUG_RUN:
         json_file.write(actions_content)
 else:
     with open("json_trends.json", "r", encoding="utf-8") as json_file:
-            json_trends = json.load(json_file)
+        json_trends = json.load(json_file)
     with open(f"json_capabilities.json", "r", encoding="utf-8") as json_file:
         json_capabilities = json.load(json_file)
     with open(f"json_challenges.json", "r", encoding="utf-8") as json_file:

@@ -4,6 +4,7 @@ import json
 import sys
 from dochandler import Rdoc
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from core_components.src.agents.openAI import load_agents
 
 condense_agent = "asst_AzJOCJFl1D8BKF4oNrge9XF8"
 condense_description = "Condensing Assistant for Json"
@@ -23,7 +24,9 @@ challenges_description = "Challenges Agent"
 actions_agent = "asst_ACUyLQAjjCii40BRs9sBPout"
 actions_description = "Actions Agent"
 
-def success_criteria_met(client,thread):
+assistants = load_agents("openAI_agents.yml")
+
+def success_criteria_met(client, thread):
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct:
         return file_direct
@@ -39,7 +42,7 @@ def overseer_manage_assistant(client, write_intermediate, prefix, index, assista
         run_steps, retrieve_response, thread = assistant_function(client, *args)
 
         # Check if success criteria are met
-        file = success_criteria_met(client,thread)
+        file = success_criteria_met(client, thread)
         if file:
             print(f"good file from retrieval on attempt {attempt + 1}")
 
@@ -49,22 +52,29 @@ def overseer_manage_assistant(client, write_intermediate, prefix, index, assista
                     json_file.write(json_content)
             return file
         # If not successful, reply to the thread and insist on the file
-        print("Success criteria not met. Requesting refinement or a different approach.")
+        print(
+            "Success criteria not met. Requesting refinement or a different approach."
+        )
         client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
-            content="Please ensure a file-ID is produced for the JSON file that contains your completed task."
+            content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
         )
         # TODO: add some logic that will do a QA on the content before deciding to proceed or not
         # Logic to wait or handle the thread's response can be added here
-    print(f"{assistant_function.__name__} did not meet success criteria after {max_retries} attempts.")
+    print(
+        f"{assistant_function.__name__} did not meet success criteria after {max_retries} attempts."
+    )
     return None
+
 
 def retrieve_run(client, thread_id, run_id, max_retries, description):
     retries = 0
     while retries < max_retries:
         try:
-            retrieve = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
+            retrieve = client.beta.threads.runs.retrieve(
+                thread_id=thread_id, run_id=run_id
+            )
             print(f" Assistant {description} status: {retrieve.status}")
             if retrieve.status == "completed":
                 return retrieve
@@ -78,6 +88,8 @@ def retrieve_run(client, thread_id, run_id, max_retries, description):
             time.sleep(5)  # Wait before retrying
     print(f"Run {run_id} did not complete after {max_retries} retries.")
     return None  # Return None if all retries fail
+
+
 def run_assistant(client, assistant, prompt, file_ids, description):
     print(f" running assistant with files {file_ids}")
     thread = client.beta.threads.create(
@@ -93,23 +105,22 @@ def run_assistant(client, assistant, prompt, file_ids, description):
         thread_id=thread.id,
         assistant_id=assistant,
         model="gpt-4-turbo-preview",
-        tools=[{"type": "code_interpreter"}]
+        tools=[{"type": "code_interpreter"}],
     )
     # TODO: add explicit timeout not just retries
     start_time = time.time()
     retrieve = retrieve_run(client, thread.id, run.id, 3, description)
     end_time = time.time()
     print(f"Response received in {end_time - start_time} seconds")
-    run_steps = client.beta.threads.runs.steps.list(
-        thread_id=thread.id,
-        run_id=run.id
-    )
+    run_steps = client.beta.threads.runs.steps.list(thread_id=thread.id, run_id=run.id)
     return run_steps, retrieve, thread
+
+
 def retrieve_file_annotation(client, thread):
     # Retrieve file from "annotations" which is where it (mostly) resides
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
     for message in messages:
-        if message.role == 'assistant' and message.content[0].type == 'text':
+        if message.role == "assistant" and message.content[0].type == "text":
             annotations = message.content[0].text.annotations
             for index, annotation in enumerate(annotations):
                 if annotation.file_path.file_id:
@@ -126,25 +137,32 @@ def return_json_and_file(client,thread):
     # Sometimes naughty little AIs still send via response, so must extract it via regular expressions
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
     for message in messages:
-        if message.role == 'assistant':  # Identify the assistant's message
+        if message.role == "assistant":  # Identify the assistant's message
             for content in message.content:
-                if content.type == 'text':
-                    match = re.search(r'\{.*\}', content.text.value, re.DOTALL)
+                if content.type == "text":
+                    match = re.search(r"\{.*\}", content.text.value, re.DOTALL)
                     if match:
                         json_string = match.group()
                         # Remove or replace invalid control characters
-                        cleaned_json_string = re.sub(r'[\x00-\x1f\x7f]', '', json_string)
-                        cleaned_json_string = re.sub(r':\s*([0-9]+),([0-9]+)', r': "\1,\2"', cleaned_json_string)
+                        cleaned_json_string = re.sub(
+                            r"[\x00-\x1f\x7f]", "", json_string
+                        )
+                        cleaned_json_string = re.sub(
+                            r":\s*([0-9]+),([0-9]+)", r': "\1,\2"', cleaned_json_string
+                        )
                         try:
                             full_info = json.loads(cleaned_json_string)
-                            with open(f"json_file.json", "w", encoding="utf-8") as json_file:
+                            with open(
+                                f"json_file.json", "w", encoding="utf-8"
+                            ) as json_file:
                                 json_file.write(cleaned_json_string)
                             with open(f"json_file.json", "rb") as json_file:
                                 file = client.files.create(
-                                    file=json_file,
-                                    purpose="assistants"
+                                    file=json_file, purpose="assistants"
                                 )
-                            print(f"JSON found in the message, written to file with ID: {file.id}")
+                            print(
+                                f"JSON found in the message, written to file with ID: {file.id}"
+                            )
                             return file.id
                         except json.JSONDecodeError as e:
                             print(f"Failed to decode JSON: {e}")
@@ -221,16 +239,14 @@ def process_file(client, file_name, index, insight_dir, company_data, prefix, wr
         json_file.write(json_doc)
     with open(f"./Intermediates/structured_{prefix}_{index}.json", "rb") as json_openai_file:
         json_openai_response = client.files.create(
-            file=json_openai_file,
-            purpose="assistants"
+            file=json_openai_file, purpose="assistants"
         )
 
     condense_file = overseer_manage_assistant(client, write_intermediate, prefix, index, run_condense_analysis,
                                               json_openai_response)
 
     if condense_file:
-        insight_file = overseer_manage_assistant(client, write_intermediate, prefix, index, run_insight_analysis,
-                                                 condense_file, company_data)
+        insight_file = overseer_manage_assistant(client, write_intermediate, prefix, index,  run_insight_analysis, condense_file, company_data)
         return insight_file
     else:
         return None
@@ -249,12 +265,26 @@ def run_insight_analysis(client, condense_file, data_file):
                                                                    description=insight_description)
     return insight_steps, insight_response, insight_thread
 
+
 def run_condense_analysis(client, raw_file):
     condense_prompt = f"Condense the json file {raw_file.id}"
     condense_steps, condense_response, condense_thread = run_assistant(client, condense_agent, condense_prompt,
                                                                    file_ids=[raw_file.id],
                                                                    description=condense_description)
     return condense_steps, condense_response, condense_thread
+
+def run_performance_retrieval_evaluation(client, insight_file, queries):
+    performance_prompt = (
+        f"Evaluate the how relevant are the insight files {insight_file} regarding the queries: {queries}"
+    )
+    performance_steps, performance_response, performance_thread = run_assistant(
+        client,
+        assistants["OpenAI"]['retrieval_performance_evaluator']['id'],
+        performance_prompt,
+        file_ids=insight_file,
+        description='performance_description',
+    )
+    return performance_steps, performance_response, performance_thread
 
 def run_trends_analysis(client, insight_files, data_file):
     trends_prompt = (f"Generate the trends that are affecting NAG Or Numerical Algorithms Group with basic information "
@@ -276,23 +306,33 @@ def run_capabilities_analysis(client, insight_files, data_file):
 
 
 def run_challenges_analysis(client, trends_file, capabilities_file):
-    challenges_prompt = (f"Generate the challenges that NAG Or Numerical Algorithms Group faces, using the files {trends_file} "
-                         f"and {capabilities_file}")
-    challenges_steps, challenges_response, challenges_thread = run_assistant(client, challenges_agent,
-                                                                                   challenges_prompt,
-                                                                                   file_ids=[trends_file,capabilities_file],
-                                                                                   description=challenges_description)
+    challenges_prompt = (
+        f"Generate the challenges that NAG Or Numerical Algorithms Group faces, using the files {trends_file} "
+        f"and {capabilities_file}"
+    )
+    challenges_steps, challenges_response, challenges_thread = run_assistant(
+        client,
+        challenges_agent,
+        challenges_prompt,
+        file_ids=[trends_file, capabilities_file],
+        description=challenges_description,
+    )
     return challenges_steps, challenges_response, challenges_thread
 
 
 def run_actions(client, challenge, trends_file, capabilities_file):
-    actions_prompt = (f"Your consultant colleagues have decided that the top strategic challenge facing the company "
-                      f"NAG Or Numerical Algorithms Group is: {challenge['challenge']}. This was based on an analysis of"
-                      f"the trends affecting NAG (you can read them in file {trends_file}) and NAG's capabilities (you"
-                      f"can read them in the file {capabilities_file}. Make sure you write the response to JSON in a "
-                      f"file and you provide the file location")
-    actions_steps, actions_response, actions_thread = run_assistant(client, actions_agent,
-                       actions_prompt,
-                       file_ids=[trends_file,capabilities_file],
-                       description=actions_description)
+    actions_prompt = (
+        f"Your consultant colleagues have decided that the top strategic challenge facing the company "
+        f"NAG Or Numerical Algorithms Group is: {challenge['challenge']}. This was based on an analysis of"
+        f"the trends affecting NAG (you can read them in file {trends_file}) and NAG's capabilities (you"
+        f"can read them in the file {capabilities_file}. Make sure you write the response to JSON in a "
+        f"file and you provide the file location"
+    )
+    actions_steps, actions_response, actions_thread = run_assistant(
+        client,
+        actions_agent,
+        actions_prompt,
+        file_ids=[trends_file, capabilities_file],
+        description=actions_description,
+    )
     return actions_steps, actions_response, actions_thread

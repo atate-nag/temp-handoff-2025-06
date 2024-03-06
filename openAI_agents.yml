@@ -1,0 +1,26 @@
+OpenAI:
+  condense_agent:
+    id: "asst_AzJOCJFl1D8BKF4oNrge9XF8"
+    description: "Condensing Assistant for Json"
+  insight_agent:
+    id: "asst_9sjuzxkwrVglK8Zj18NuEj5Q"
+    description: "Retrieval Assistant for Insight Extraction"
+  trends_agent:
+    id: "asst_ripeR7nhZq822ek0PwDM31Fs"
+    description: "Trends Agent"
+  capabilities_agent:
+    id: "asst_mLleK34ywWqFJMV0sUpKDw7Z"
+    description: "Capabilities Agent"
+  challenges_agent:
+    id: "asst_vlOVosMTXgg8qOf8FReoeNjg"
+    description: "Challenges Agent"
+  actions_agent:
+    id: "asst_ACUyLQAjjCii40BRs9sBPout"
+    description: "Actions Agent"
+  queries_agent:
+    id: "asst_7GwWGBGllvTpyGGX1APZhAhd"
+    description: "Queries Agent"
+  retrieval_performance_evaluator:
+    id: "asst_2W0phlXtRg0AX3fqPsMUMdvz"
+    description: "Query Performance Evaluator"
+
