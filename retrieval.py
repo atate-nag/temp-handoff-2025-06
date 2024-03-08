@@ -1,5 +1,20 @@
+import concurrent.futures
+import json
 import os
+import shutil
+import sys
+import tempfile
+
+import tika
+from core_components.src.agents.openAI import client, load_agents, query_assistant
+from core_components.src.DocumentLoader.document_retriever_sharepoint import (
+    SharePointRetriever,
+)
+from core_components.src.RAG.rag import RAG
 from dotenv import load_dotenv
+from langchain.docstore.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
 # from run_assistant_thread import (
 #     run_trends_analysis,
 #     run_challenges_analysis,
@@ -10,21 +25,14 @@ from dotenv import load_dotenv
 #     parallel_file_process,
 # )
 from langchain_openai import OpenAIEmbeddings
-from core_components.src.RAG.rag import RAG
-from core_components.src.DocumentLoader.document_retriever_sharepoint import (
-    SharePointRetriever,
-)
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-import json
-import sys
-import tempfile
-import tika
 from tika import parser
-from langchain.docstore.document import Document
-from core_components.src.agents.openAI import load_agents, query_assistant, client
-import shutil
-from run_assistant_thread import parallel_file_process, overseer_manage_assistant, run_performance_retrieval_evaluation, import_data_files
-import concurrent.futures
+
+from run_assistant_thread import (
+    import_data_files,
+    overseer_manage_assistant,
+    parallel_file_process,
+    run_performance_retrieval_evaluation,
+)
 
 load_dotenv()
 sharepoint_base_url = os.environ["sharepoint_base_url"]
@@ -45,12 +53,13 @@ text_chunkers = [
 ]
 rag = RAG(vector_store_, embedding_function, text_chunkers)
 
-def find_and_download_files(input_folder):   
+
+def find_and_download_files(input_folder):
     files_ = list(
-            sharePointRetriever.get_all_documents_from_folder(
-                input_folder, extension=["pdf", "pptx", "docx"]
-            )
+        sharePointRetriever.get_all_documents_from_folder(
+            input_folder, extension=["pdf", "pptx", "docx"]
         )
+    )
 
     files = []
     for file in files_:
@@ -64,6 +73,7 @@ def find_and_download_files(input_folder):
         except Exception as e:
             print(e)
     return files
+
 
 def retrieve_docs(files, queries, threshold=0.7):
     tika.initVM()
@@ -79,8 +89,7 @@ def retrieve_docs(files, queries, threshold=0.7):
     rag.add_documents(docs)
 
     # def query_assistant(client, assistant, prompt, file_ids=[], description=''):
-    
-    
+
     # researches = [["Numerical Algorithms Group or NAG", "NAG", "Numerical Algorithms Group"],
     #               ["NAG insights"],
     #               ["Markets",]]
@@ -113,20 +122,47 @@ def retrieve_docs(files, queries, threshold=0.7):
     return retrieved_docs
 
 
-def performance_analysis(client,insight_files, queries, write_intermediate=False, prefix='retrieval', index=''):
-        performance_file = overseer_manage_assistant(
-            client, write_intermediate, prefix, index,run_performance_retrieval_evaluation, insight_files, queries
-        )
-        return performance_file
+def performance_analysis(
+    client,
+    insight_files,
+    queries,
+    write_intermediate=False,
+    prefix="retrieval",
+    index="",
+):
+    performance_file = overseer_manage_assistant(
+        client,
+        write_intermediate,
+        prefix,
+        index,
+        run_performance_retrieval_evaluation,
+        insight_files,
+        queries,
+    )
+    return performance_file
 
-def evaluate_query_retrieval(folder, queries, company_data=None, prefix="retrieval",PRODUCE_INTERMEDIATES=False):
-    insight_files=[]
-    insight_files.append(parallel_file_process(client, folder, company_data, prefix, PRODUCE_INTERMEDIATES))
+
+def evaluate_query_retrieval(
+    folder, queries, company_data=None, prefix="retrieval", PRODUCE_INTERMEDIATES=False
+):
+    # insight_files=[]
+    insight_files = parallel_file_process(
+        client, folder, company_data, prefix, PRODUCE_INTERMEDIATES
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        future_perfs = [executor.submit(performance_analysis, client, insight_file, queries) for insight_file in insight_files]
-    perfs_files = [future_perf.result() for future_perf in future_perfs]
+        future_perfs = [
+            (
+                executor.submit(performance_analysis, client, [insight_file], queries),
+                filename,
+            )
+            for insight_file, filename in insight_files
+        ]
+    perfs_files = [
+        (future_perf.result(), filename) for future_perf, filename in future_perfs
+    ]
     return perfs_files
-        
+
+
 # pdf:docinfo:creator
 # Content-Type
 
@@ -165,25 +201,75 @@ if __name__ == "__main__":
     #     "Shared Documents/Research/Incubation/Socrates/Documents/test_retrieval/"
     # )
 
+    query = [
+        "What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets"
+    ]
+    # for query in queries:
+    #     result_steps, result_response, result_thread = query_assistant(
+    #         client, queries_agent["id"], query
+    #     )
+    #     messages = client.beta.threads.messages.list(thread_id=result_thread.id)
+    #     increased_queries = [query]
+    #     for message in messages:
+    #         if message.role == "assistant":
+    #             increased_queries.extend(message.content[0].text.value.split("\n"))
 
-    queries = ["What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets"]
-    for query in queries:
-        result_steps, result_response, result_thread = query_assistant(
-            client, queries_agent["id"], query
-        )
-        messages = client.beta.threads.messages.list(thread_id=result_thread.id)
-        increased_queries = [query]
-        for message in messages:
-            if message.role == "assistant":
-                increased_queries.extend(message.content[0].text.value.split("\n"))
+    # print(f"Researches: {increased_queries}")
+    increased_queries = [
+        "What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets",
+        "For a company specialized in High Performance Computing (HPC), optimization, and numerical algorithms, relevant markets include but aren't limited to:",
+        "1. Financial services",
+        "2. Energy and utilities",
+        "3. Automotive industry",
+        "4. Aerospace and defense",
+        "5. Life sciences and health care",
+        "6. Manufacturing",
+        "7. Telecommunications",
+        "8. Research and academia",
+        "9. Oil and gas industry",
+        "10. Electronics and semiconductors",
+        "11. Weather forecasting",
+        "12. Computational biology and chemistry",
+        "13. Data analytics and big data",
+        "14. Cloud computing services",
+        "15. Government and public sector initiatives",
+        "**Major Industrial Markets:**",
+        "1. **Financial Services:**",
+        "   - Utilize HPC for real-time trading algorithms, risk management, fraud detection, and quantitative modeling.",
+        "2. **Energy and Utilities:**",
+        "   - Used in simulations for oil and gas exploration, renewable energy sources optimization, and grid management.",
+        "3. **Automotive Industry:**",
+        "   - Applications in crash simulations, aerodynamic simulations, and optimization of designs for fuel efficiency.",
+        "4. **Aerospace and Defense:**",
+        "   - Utilized for flight simulations, satellite tracking, missile guidance systems, and stealth technology design.",
+        "5. **Life Sciences and Health Care:**",
+        "   - Critical for drug discovery, genomics and proteomics, personalized medicine, and medical imaging.",
+        "6. **Manufacturing:**",
+        "   - Helps in product design, process simulation, and optimization to reduce costs and improve quality.",
+        "7. **Telecommunications:**",
+        "   - Used for network design optimization, traffic management, and simulation of new technologies.",
+        "8. **Research and Academia:**",
+        "   - Fundamental tool for scientific research across physics, chemistry, climatology, and more.",
+        "9. **Oil and Gas Industry:**",
+        "   - Key for reservoir simulation, seismic imaging, and optimizing extraction processes.",
+        "10. **Electronics and Semiconductors:**",
+        "    - Supports design and simulation of electronic components, enhancing performance while reducing power consumption.",
+        "11. **Weather Forecasting:**",
+        "    - Enables more accurate and detailed climate and weather modeling.",
+        "12. **Computational Biology and Chemistry:**",
+        "    - Facilitates understanding of complex biological systems and chemical reactions.",
+        "13. **Data Analytics and Big Data:**",
+        "    - Power the processing and analysis of large data sets for insights and decision making.",
+        "14. **Cloud Computing Services:**",
+        "    - Offers scalable HPC resources on-demand, making it accessible to a wider range of businesses.",
+        "15. **Government and Public Sector Initiatives:**",
+        "    - Utilized for urban planning, national security, education, and healthcare initiatives.",
+    ]
 
-        
-            
-    print(f"Researches: {increased_queries}")
-    folder ="Files-MARKET-retrieved"
+    folder = "Files-MARKET-retrieved"
     company_data = "Files-COMPANY-retrieved"
-    company_data = import_data_files(client, "Files-COMPANY-retrieved" )
-    print(f"Queries: {queries}")
+    company_data = import_data_files(client, "Files-COMPANY-retrieved")
+    # print(f"Queries: {queries}")
     # retrieved_docs = retrieve_docs(
     #     files, increased_queries
     # )
@@ -194,16 +280,17 @@ if __name__ == "__main__":
     #         ]
     # for f in files_to_remove:
     #     os.remove(f)
-        
-        
+
     # for file in retrieved_docs[:6]:
     #     print(os.path.join(folder, file.split("/")[-1]))
     #     shutil.copyfile(file, os.path.join(folder, file.split("/")[-1]))
     #     # os.rename(file,os.path.join(name,file.split("/")[-1]))
-    res = evaluate_query_retrieval('Files-Market-retrieved', queries, company_data=company_data)
+    res = evaluate_query_retrieval(
+        "Files-Market-retrieved", increased_queries, company_data=company_data
+    )
     print(res)
-    for f in res:
+    for f, file_name in res:
         res_content = client.files.retrieve_content(f)
+        print(file_name)
         print(res_content)
         json_retrieval = json.loads(res_content)
-        print(json_retrieval)
