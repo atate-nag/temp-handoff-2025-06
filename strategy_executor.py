@@ -2,7 +2,8 @@ import os
 import openai
 from dotenv import load_dotenv
 from run_assistant_thread import (run_trends_analysis, run_challenges_analysis, run_capabilities_analysis,
-                                  run_actions, overseer_manage_assistant, import_data_files, parallel_file_process)
+                                  run_actions, overseer_manage_assistant, import_data_files_and_upload,
+                                  parallel_file_process)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from challenges import find_top_right_challenge
 from powerpoint import create_powerpoint
@@ -21,12 +22,14 @@ data_dir = "Files-DATA"        # Directory containing background data files (Dat
 # debug run is for the latter stages so that you can read files and not prduce them again
 DEBUG_RUN = None
 # some intermediates files are created neccesarily, but this forces all to be created
-PRODUCE_INTERMEDIATES = True
+PRODUCE_INTERMEDIATES = None
+
+START_AT_STAGE = 1  # 1-data import 2-Company-insights 3-Market insights 4-Trends/Capabilities 5-Challenges 6-Actions
 
 if not DEBUG_RUN:
     # read contents of the Files-COMPANY directory
     # step 1: Extract the data files without loss of information
-    company_data = import_data_files(client, data_dir )
+    company_data = import_data_files_and_upload(client, data_dir )
     print(f"Main: Company data imported: file_id={company_data.id}")
 
     # step 2: Run through the insight files on the company, extract and collect in company_insights

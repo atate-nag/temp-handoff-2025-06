@@ -1,13 +1,19 @@
 ------------------
 * MAJOR NEXT STEPS
-1) get intermediate files working correctly
-2) add a QA element to more dynamically check agent responses
-3) add explanations of how insights and decisions have been arrived at. This will require some
+1) add a QA element to more dynamically check agent responses
+2) add explanations of how insights and decisions have been arrived at. This will require some
 basic graph structure.
+3) NEW external data sources have to be added.
 
-4) NEW external data sources have to be added.
+POSSIBLY USEFUL FEATURES
+------------------------
 
-* open ISSUES
+*) Make it so that you can choose not jsut hte top challenge but any number that are within
+the "top-right" section which is configurable, or top 2,3 etc.
+*) Add checkpointing - use intermediate files to pick up at any certain point.
+
+
+* open ISSUES / BUGS
 --------
 
 *) Dealing with this type of interaction is critical :
@@ -27,13 +33,11 @@ rigorous checking of results.
 *) The timeout code has been removed for debug purposes, but this may mean that certain agents can take
 an unreasonable amount of time to complete their task. An agent that doesn't respond favourably in a given timeframe
 should be killed and re-run. One lagging agent now will slow down the entire job (cost should not be affected)
-*) for debug purposes, we could allow the execution to be picked up from intermediate files and not re-run, this
-could save a lot of time and money
 *) Important: The agents can only handle 10 files at once, which means that the insight files that are sent
 to the trends and capabilities have to be either limited to <9 or this call has to  be split and aggregated. For
 now there are max 8 market reports in the market folder.
 *) There is inconsistency in the agents, sometimes they don't deliver the output in json and as a file
-*) The JSON structure created at the initial stage is inconistent. Let's define a JSON scheme that is
+*) The JSON structure created at the initial stage is inconistent. Let's define a JSON schema that is
 then used commonly across all file types. This will save a lot of time and tokens in working out how
 the document is structured
 *) Need to manage data files differently from insight files.
@@ -54,4 +58,4 @@ the document is structured
 POTENTIALLY FIXED ISSUES
 
 *) BUG: basic company data is not being correctly passed to agents (potentially fixed 2 Mar)
-*)
+*) intermediate files should now be working correctly

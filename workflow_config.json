@@ -1,0 +1,42 @@
+{
+  "workflow": {
+    "createCompanies": {
+      "enabled": false,
+      "parameters": {
+        "companyName": "FJAM"
+      }
+    },
+    "updateCompanyData": {
+      "enabled": false,
+      "parameters": {
+        "companyName": "nag",
+        "dataDir": "Files-DATA/"
+      },
+      "deleteInsights": {
+        "enabled": true,
+        "parameters": {
+          "companyName": "nag"
+        }
+      }
+    },
+    "extractInsights": {
+      "enabled": false,
+      "source": "Files-COMPANY/"
+    },
+    "updateInsights": {
+      "enabled": false
+    },
+    "analyzeTrends": {
+      "enabled": false
+    },
+    "evaluateCapabilities": {
+      "enabled": false
+    },
+    "identifyChallenges": {
+      "enabled": false
+    },
+    "planActions": {
+      "enabled": false
+    }
+  }
+}

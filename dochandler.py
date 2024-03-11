@@ -2,6 +2,7 @@ from docx2json import read_docx, to_json  # Assuming these are implemented elsew
 import json
 import fitz  # PyMuPDF
 import json
+import os
 from pptx import Presentation
 class Rdoc:
     def __init__(self, filepath, document_format, document_type, is_sensitive=False):
@@ -128,3 +129,14 @@ class PDFDocumentHandler(Rdoc):
 
         return structured_data
 
+def import_data_files(data_dir):
+    # import all the files in the given directory and optionally write intermediates
+    data_files = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))]
+    company_data = []  # company_data will be a list of json objects containing info about the company
+    for i, file_name in enumerate(data_files):
+        file_path = os.path.join(data_dir, file_name)  # Full path to the file
+        _, file_extension = os.path.splitext(file_name)  # Extract file extension
+        format = file_extension.lstrip('.')  # Remove the leading '.' from the extension
+        print(f"format is {format}")
+        doc = Rdoc.create(file_path, format, "data")
+    return doc

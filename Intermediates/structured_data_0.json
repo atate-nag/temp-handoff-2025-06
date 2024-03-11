@@ -1,0 +1,179 @@
+{
+    "title": "Document Root",
+    "content": [],
+    "children": [
+        {
+            "title": "Name",
+            "content": [
+                "Numerical Algorithms Group or NAG"
+            ],
+            "children": []
+        },
+        {
+            "title": "HQ",
+            "content": [
+                "Oxford, UK"
+            ],
+            "children": []
+        },
+        {
+            "title": "Size",
+            "content": [
+                "70 people worldwide"
+            ],
+            "children": []
+        },
+        {
+            "title": "Geographies",
+            "content": [
+                "UK, US, Germany, Japan"
+            ],
+            "children": []
+        },
+        {
+            "title": "Turnover",
+            "content": [
+                "FY19-20: £9M",
+                "FY20-21: £12M",
+                "FY21-22: £17M",
+                "FY22-23: £10M",
+                "FY23-24: £11M"
+            ],
+            "children": []
+        },
+        {
+            "title": "Profit",
+            "content": [
+                "FY19-20: £0.2M",
+                "FY20-21: -£0.2M",
+                "FY21-22: £11M",
+                "FY22-23: £1M",
+                "FY23-24: £1M"
+            ],
+            "children": []
+        },
+        {
+            "title": "Product-Services Split",
+            "content": [],
+            "children": [
+                {
+                    "title": "Revenue",
+                    "content": [
+                        "FY23-24: £5.5M Products, £5.5M HPC"
+                    ],
+                    "children": []
+                },
+                {
+                    "title": "Profit",
+                    "content": [
+                        "FY23-24: £0M Products, £1M HPC Services"
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "title": "Industries",
+            "content": [
+                "Numerical Software"
+            ],
+            "children": []
+        },
+        {
+            "title": "High Performance Computing Services",
+            "content": [],
+            "children": []
+        },
+        {
+            "title": "Markets",
+            "content": [],
+            "children": [
+                {
+                    "title": "Product",
+                    "content": [
+                        "Financial Services",
+                        "Aerospace",
+                        "Automotive",
+                        "Academia"
+                    ],
+                    "children": []
+                },
+                {
+                    "title": "Services",
+                    "content": [
+                        "Large Industry across sector, including energy, manufacturing, engineering"
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "title": "Products and services",
+            "content": [],
+            "children": [
+                {
+                    "title": "Products",
+                    "content": [
+                        "NAG Library",
+                        "NAG Automatic Differentiation Suite",
+                        "NAG Fortran Compiler"
+                    ],
+                    "children": []
+                },
+                {
+                    "title": "Services",
+                    "content": [
+                        "HPC Cloud migration services",
+                        "Virtual Supercomputer Managed Service"
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "title": "Leadership",
+            "content": [
+                "CEO – Adrian Tate since November 2019",
+                "Chief Innovation Office – Ian Wilson Since 2023"
+            ],
+            "children": []
+        },
+        {
+            "title": "Competitors",
+            "content": [],
+            "children": [
+                {
+                    "title": "Product",
+                    "content": [
+                        "MAtlab",
+                        "IMSL",
+                        "Gurobi (for optimization)"
+                    ],
+                    "children": []
+                },
+                {
+                    "title": "Services",
+                    "content": [
+                        "Altair",
+                        "Red Oak"
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "title": "Corporate Structure",
+            "content": [
+                "NAG is a Company limited by guarantee, which means that we have no outside financial interests and therefore helps with the trusted status that NAG has across sectors."
+            ],
+            "children": []
+        },
+        {
+            "title": "Recent Announcements",
+            "content": [
+                "NAG formed the N2 group which is a radical transformation in how SMEs collaborate to provide sustainable innovation. N2 will reinvest profits into its constituent businesses."
+            ],
+            "children": []
+        }
+    ]
+}

@@ -8,8 +8,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 condense_agent = "asst_AzJOCJFl1D8BKF4oNrge9XF8"
 condense_description = "Condensing Assistant for Json"
 
-insight_agent = "asst_9sjuzxkwrVglK8Zj18NuEj5Q"
-insight_description = "Retrieval Assistant for Insight Extraction"
+# insight_agent = "asst_9sjuzxkwrVglK8Zj18NuEj5Q"
+insight_agent = "asst_iYvVBX1aaxu3KBgSEvIAZFEb"
+insight_description = "Structured Extraction Agent"
 
 trends_agent = "asst_ripeR7nhZq822ek0PwDM31Fs"
 trends_description = "Trends Agent"
@@ -34,9 +35,14 @@ def success_criteria_met(client,thread):
     return None
 
 def overseer_manage_assistant(client, write_intermediate, prefix, index, assistant_function, *args, max_retries=2):
-    for attempt in range(max_retries):
-        print(f"Attempt {attempt + 1} for {assistant_function.__name__}")
-        run_steps, retrieve_response, thread = assistant_function(client, *args)
+    # bug - new thread being used every run
+
+    print(f"Attempt 1 for {assistant_function.__name__}")
+    run_steps, retrieve_response, thread, agent = assistant_function(client, *args)
+
+    for attempt in range(max_retries-1):
+        # print(f"Attempt {attempt + 1} for {assistant_function.__name__}")
+        # run_steps, retrieve_response, thread = assistant_function(client, *args)
 
         # Check if success criteria are met
         file = success_criteria_met(client,thread)
@@ -55,6 +61,9 @@ def overseer_manage_assistant(client, write_intermediate, prefix, index, assista
             role="user",
             content="Please ensure a file-ID is produced for the JSON file that contains your completed task."
         )
+        description = f"retry run due to lack of output file"
+        print(f"attempt number { 2 + attempt } for {assistant_function.__name__}")
+        run_steps, retrieve_response = run_thread(client, agent, thread, 3, description)
         # TODO: add some logic that will do a QA on the content before deciding to proceed or not
         # Logic to wait or handle the thread's response can be added here
     print(f"{assistant_function.__name__} did not meet success criteria after {max_retries} attempts.")
@@ -78,6 +87,8 @@ def retrieve_run(client, thread_id, run_id, max_retries, description):
             time.sleep(5)  # Wait before retrying
     print(f"Run {run_id} did not complete after {max_retries} retries.")
     return None  # Return None if all retries fail
+
+
 def run_assistant(client, assistant, prompt, file_ids, description):
     print(f" running assistant with files {file_ids}")
     thread = client.beta.threads.create(
@@ -89,6 +100,10 @@ def run_assistant(client, assistant, prompt, file_ids, description):
             }
         ]
     )
+    run_steps, retrieve = run_thread(client, assistant, thread, 3, description)
+    return run_steps, retrieve, thread
+
+def run_thread(client, assistant, thread, max_retries, description):
     run = client.beta.threads.runs.create(
         thread_id=thread.id,
         assistant_id=assistant,
@@ -97,14 +112,14 @@ def run_assistant(client, assistant, prompt, file_ids, description):
     )
     # TODO: add explicit timeout not just retries
     start_time = time.time()
-    retrieve = retrieve_run(client, thread.id, run.id, 3, description)
+    retrieve = retrieve_run(client, thread.id, run.id, max_retries, description)
     end_time = time.time()
     print(f"Response received in {end_time - start_time} seconds")
     run_steps = client.beta.threads.runs.steps.list(
         thread_id=thread.id,
         run_id=run.id
     )
-    return run_steps, retrieve, thread
+    return run_steps, retrieve
 def retrieve_file_annotation(client, thread):
     # Retrieve file from "annotations" which is where it (mostly) resides
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
@@ -179,7 +194,7 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
     return return_files
 
 # TODO move file handling into appropriate module
-def import_data_files(client, data_dir):
+def import_data_files_and_upload(client, data_dir, type):
     # import all the files in the given directory and optionally write intermediates
     data_files = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))]
     company_data = []  # company_data will be a list of json objects containing info about the company
@@ -192,13 +207,47 @@ def import_data_files(client, data_dir):
         json_doc = doc.build_structured_data()
         with open(f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8") as json_file:
             json_file.write(json_doc)
+        with open(f"./Intermediates/structured_data_{i}.json", "rb") as json_local_file:
+            json_openai_response = client.files.create(
+                file=json_local_file,
+                purpose="assistants"
+            )
+        print(f"wrote file ./Intermediates/structured_data_{i}.json and uploaded to {json_openai_response.id}")
+    return json_openai_response, doc
+
+def upload_file(client, file):
+    with open(file, "rb") as json_openai_file:
+        json_openai_response = client.files.create(
+            file=json_openai_file,
+            purpose="assistants"
+        )
+    print(f"wrote file {file} and uploaded to {json_openai_response.id}")
+    return json_openai_response
+
+def import_files_and_upload(client, data_dir, type):
+    # import all the files in the given directory and optionally write intermediates
+    data_files = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))]
+    company_data = []  # company_data will be a list of json objects containing info about the company
+    responses = []
+    docs = []
+    for i, file_name in enumerate(data_files):
+        file_path = os.path.join(data_dir, file_name)  # Full path to the file
+        _, file_extension = os.path.splitext(file_name)  # Extract file extension
+        format = file_extension.lstrip('.')  # Remove the leading '.' from the extension
+        print(f"format is {format}")
+        doc = Rdoc.create(file_path, format, type)
+        docs.append(doc)
+        json_doc = doc.build_structured_data()
+        with open(f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8") as json_file:
+            json_file.write(json_doc)
         with open(f"./Intermediates/structured_data_{i}.json", "rb") as json_openai_file:
             json_openai_response = client.files.create(
                 file=json_openai_file,
                 purpose="assistants"
             )
         print(f"wrote file ./Intermediates/structured_data_{i}.json and uploaded to {json_openai_response.id}")
-    return json_openai_response
+        responses.append(json_openai_response.id)
+    return responses, docs
 
 def process_file(client, file_name, index, insight_dir, company_data, prefix, write_intermediate):
 
@@ -247,14 +296,14 @@ def run_insight_analysis(client, condense_file, data_file):
     insight_steps, insight_response, insight_thread = run_assistant(client, insight_agent, insight_prompt,
                                                                    file_ids=[data_file.id,condense_file],
                                                                    description=insight_description)
-    return insight_steps, insight_response, insight_thread
+    return insight_steps, insight_response, insight_thread, insight_agent
 
 def run_condense_analysis(client, raw_file):
     condense_prompt = f"Condense the json file {raw_file.id}"
     condense_steps, condense_response, condense_thread = run_assistant(client, condense_agent, condense_prompt,
                                                                    file_ids=[raw_file.id],
                                                                    description=condense_description)
-    return condense_steps, condense_response, condense_thread
+    return condense_steps, condense_response, condense_thread, condense_agent
 
 def run_trends_analysis(client, insight_files, data_file):
     trends_prompt = (f"Generate the trends that are affecting NAG Or Numerical Algorithms Group with basic information "
@@ -263,7 +312,7 @@ def run_trends_analysis(client, insight_files, data_file):
     trends_steps, trends_response, trends_thread = run_assistant(client, trends_agent, trends_prompt,
                                                                  file_ids=[data_file.id] + insight_files,
                                                                  description=trends_description)
-    return trends_steps, trends_response, trends_thread  # Modified to return necessary info
+    return trends_steps, trends_response, trends_thread, trends_agent # Modified to return necessary info
 
 
 def run_capabilities_analysis(client, insight_files, data_file):
@@ -272,7 +321,7 @@ def run_capabilities_analysis(client, insight_files, data_file):
     capabilities_steps, capabilities_response, capabilities_thread = run_assistant(client, capabilities_agent, capabilities_prompt,
                                                                  file_ids=[data_file.id] + insight_files,
                                                                  description=capabilities_description)
-    return capabilities_steps, capabilities_response, capabilities_thread
+    return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
 
 
 def run_challenges_analysis(client, trends_file, capabilities_file):
