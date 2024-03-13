@@ -4,6 +4,7 @@ import json
 import sys
 from dochandler import Rdoc
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 condense_agent = "asst_AzJOCJFl1D8BKF4oNrge9XF8"
 condense_description = "Condensing Assistant for Json"
@@ -15,7 +16,8 @@ insight_description = "Structured Extraction Agent"
 trends_agent = "asst_ripeR7nhZq822ek0PwDM31Fs"
 trends_description = "Trends Agent"
 
-capabilities_agent = "asst_mLleK34ywWqFJMV0sUpKDw7Z"
+#capabilities_agent = "asst_mLleK34ywWqFJMV0sUpKDw7Z"
+capabilities_agent = "asst_NoLfJg1BUS4yNuZhurDAedXO"
 capabilities_description = "Capabilities Agent"
 
 challenges_agent = "asst_vlOVosMTXgg8qOf8FReoeNjg"
@@ -25,34 +27,37 @@ actions_agent = "asst_ACUyLQAjjCii40BRs9sBPout"
 actions_description = "Actions Agent"
 
 def success_criteria_met(client,thread):
+    print(f"Success Criteria: Checking thread {thread.id}")
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct:
+        print(f"Success Criteria:got a direct file {file_direct}")
         return file_direct
     else:
         file_from_response = return_json_and_file(client, thread)
+        print(f"Success Criteria: found a file response at {file_from_response}")
         if file_from_response:
             return file_from_response
     return None
 
-def overseer_manage_assistant(client, write_intermediate, prefix, index, assistant_function, *args, max_retries=2):
-    # bug - new thread being used every run
+def overseer_manage_assistant(client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3):
 
     print(f"Attempt 1 for {assistant_function.__name__}")
     run_steps, retrieve_response, thread, agent = assistant_function(client, *args)
 
-    for attempt in range(max_retries-1):
-        # print(f"Attempt {attempt + 1} for {assistant_function.__name__}")
+    for retry in range(max_retries):
+        print(f"Retry {retry} for {assistant_function.__name__}")
         # run_steps, retrieve_response, thread = assistant_function(client, *args)
 
         # Check if success criteria are met
         file = success_criteria_met(client,thread)
         if file:
-            print(f"good file from retrieval on attempt {attempt + 1}")
+            print(f"good file from retrieval on attempt: {retry }")
 
             if write_intermediate:
                 json_content = download_file_by_id(client, file)
                 with open(f"./Intermediates/insight_{prefix}_{index}.json", "w", encoding="utf-8") as json_file:
                     json_file.write(json_content)
+
             return file
         # If not successful, reply to the thread and insist on the file
         print("Success criteria not met. Requesting refinement or a different approach.")
@@ -62,7 +67,7 @@ def overseer_manage_assistant(client, write_intermediate, prefix, index, assista
             content="Please ensure a file-ID is produced for the JSON file that contains your completed task."
         )
         description = f"retry run due to lack of output file"
-        print(f"attempt number { 2 + attempt } for {assistant_function.__name__}")
+        print(f"retry number { retry } for {assistant_function.__name__}")
         run_steps, retrieve_response = run_thread(client, agent, thread, 3, description)
         # TODO: add some logic that will do a QA on the content before deciding to proceed or not
         # Logic to wait or handle the thread's response can be added here
@@ -120,6 +125,7 @@ def run_thread(client, assistant, thread, max_retries, description):
         run_id=run.id
     )
     return run_steps, retrieve
+
 def retrieve_file_annotation(client, thread):
     # Retrieve file from "annotations" which is where it (mostly) resides
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
@@ -179,6 +185,7 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
     # # parallel loop - submit the process_file function on as many threads as there are files
     return_files = []
     # TODO: change the number of files per worker (single file per worker currently)
+    print(f"In parallel file processor with file_name = {file_dir} and company_data = {company_data}")
     with ThreadPoolExecutor(max_workers=len(files)) as executor:
         future_to_file = {executor.submit(process_file, client, file_name, index + i, file_dir, company_data, prefix,
                                           write_intermediates): file_name
@@ -273,13 +280,15 @@ def process_file(client, file_name, index, insight_dir, company_data, prefix, wr
             file=json_openai_file,
             purpose="assistants"
         )
-
     condense_file = overseer_manage_assistant(client, write_intermediate, prefix, index, run_condense_analysis,
                                               json_openai_response)
+    print(f"Process file: completed the condense file operations and returned {condense_file}")
 
     if condense_file:
         insight_file = overseer_manage_assistant(client, write_intermediate, prefix, index, run_insight_analysis,
-                                                 condense_file, company_data)
+                                                 condense_file, company_data, file_name)
+        print(f"Process file: completed the condense file operations and returned {insight_file}")
+
         return insight_file
     else:
         return None
@@ -289,10 +298,11 @@ def download_content_and_write(client,agent_file,local_filename):
     with open(f"./Intermediates/{local_filename}.json", "w", encoding="utf-8") as json_file:
         json_file.write(json_content)
     return json_file
-def run_insight_analysis(client, condense_file, data_file):
+def run_insight_analysis(client, condense_file, data_file, source_file):
+    today_date = datetime.today().date()
     insight_prompt = (f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
                       f"with basic information contained in the file {data_file.id} and potential insights "
-                      f"in {condense_file}")
+                      f"in {condense_file}. Today's date is {today_date} and the source file is called {source_file}.")
     insight_steps, insight_response, insight_thread = run_assistant(client, insight_agent, insight_prompt,
                                                                    file_ids=[data_file.id,condense_file],
                                                                    description=insight_description)
@@ -315,11 +325,10 @@ def run_trends_analysis(client, insight_files, data_file):
     return trends_steps, trends_response, trends_thread, trends_agent # Modified to return necessary info
 
 
-def run_capabilities_analysis(client, insight_files, data_file):
-    capabilities_prompt = (f"Generate the capabilities possessed by NAG Or Numerical Algorithms Group with basic information "
-                     f"contained in the file {data_file.id} and collected insights in {insight_files}")
+def run_capabilities_analysis(client, insight_file):
+    capabilities_prompt = (f"Evaluate the capabilities of the company described in the file {insight_file}")
     capabilities_steps, capabilities_response, capabilities_thread = run_assistant(client, capabilities_agent, capabilities_prompt,
-                                                                 file_ids=[data_file.id] + insight_files,
+                                                                 file_ids=[insight_file],
                                                                  description=capabilities_description)
     return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
 

@@ -3,7 +3,7 @@
     "createCompanies": {
       "enabled": false,
       "parameters": {
-        "companyName": "FJAM"
+        "companyName": "nag"
       }
     },
     "updateCompanyData": {
@@ -11,26 +11,58 @@
       "parameters": {
         "companyName": "nag",
         "dataDir": "Files-DATA/"
-      },
-      "deleteInsights": {
-        "enabled": true,
-        "parameters": {
-          "companyName": "nag"
-        }
+      }
+    },
+    "deleteInsights": {
+      "enabled": false,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "deleteCompany": {
+      "enabled": false,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "dumpCompanyGraph": {
+      "enabled": false,
+      "parameters": {
+        "companyName": "nag"
       }
     },
     "extractInsights": {
       "enabled": false,
-      "source": "Files-COMPANY/"
+      "parameters" : {
+        "companyName": "nag",
+        "sourceDir": "Files-COMPANY/",
+        "debug": true,
+        "updateGraph" : true
+      }
     },
-    "updateInsights": {
-      "enabled": false
+    "displayInsights": {
+      "enabled": false,
+      "parameters" : {
+        "companyName": "nag",
+        "relevanceFrom" : 9.2
+      }
     },
     "analyzeTrends": {
       "enabled": false
     },
+    "deleteCapabilities": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
     "evaluateCapabilities": {
-      "enabled": false
+      "enabled": false,
+      "parameters" : {
+        "companyName": "nag",
+        "debug" : true,
+        "updateGraph" : true
+      }
     },
     "identifyChallenges": {
       "enabled": false
