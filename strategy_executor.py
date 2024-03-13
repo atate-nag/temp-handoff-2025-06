@@ -1,79 +1,90 @@
 import os
+
 import openai
 from dotenv import load_dotenv
-load_dotenv()
-from run_assistant_thread import (run_trends_analysis, run_challenges_analysis, run_capabilities_analysis,
-                                  run_actions, overseer_manage_assistant, import_data_files, parallel_file_process)
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from challenges import find_top_right_challenge
-from langchain_openai import OpenAIEmbeddings
-from powerpoint import create_powerpoint
-import concurrent.futures
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+load_dotenv()
+import concurrent.futures
 import json
-import sys
 import shutil
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from core_components.src.agents.openAI import client, load_agents, query_assistant
 
 # from core_components.src.RAG.rag import RAG
 from core_components.src.DocumentLoader.document_retriever_sharepoint import (
     SharePointRetriever,
 )
-from core_components.src.agents.openAI import load_agents, query_assistant, client
-from retrieval import retrieve_docs, find_and_download_files
+from core_components.src.tests.test_utils import assert_test, measure_metric
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
 
-RETRIEVAL_PIPELINE=False
+from challenges import find_top_right_challenge
+from powerpoint import create_powerpoint
+from retrieval import find_and_download_files, retrieve_docs
+from run_assistant_thread import (
+    import_data_files,
+    overseer_manage_assistant,
+    parallel_file_process,
+    run_actions,
+    run_capabilities_analysis,
+    run_challenges_analysis,
+    run_trends_analysis,
+)
+
+RETRIEVAL_PIPELINE = False
 DEBUG_RUN = None
 PRODUCE_INTERMEDIATES = True
 
 if RETRIEVAL_PIPELINE:
-# print(os.getenv("OPENAI_API_KEY"))
+    # print(os.getenv("OPENAI_API_KEY"))
     agents = load_agents("openAI_agents.yml")
     queries_agent = agents["OpenAI"]["queries_agent"]
     files = find_and_download_files(
         "Shared Documents/Research/Incubation/Socrates/Documents/test_retrieval/"
     )
     researches = [
-            [
-                "NAG",
-                "Numerical Algorithms Group",
-                "NAG provides industry-leading numerical software and technical services to banking and finance, energy, engineering, and market research, as well as academic and government institutions.",
-                "leadership",
-                "Services",
-            ]
+        [
+            "NAG",
+            "Numerical Algorithms Group",
+            "NAG provides industry-leading numerical software and technical services to banking and finance, energy, engineering, and market research, as well as academic and government institutions.",
+            "leadership",
+            "Services",
         ]
+    ]
 
     queries = [
-            "Can you tell me more about NAG (Numerical Algorithm Group) insights, perspective, risks, opportunities, and challenges?",
-            "What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets",
-        ]
+        "Can you tell me more about NAG (Numerical Algorithm Group) insights, perspective, risks, opportunities, and challenges?",
+        "What are the relevant markets, for a company specialized in HPC, optimisation and numerical algorithms? What can you tell me about the major industrial markets",
+    ]
     print(files)
     for query in queries:
-            result_steps, result_response, result_thread = query_assistant(
-                client, queries_agent["id"], query
-            )
-            messages = client.beta.threads.messages.list(thread_id=result_thread.id)
-            increased_queries = [query]
-            for message in messages:
-                if message.role == "assistant":
-                    increased_queries.extend(message.content[0].text.value.split("\n"))
-
-            
-            researches.append(increased_queries)
-            
-    print(f"Researches: {researches}")
-    for queries, folder in zip(researches,["Files-DATA-retrieved", "Files-COMPANY-retrieved", "Files-MARKET-retrieved"]):
-        print(f"Queries: {queries}")
-        retrieved_docs = retrieve_docs(
-            files, queries
+        result_steps, result_response, result_thread = query_assistant(
+            client, queries_agent["id"], query
         )
+        messages = client.beta.threads.messages.list(thread_id=result_thread.id)
+        increased_queries = [query]
+        for message in messages:
+            if message.role == "assistant":
+                increased_queries.extend(message.content[0].text.value.split("\n"))
+
+        researches.append(increased_queries)
+
+    print(f"Researches: {researches}")
+    for queries, folder in zip(
+        researches,
+        ["Files-DATA-retrieved", "Files-COMPANY-retrieved", "Files-MARKET-retrieved"],
+    ):
+        print(f"Queries: {queries}")
+        retrieved_docs = retrieve_docs(files, queries)
         if not os.path.exists(folder):
             os.makedirs(folder)
         files_to_remove = [
-                    os.path.join(folder, f)
-                    for f in os.listdir(folder)
-                    if os.path.isfile(os.path.join(folder, f))
-                ]
+            os.path.join(folder, f)
+            for f in os.listdir(folder)
+            if os.path.isfile(os.path.join(folder, f))
+        ]
         for f in files_to_remove:
             os.remove(f)
         for file in retrieved_docs:
@@ -104,20 +115,22 @@ else:
 if not DEBUG_RUN:
     # read contents of the Files-COMPANY directory
     # step 1: Extract the data files without loss of information
-    company_data = import_data_files(client, data_dir )
+    company_data = import_data_files(client, data_dir)
     print(f"Main: Company data imported: file_id={company_data.id}")
 
     # step 2: Run through the insight files on the company, extract and collect in company_insights
-    company_insights = parallel_file_process(client, company_insight_dir, company_data,
-                                                  "company",PRODUCE_INTERMEDIATES)
+    company_insights = parallel_file_process(
+        client, company_insight_dir, company_data, "company", PRODUCE_INTERMEDIATES
+    )
     print(f"Main: Company insights extracted: file_ids ={company_insights}")
     # for company_insight_file in company_insights:
     #     print(company_insight_file)
 
     # step 3 : run through the insight files on the markets and extract into insights_environment
 
-    market_insights = parallel_file_process(client, market_insight_dir, company_data,
-                                                 "market", PRODUCE_INTERMEDIATES)
+    market_insights = parallel_file_process(
+        client, market_insight_dir, company_data, "market", PRODUCE_INTERMEDIATES
+    )
     print(f"Main: Market insights extracted: file_ids ={market_insights}")
 
     # for market_insight_file in market_insights:
@@ -127,20 +140,39 @@ if not DEBUG_RUN:
 
     ## ( have to define those in funnctions so that the parallel executor can parallelise over them)
     # TODO: hide this in the run_assistant_thread module (or its replacement)
-    def trend_analysis(client, market_insights,PRODUCE_INTERMEDIATES):
-        trends_file = overseer_manage_assistant(client, PRODUCE_INTERMEDIATES, "trends",
-            0, run_trends_analysis, market_insights, company_data)
+    def trend_analysis(client, market_insights, PRODUCE_INTERMEDIATES):
+        trends_file = overseer_manage_assistant(
+            client,
+            PRODUCE_INTERMEDIATES,
+            "trends",
+            0,
+            run_trends_analysis,
+            market_insights,
+            company_data,
+        )
         return trends_file
-    def capabilities_analysis(client, company_insights,PRODUCE_INTERMEDIATES):
-        capabilities_file = overseer_manage_assistant(client, PRODUCE_INTERMEDIATES, "capabilities",
-            0, run_capabilities_analysis,  company_insights, company_data)
+
+    def capabilities_analysis(client, company_insights, PRODUCE_INTERMEDIATES):
+        capabilities_file = overseer_manage_assistant(
+            client,
+            PRODUCE_INTERMEDIATES,
+            "capabilities",
+            0,
+            run_capabilities_analysis,
+            company_insights,
+            company_data,
+        )
         return capabilities_file
 
     ## parallel execution of the future and capabilities assistants
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        future_trends = executor.submit(trend_analysis,client, market_insights,PRODUCE_INTERMEDIATES)
-        future_capabilities = executor.submit(capabilities_analysis,client, company_insights,PRODUCE_INTERMEDIATES)
+        future_trends = executor.submit(
+            trend_analysis, client, market_insights, PRODUCE_INTERMEDIATES
+        )
+        future_capabilities = executor.submit(
+            capabilities_analysis, client, company_insights, PRODUCE_INTERMEDIATES
+        )
 
     ## wait for prallel execution to end
 
@@ -157,8 +189,15 @@ if not DEBUG_RUN:
 
     # step 4 : generate challenges affecting the company
 
-    challenges_file = overseer_manage_assistant(client, PRODUCE_INTERMEDIATES, "challenges",
-            0, run_challenges_analysis, trends_file, capabilities_file)
+    challenges_file = overseer_manage_assistant(
+        client,
+        PRODUCE_INTERMEDIATES,
+        "challenges",
+        0,
+        run_challenges_analysis,
+        trends_file,
+        capabilities_file,
+    )
     challenges_content = client.files.retrieve_content(challenges_file)
     json_challenges = json.loads(challenges_content)
 
@@ -167,8 +206,16 @@ if not DEBUG_RUN:
 
     # step 5 : generate an action plan based on the challenges
 
-    actions_file = overseer_manage_assistant(client, PRODUCE_INTERMEDIATES, "actions", 0,
-        run_actions, top_challenge, trends_file, capabilities_file)
+    actions_file = overseer_manage_assistant(
+        client,
+        PRODUCE_INTERMEDIATES,
+        "actions",
+        0,
+        run_actions,
+        top_challenge,
+        trends_file,
+        capabilities_file,
+    )
 
     actions_content = client.files.retrieve_content(actions_file)
     json_actions = json.loads(actions_content)
