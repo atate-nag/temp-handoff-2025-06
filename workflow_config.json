@@ -36,7 +36,7 @@
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
-        "debug": true,
+        "debug": false,
         "updateGraph" : true
       }
     },
@@ -51,24 +51,24 @@
       "enabled": false
     },
     "deleteCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "evaluateCapabilities": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
-        "debug" : true,
+        "debug" : false,
         "updateGraph" : true
       }
     },
-    "identifyChallenges": {
-      "enabled": false
-    },
-    "planActions": {
-      "enabled": false
+    "displayCapabilities": {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag"
+      }
     }
   }
 }

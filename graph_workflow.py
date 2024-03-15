@@ -19,8 +19,8 @@ client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # setup neo4j database
 
 uri = "bolt://localhost:7687"
-user = "neo4j"
-password = "naginnov"
+user = os.getenv("NEO4J_USER")
+password = os.getenv("NEO4J_PASSWORD")
 
 def get_step_function(step_name):
     """
@@ -36,6 +36,7 @@ def get_step_function(step_name):
         "dumpCompanyGraph" : dump_company_graph,
         "evaluateCapabilities" : evaluate_capabilities,
         "deleteCapabilities" : delete_capabilities,
+        "displayCapabilities" : display_capabilities,
     }
     return step_map.get(step_name, None)  # Return None if not found
 def execute_workflow():
@@ -190,6 +191,11 @@ def delete_company(companyName):
     company_graph.delete_company(companyName)
     company_graph.delete_orphan_insights()
     return
+
+def display_capabilities(companyName):
+    company_graph.display_company_capabilities(companyName)
+    return
+
 
 # Load the workflow configuration
 with open('workflow_config.json', 'r') as file:

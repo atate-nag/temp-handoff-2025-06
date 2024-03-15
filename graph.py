@@ -135,7 +135,7 @@ class CompanyGraph(BaseGraph):
     @staticmethod
     def _prune_company_capabilities(tx, company_name):
         query = """
-        MATCH (c:Compnany {name: $company_name})-[:POSSESSES]->(b: Capability)
+        MATCH (c:Company {name: $company_name})-[:POSSESSES]->(b: Capability)
         DETACH DELETE b
         """
         tx.run(query, company_name=company_name)
@@ -182,13 +182,14 @@ class CompanyGraph(BaseGraph):
         for capability in capability_data:
             # Create the Capability node and link it to the Company node
             name = capability["capability"]
-            result = tx.run(
+            capability_result = tx.run(
                 "MATCH (company:Company {name: $companyName}) "
-                "CREATE (capability:Capability {name: $name, valuePotential: $valuePotential, "
+                "CREATE (capability:Capability {uuid: $uuid, name: $name, valuePotential: $valuePotential, "
                 "scarcity: $scarcity, nonReplicability: $nonReplicability, "
                 "irreplaceability: $irreplaceability, confidence: $confidence}) "
                 "MERGE (company)-[:POSSESSES]->(capability) "
                 "RETURN capability",
+                uuid=str(uuid.uuid4()),
                 companyName=company_name,
                 name=name,
                 valuePotential=capability["value potential"],
@@ -198,15 +199,46 @@ class CompanyGraph(BaseGraph):
                 confidence=capability["confidence"]
             ).single()[0]
 
-            # Link Capability node to Insight nodes
             for insight_id in capability["evidenced by"]:
                 print(f"evidence from {insight_id} for capability {name}")
                 tx.run(
-                    "MATCH (capability:Capability {name: $name}), (insight:Insight {id: $insightId}) "
-                    "MERGE (capability)-[:EVIDENCED_BY]->(insight)",
-                    name=capability["capability"],
-                    insightId=insight_id
+                    "MATCH (cap:Capability {name: $name}), (i:Insight) "
+                    "WHERE ID(i) = $insight_id "
+                    "MERGE (cap)-[:EVIDENCED_BY]->(i)",
+                    name=name, insight_id=insight_id
                 )
+    def display_company_capabilities(self, company_name):
+        with self.driver.session() as session:
+            result = session.read_transaction(self._get_company_capabilities, company_name)
+            print(f"display result is {result}")
+            self._print_capabilities(result)
+
+    @staticmethod
+    def _get_company_capabilities(tx, company_name):
+        query = """
+        MATCH (company:Company {name: $company_name})-[:POSSESSES]->(capability:Capability)
+        OPTIONAL MATCH (capability)-[:EVIDENCED_BY]->(insight:Insight)
+        RETURN capability AS Capability, collect(insight) AS Insights
+        """
+        result = tx.run(query, company_name=company_name)
+        print(f"get result is {result}")
+        return [(record["Capability"], record["Insights"]) for record in result]
+
+    def _print_capabilities(self, capabilities):
+        print(f"Printing capabilities {capabilities}")
+        for capability, insights in capabilities:
+            print(f"Capability: {capability['name']}")
+            print(f"Details:")
+            print(f"  Value Potential: {capability['valuePotential']}")
+            print(f"  Scarcity: {capability['scarcity']}")
+            print(f"  Non-replicability: {capability['nonReplicability']}")
+            print(f"  Irreplaceability: {capability['irreplaceability']}")
+            print(f"  Confidence: {capability['confidence']}")
+            print("Derived from Insights:")
+            for insight in insights:
+                print(f"  - Insight ID: {insight['id']}, Description: {insight['description']}, Source: {insight['source']}")
+            print("\n")
+
 
     def link_insight_to_capability(self, capability_name, insight_id):
         with self.driver.session() as session:
@@ -215,7 +247,9 @@ class CompanyGraph(BaseGraph):
     @staticmethod
     def _link_insight_to_capability(tx, capability_name, insight_id):
         query = """
-        MATCH (cap:Capability {name: $capability_name}), (i:Insight {id: $insight_id})
+        MATCH (cap:Capability {name: $capability_name})
+        MATCH (i:Insight)
+        WHERE ID(i) = $insight_id
         CREATE (cap)-[:EVIDENCED_BY]->(i)
         RETURN cap, i
         """
