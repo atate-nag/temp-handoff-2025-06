@@ -26,13 +26,13 @@
       }
     },
     "dumpCompanyGraph": {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "companyName": "nag"
       }
     },
     "extractInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
@@ -41,14 +41,11 @@
       }
     },
     "displayInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
         "relevanceFrom" : 9.2
       }
-    },
-    "analyzeTrends": {
-      "enabled": false
     },
     "deleteCapabilities": {
       "enabled": false,

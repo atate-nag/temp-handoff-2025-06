@@ -145,10 +145,10 @@ def evaluate_capabilities(companyName,debug, updateGraph):
         filename_prefix = f"company_and_insight_graph_{companyName}"
         #file = file_handler.serialize_and_upload(json_graph, filename_prefix, companyName, purpose="assistants")
         file = file_handler.direct_upload(json_graph, filename_prefix, companyName, purpose="assistants")
-        print(f"Newly uploaded file ID for '{companyName}': {file.id}")
+        print(f"Newly uploaded file ID for '{companyName}': {file}")
         # now call the capabilities agent and it will define a set of core capabilities
         capabilities_file = overseer_manage_assistant(client, None , "capabilities",
-                                  0, run_capabilities_analysis, file.id)
+                                  0, run_capabilities_analysis, file)
         # download the file and dump
         print(capabilities_file)
         capabilities_content = json.loads(client.files.retrieve_content(capabilities_file))
@@ -205,7 +205,7 @@ workflow_config = config['workflow']
 
 global company_graph, insight_graph, file_handler
 
-# initalise the openAI file handler class
+# initialise the openAI file handler class
 
 file_handler = FileHandler(client)
 

@@ -51,9 +51,7 @@ class FileHandler:
 
         # Store the file ID with its handle for later use
         self.file_ids[handle] = openai_response.id
-        return openai_response
-
-
+        return openai_response.id
 
     def check_and_retrieve_file(self, handle):
         # Check if file has been uploaded and retrieve its ID
