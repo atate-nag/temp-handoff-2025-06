@@ -226,9 +226,6 @@ def prune_insights(companyName):
     str_recommender_content = client.files.retrieve_content(recommended_insights_file)
     recommender_content = json.loads(client.files.retrieve_content(recommended_insights_file))
 
-    for insight in recommender_content :
-        print(insight)
-
     with open(
             f"./Intermediates/insight_recommendations.json",
             "w",
