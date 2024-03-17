@@ -1,17 +1,15 @@
 ------------------
 * MAJOR NEXT STEPS
 1) add a QA element to more dynamically check agent responses
-2) add explanations of how insights and decisions have been arrived at. This will require some
-basic graph structure.
-3) NEW external data sources have to be added.
+2) NEW external data sources have to be added.
+3) Trends and Insights have to be implemented in the graph workflow
 
 POSSIBLY USEFUL FEATURES
 ------------------------
 
-*) Make it so that you can choose not jsut hte top challenge but any number that are within
+*) Make it so that you can choose not just the top challenge but any number that are within
 the "top-right" section which is configurable, or top 2,3 etc.
 *) Add checkpointing - use intermediate files to pick up at any certain point.
-
 
 * open ISSUES / BUGS
 --------

@@ -19,6 +19,12 @@
         "companyName": "nag"
       }
     },
+    "cleanInsights": {
+      "enabled": false,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
     "deleteCompany": {
       "enabled": false,
       "parameters": {
@@ -26,13 +32,13 @@
       }
     },
     "dumpCompanyGraph": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "extractInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
@@ -41,7 +47,7 @@
       }
     },
     "displayInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "relevanceFrom" : 9.2
@@ -54,11 +60,17 @@
       }
     },
     "evaluateCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "debug" : false,
         "updateGraph" : true
+      }
+    },
+    "pruneCapabilities" : {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag"
       }
     },
     "displayCapabilities": {

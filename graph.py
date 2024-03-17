@@ -130,10 +130,10 @@ class CompanyGraph(BaseGraph):
 
     def delete_company_capabilities(self, company_name):
         with self.driver.session() as session:
-            session.write_transaction(self._prune_company_capabilities, company_name)
+            session.write_transaction(self._delete_company_capabilities, company_name)
 
     @staticmethod
-    def _prune_company_capabilities(tx, company_name):
+    def _delete_company_capabilities(tx, company_name):
         query = """
         MATCH (c:Company {name: $company_name})-[:POSSESSES]->(b: Capability)
         DETACH DELETE b
@@ -210,22 +210,25 @@ class CompanyGraph(BaseGraph):
     def display_company_capabilities(self, company_name):
         with self.driver.session() as session:
             result = session.read_transaction(self._get_company_capabilities, company_name)
-            print(f"display result is {result}")
+            #print(f"display result is {result}")
+            # for capability, insights in result:
+            #     print(f"insights for {capability}are {insights}")
+            # import sys
+            # print(f"Printing capabilities {capabilities} with insights ?")
             self._print_capabilities(result)
 
     @staticmethod
     def _get_company_capabilities(tx, company_name):
         query = """
-        MATCH (company:Company {name: $company_name})-[:POSSESSES]->(capability:Capability)
-        OPTIONAL MATCH (capability)-[:EVIDENCED_BY]->(insight:Insight)
-        RETURN capability AS Capability, collect(insight) AS Insights
-        """
+                MATCH (company:Company {name: $company_name})-[:POSSESSES]->(capability:Capability)
+                OPTIONAL MATCH (capability)-[:EVIDENCED_BY]->(insight:Insight)
+                RETURN capability AS Capability, collect({id: ID(insight), description: insight.description, source: insight.source, relevanceScore: insight.relevanceScore, extractionDate: insight.extractionDate}) AS Insights
+                """
         result = tx.run(query, company_name=company_name)
-        print(f"get result is {result}")
         return [(record["Capability"], record["Insights"]) for record in result]
 
+
     def _print_capabilities(self, capabilities):
-        print(f"Printing capabilities {capabilities}")
         for capability, insights in capabilities:
             print(f"Capability: {capability['name']}")
             print(f"Details:")
@@ -235,14 +238,28 @@ class CompanyGraph(BaseGraph):
             print(f"  Irreplaceability: {capability['irreplaceability']}")
             print(f"  Confidence: {capability['confidence']}")
             print("Derived from Insights:")
+            print(f"  - Insight ID:")
             for insight in insights:
-                print(f"  - Insight ID: {insight['id']}, Description: {insight['description']}, Source: {insight['source']}")
+                print({insight['id']})
+                #"Description: {insight['description']}, Source: {insight['source']}, Relevance Score: {insight['relevanceScore']}, Extraction Date: {insight['extractionDate']}")
             print("\n")
 
+    def prune_company_capabilities(self, company_name):
+        with self.driver.session() as session:
+            session.write_transaction(self._prune_company_capability, company_name)
 
     def link_insight_to_capability(self, capability_name, insight_id):
         with self.driver.session() as session:
             session.write_transaction(self._link_insight_to_capability, capability_name, insight_id)
+
+    @staticmethod
+    def _prune_company_capability(tx, company_name):
+        query = """
+            MATCH (c:Capability)
+            WHERE NOT (c)-[:EVIDENCED_BY]->(:Insight)
+            OPTIONAL MATCH (c)-[r]-()
+            DELETE r, c"""
+        tx.run(query, company_name=company_name)
 
     @staticmethod
     def _link_insight_to_capability(tx, capability_name, insight_id):
@@ -322,6 +339,24 @@ class InsightGraph(BaseGraph):
                    categories=categories, relevanceScore=insight.get('relevanceScore', 0),
                    source=insight.get('sourceDocument', ''), extractionDate=extractionDate)
 
+    def remove_non_integer_ids(self):
+        with self.driver.session() as session:
+            modified_count = session.write_transaction(self._remove_non_integer_ids)
+            print(f"Modified {modified_count} nodes.")
+        return
+
+    @staticmethod
+    def _remove_non_integer_ids(tx):
+        # This query fetches IDs that are non-integer strings.
+        # It assumes all IDs should be numeric, and any non-numeric string is invalid.
+        query = """
+        MATCH (i:Insight)
+        WHERE NOT i.id =~ '^\\d+$'  
+        REMOVE i.id  
+        RETURN count(i) as modifiedCount
+        """
+        result = tx.run(query)
+        return result.single()[0]
 
 def map_json_to_company_schema(company_data):
     company_node_data = {}

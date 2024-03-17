@@ -37,6 +37,7 @@ def get_step_function(step_name):
         "evaluateCapabilities" : evaluate_capabilities,
         "deleteCapabilities" : delete_capabilities,
         "displayCapabilities" : display_capabilities,
+        "cleanInsights" : clean_insights,
     }
     return step_map.get(step_name, None)  # Return None if not found
 def execute_workflow():
@@ -180,6 +181,12 @@ def delete_capabilities(companyName):
     company_graph.delete_company_capabilities(companyName)
     return
 
+def prune_capabilities(companyName):
+    print("Cleaning capabilities...")
+    # remove capabilities that are not evidenced by insights
+    company_graph.prune_company_capabilities(companyName)
+    return
+
 def dump_company_graph(companyName):
     print(company_graph.dump_company_graph_to_json(companyName))
     return
@@ -196,6 +203,9 @@ def display_capabilities(companyName):
     company_graph.display_company_capabilities(companyName)
     return
 
+def clean_insights(companyName):
+    insight_graph.remove_non_integer_ids()
+    return
 
 # Load the workflow configuration
 with open('workflow_config.json', 'r') as file:
