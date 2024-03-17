@@ -4,7 +4,7 @@ import os
 import openai
 from dotenv import load_dotenv
 from run_assistant_thread import (parallel_file_process, import_data_files_and_upload, overseer_manage_assistant,
-                                  run_capabilities_analysis)
+                                  run_capabilities_analysis, run_recommender_analysis)
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
 from dochandler import import_data_files
@@ -38,6 +38,7 @@ def get_step_function(step_name):
         "deleteCapabilities" : delete_capabilities,
         "displayCapabilities" : display_capabilities,
         "cleanInsights" : clean_insights,
+        "pruneInsights" : prune_insights,
     }
     return step_map.get(step_name, None)  # Return None if not found
 def execute_workflow():
@@ -205,6 +206,38 @@ def display_capabilities(companyName):
 
 def clean_insights(companyName):
     insight_graph.remove_non_integer_ids()
+    return
+
+def prune_insights(companyName):
+
+    # first get the insight graph state
+
+    json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
+    print(json_graph)
+
+    filename_prefix = f"company_and_insight_graph_{companyName}"
+    file = file_handler.direct_upload(json_graph, filename_prefix, companyName, purpose="assistants")
+    print(f"Newly uploaded file ID for '{companyName}': {file}")
+    # now call the recommender agent and it give a set of recommendations and justifications
+    recommended_insights_file = overseer_manage_assistant(client, None, "recommender",
+                                                  0, run_recommender_analysis, file)
+    # download the file and dump
+    print(recommended_insights_file)
+    str_recommender_content = client.files.retrieve_content(recommended_insights_file)
+    recommender_content = json.loads(client.files.retrieve_content(recommended_insights_file))
+
+    for insight in recommender_content :
+        print(insight)
+
+    with open(
+            f"./Intermediates/insight_recommendations.json",
+            "w",
+            encoding="utf-8",
+    ) as json_file:
+        json_file.write(str_recommender_content)
+
+    # now add the capabilities to the graph
+    # company_graph.add_capability_and_evidence(companyName, recommender_content)
     return
 
 # Load the workflow configuration

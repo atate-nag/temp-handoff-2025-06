@@ -53,6 +53,12 @@
         "relevanceFrom" : 9.2
       }
     },
+    "pruneInsights" : {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag"
+      }
+    },
     "deleteCapabilities": {
       "enabled": false,
       "parameters": {
@@ -68,13 +74,13 @@
       }
     },
     "pruneCapabilities" : {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag"
       }
     },
     "displayCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag"
       }

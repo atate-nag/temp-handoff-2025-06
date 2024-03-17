@@ -300,9 +300,6 @@ class InsightGraph(BaseGraph):
         result = tx.run(query, company_name=company_name, relevance_threshold=relevance_threshold)
         return list(result)
 
-    from datetime import datetime
-    import uuid
-
     @staticmethod
     def _create_insight_and_link(tx, insight_data, company_name):
         # Define the query outside the loop to ensure it's available

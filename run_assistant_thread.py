@@ -24,6 +24,9 @@ challenges_description = "Challenges Agent"
 actions_agent = "asst_ACUyLQAjjCii40BRs9sBPout"
 actions_description = "Actions Agent"
 
+recommender_agent = "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ"
+recommender_description = "Recommender Agent"
+
 def success_criteria_met(client,thread):
     print(f"Success Criteria: Checking thread {thread.id}")
     file_direct = retrieve_file_annotation(client, thread)
@@ -383,6 +386,13 @@ def run_capabilities_analysis(client, insight_file):
                                                                  file_ids=[insight_file],
                                                                  description=capabilities_description)
     return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
+
+def run_recommender_analysis(client, insight_file):
+    recommender_prompt = (f"Make the neccesary recommendations for the insights in {insight_file}")
+    recommender_steps, recommender_response, recommender_thread = run_assistant(client, recommender_agent, recommender_prompt,
+                                                                 file_ids=[insight_file],
+                                                                 description=recommender_description)
+    return recommender_steps, recommender_response, recommender_thread, recommender_agent
 
 def run_challenges_analysis(client, trends_file, capabilities_file):
     challenges_prompt = (
