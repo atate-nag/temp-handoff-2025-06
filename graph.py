@@ -238,10 +238,7 @@ class CompanyGraph(BaseGraph):
             print(f"  Irreplaceability: {capability['irreplaceability']}")
             print(f"  Confidence: {capability['confidence']}")
             print("Derived from Insights:")
-            print(f"  - Insight ID:")
-            for insight in insights:
-                print({insight['id']})
-                #"Description: {insight['description']}, Source: {insight['source']}, Relevance Score: {insight['relevanceScore']}, Extraction Date: {insight['extractionDate']}")
+            print(f"  Insight ID: {', '.join([str(insight['id']) for insight in insights])}")
             print("\n")
 
     def prune_company_capabilities(self, company_name):
