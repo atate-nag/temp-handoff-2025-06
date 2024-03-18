@@ -246,7 +246,7 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
 
 
 # TODO move file handling into appropriate module
-def import_data_files_and_upload(client, data_dir, type):
+def import_data_files_and_upload(client, data_dir, document_type='data'):
     # import all the files in the given directory and optionally write intermediates
     data_files = [
         f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))
@@ -259,7 +259,7 @@ def import_data_files_and_upload(client, data_dir, type):
         _, file_extension = os.path.splitext(file_name)  # Extract file extension
         format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
         print(f"format is {format}")
-        doc = Rdoc.create(file_path, format, "data")
+        doc = Rdoc.create(file_path, format, document_type)
         json_doc = doc.build_structured_data()
         with open(
             f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8"
@@ -274,6 +274,7 @@ def import_data_files_and_upload(client, data_dir, type):
             f"wrote file ./Intermediates/structured_data_{i}.json and uploaded to {json_openai_response.id}"
         )
         responses.append(json_openai_response.id)
+        docs.append(doc)
     return responses, docs
 
 

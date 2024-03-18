@@ -28,7 +28,7 @@ from langchain_openai import OpenAIEmbeddings
 from tika import parser
 
 from run_assistant_thread import (
-    import_data_files,
+    import_data_files_and_upload,
     overseer_manage_assistant,
     parallel_file_process,
     run_performance_retrieval_evaluation,

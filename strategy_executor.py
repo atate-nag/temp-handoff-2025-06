@@ -2,7 +2,6 @@ import os
 
 import openai
 from dotenv import load_dotenv
-
 load_dotenv()
 import concurrent.futures
 import json
@@ -26,15 +25,7 @@ from langchain_openai import OpenAIEmbeddings
 from challenges import find_top_right_challenge
 from powerpoint import create_powerpoint
 from retrieval import find_and_download_files, retrieve_docs
-from run_assistant_thread import (
-    import_data_files,
-    overseer_manage_assistant,
-    parallel_file_process,
-    run_actions,
-    run_capabilities_analysis,
-    run_challenges_analysis,
-    run_trends_analysis,
-)
+
 
 RETRIEVAL_PIPELINE = False
 DEBUG_RUN = None
