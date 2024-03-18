@@ -1,0 +1,92 @@
+{
+    "title": "Document Root",
+    "content": [
+        "Operations - NAG",
+        "Statement of Work"
+    ],
+    "children": [
+        {
+            "title": "16 March 2023",
+            "content": [],
+            "children": []
+        },
+        {
+            "title": "Context",
+            "content": [
+                "Operations is looking for expertise and assistance to help for the migration of its many workloads to its new HPC baseline including Cloud that will be delivered in 2024."
+            ],
+            "children": [
+                {
+                    "title": "About NAG",
+                    "content": [
+                        "NAG is a company with a purpose; to serve engineering, science, and business through technical excellence. NAG’s expertise is delivered through a combination of products and services including, but not limited to, the world-renowned NAG Library, automatic differentiation software and our world-class HPC and cloud cost-to-solution optimization services.",
+                        "NAG’s team is a group of highly technical staff made up of qualified physicists, mathematicians, and computer scientists, with an average of over 10 years of experience delivering world-class software and high-tech solutions.  Since being founded in 1970, NAG has continued to innovate in digital excellence, with highlights including collaborations with US National Laboratories; partners such as NVIDIA, AMD, and Intel on core math libraries; support for the UK National Supercomputer; and our long-standing managed service partnership with a major energy client in the US. For the latter, NAG provides ongoing end-to-end managed HPC services, with a large dedicated onsite team, covering software engineering, application porting and tuning, and cloud management.",
+                        "NAG has experience in providing Cloud solutions to a number of clients, with a team of experts skilled in applications development, porting and optimization, system architects and administrators. The NAG Cloud HPC team includes specialists with decades of experience through working at NAG, Rolls-Royce, BP and other large HPC sites.",
+                        "NAG has maintained its trusted position throughout its history and is extremely proud of delivering unbeatable services, through partners such as Google, across many fields of industry, academia, and research. In our experience this variety of expertise, heritage and agnosticism is highly regarded by all our clients – they truly trust us to deliver."
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "title": "",
+            "content": [],
+            "children": []
+        },
+        {
+            "title": "",
+            "content": [],
+            "children": [
+                {
+                    "title": "Cloud discovery workshops ",
+                    "content": [
+                        "NAG proposes two workshops to discuss current  workloads, their requirements, challenges, work done and current Cloud status, and make recommendations for subsequent migration to Cloud.",
+                        "Workshop 1 (up to 3 hours)",
+                        "SMEs to present their workloads and give assessment of their requirements and capability – core counts, architecture type & restrictions (e.g., Intel CPU only, GPU enabled), memory footprint, interconnect, storage (both in-flight and for pre/post-processing).  Any insight into current scaling and/or bottlenecks.",
+                        "NAG would like to understand more about work already done with Cloud for any applications and the current state with their CSP.  Also, where their current pain points are.",
+                        "Following the workshop, NAG may follow-up with SMEs directly with further questions.",
+                        "Workshop 2 (up to 3 hours)",
+                        "NAG present recommendations based on understanding for deeper discussion and potentially a deeper dive into selected applications.  The outcome of this workshop should be a shortlist of candidates for migration.",
+                        "NAG will prepare a short report outlining recommendations following Workshop 2 with potential options for the cloud solution, with a draft outline of sprints for Workload Migration to be agreed with ."
+                    ],
+                    "children": []
+                },
+                {
+                    "title": "Workload migration ",
+                    "content": [
+                        "This can be split into 2 separate activities:",
+                        "Porting codes to AMD in readiness for new on-premise system (using a cloud-based pilot system); and",
+                        "Migrating workloads to the Cloud.",
+                        "NAG can assist with porting applications to AMD-based CPUs and has depth of experience to offer in this regard for in-house and ISV applications.  Work can be structured into sprints for each application (or application suite), but more detail is required into the number of applications, and desired level of NAG involvement, before estimate of effort and duration can be made.",
+                        "The cloud migration activity can similarly be structured as sprints.  This activity follows and is dependent on identification of migration candidates agreed in the earlier workshops.",
+                        "Benchmarks for each application can be run for comparison with on-premise HPC and/or alternative VMs."
+                    ],
+                    "children": []
+                },
+                {
+                    "title": "",
+                    "content": [],
+                    "children": []
+                },
+                {
+                    "title": "Data workshop ",
+                    "content": [
+                        "Managing data storage and transfer between both on-premise and Cloud services is a complex problem and there are new technologies regularly emerging.  NAG proposes to work with  to understand their data requirements and collaboratively perform POC studies on available technologies and techniques.",
+                        "At this juncture it is not clear if it is appropriate for NAG to propose a Data Workshop. After the initial discovery workshops, we will be better placed to consider whether or not we can propose workshop or project in this area."
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "title": "",
+            "content": [],
+            "children": []
+        },
+        {
+            "title": "",
+            "content": [],
+            "children": []
+        }
+    ]
+}

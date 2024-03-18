@@ -1,0 +1,710 @@
+[
+    {
+        "page": 1,
+        "content": {
+            "sections": [
+                {
+                    "heading": "State of Mathematical ",
+                    "content": []
+                },
+                {
+                    "heading": "Optimization Report, 2021",
+                    "content": []
+                }
+            ]
+        }
+    },
+    {
+        "page": 2,
+        "content": {
+            "sections": [
+                {
+                    "heading": "Introduction",
+                    "content": [
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved.",
+                        "We are pleased to present the State of Mathematical Optimization 2021 Report, ",
+                        "which highlights the importance and impact of mathematical optimization in "
+                    ]
+                },
+                {
+                    "heading": "our world today. ",
+                    "content": [
+                        "The report \u2013 which is based on data from a Gurobi survey of 251 customers ",
+                        "conducted in 2020* \u2013 provides insights on how companies are using ",
+                        "mathematical optimization and showcases the business value that has been ",
+                        "delivered by this AI technology. ",
+                        "You will learn how organizations today leverage mathematical optimization ",
+                        "technologies in a wide array of off-the-shelf and custom-built applications to ",
+                        "automatically solve their most challenging business problems, facilitate (and ",
+                        "often automate) optimal decision making, and achieve their business goals.",
+                        "We hope that this report gives you a sense of the power and pervasiveness of ",
+                        "mathematical optimization in the business world today and that it opens your ",
+                        "eyes to some of the possible opportunities for optimization in your organization. ",
+                        "*It should be noted that the Gurobi Customer Survey respondents are all commercial users of Gurobi\u2019s state-of-the-art mathematical ",
+                        "optimization solver \u2013 the Gurobi Optimizer. Thus, their views may not be representative of the broader community of mathematical ",
+                        "optimization users, who use the Gurobi Optimizer as well as other commercial and open source solvers in a wide variety off-the-shelf and "
+                    ]
+                },
+                {
+                    "heading": "custom-built software applications.",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 3,
+        "content": {
+            "sections": [
+                {
+                    "heading": "3",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved."
+                    ]
+                },
+                {
+                    "heading": "Industry",
+                    "content": [
+                        "Mathematical optimization is used by ",
+                        "companies today in virtually every sector ",
+                        "and segment of the global economy. ",
+                        "The pervasive presence of mathematical ",
+                        "optimization across the economic ",
+                        "spectrum is reflected in the wide cross-",
+                        "section of industries represented in our ",
+                        "survey of commercial users of this AI "
+                    ]
+                },
+                {
+                    "heading": "technology.",
+                    "content": [
+                        "Survey respondents came from more ",
+                        "than 42 different industries. The three ",
+                        "most common industries were logistics ",
+                        "(16.0%), technology and technology ",
+                        "services (14.2%), and electricity generation ",
+                        "and transmission (13.2%), followed ",
+                        "by education and nonprofits (5.2%), ",
+                        "financial services and insurance (4.3%), ",
+                        "and agriculture and forestry (3.8%) and ",
+                        "business and professional services (3.8%). ",
+                        "Who Is Using Mathematical Optimization Today"
+                    ]
+                },
+                {
+                    "heading": "Profile of Companies",
+                    "content": [
+                        "What is the main industry that your firm operates in?"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 4,
+        "content": {
+            "sections": [
+                {
+                    "heading": "4",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved.",
+                        "Who Is Using Mathematical Optimization Today"
+                    ]
+                },
+                {
+                    "heading": "Profile of Companies",
+                    "content": []
+                },
+                {
+                    "heading": "Mathematical Optimization Expertise",
+                    "content": [
+                        "Companies of all sizes \u2013 from small start-ups to some of ",
+                        "the world\u2019s largest global organizations (including nearly ",
+                        "85% of Fortune 500 companies) \u2013 use mathematical ",
+                        "optimization in their operations. As mathematical ",
+                        "optimization is a sophisticated AI technology that requires ",
+                        "having personnel with certain specialized skills (most ",
+                        "notably, mathematical modeling), these companies either ",
+                        "employ operations research professionals, advanced ",
+                        "analytics professionals, or data scientists or engage ",
+                        "external consultants to help implement and utilize ",
+                        "mathematical optimization. Nearly 39% of respondents ",
+                        "said that their company employs 2-5 operations research ",
+                        "professionals, while over 14% of respondents stated that ",
+                        "their company employs more than 21 operations research "
+                    ]
+                },
+                {
+                    "heading": "professionals. ",
+                    "content": []
+                },
+                {
+                    "heading": "Advanced Analytics Strategy",
+                    "content": [
+                        "In the past, mathematical optimization applications and ",
+                        "other advanced analytics projects were typically not ",
+                        "seen as a strategic priority by the C-suite and were often ",
+                        "relegated to the IT departments of companies. Now \u2013 ",
+                        "with the availability of huge quantities of high-quality ",
+                        "business data and the advances in AI technologies such ",
+                        "as mathematical optimization and machine learning \u2013 an ",
+                        "increasing number of companies are investing in these ",
+                        "technologies and a growing number of C-level executives ",
+                        "are taking responsibility for developing and driving their ",
+                        "company\u2019s advanced analytics strategy. ",
+                        "The results of our survey showcase this shift, with 24.3% of ",
+                        "respondents saying that their CEO is responsible for setting ",
+                        "their company\u2019s overall analytics strategy, followed by the ",
+                        "CTO at 19.5%, and Head of Analytics at 18.6%. Almost 38% ",
+                        "of respondents, however, said that their analytics strategy ",
+                        "was driven by specific projects \u2013 indicating that advanced ",
+                        "analytics technologies may not yet be a top strategic ",
+                        "priority for some companies out there. ",
+                        "How many operations research ",
+                        "professionals does your company employ?",
+                        "Who in your organization sets the overall ",
+                        "strategy for analytics? (Select all that apply)"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 5,
+        "content": {
+            "sections": [
+                {
+                    "heading": "5",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved."
+                    ]
+                },
+                {
+                    "heading": "Background",
+                    "content": [
+                        "Users of mathematical optimization technologies ",
+                        "come from many different fields. Traditionally the ",
+                        "exclusive domain of operations research specialists, ",
+                        "mathematical optimization is gaining traction among ",
+                        "professionals with formal training in a number of different ",
+                        "areas including data science, computer science, and ",
+                        "engineering. Additionally, professionals who are trained in ",
+                        "mathematical optimization or mathematical programming ",
+                        "are looking to branch out into related advanced analytics ",
+                        "and data science fields, and are undergoing training in "
+                    ]
+                },
+                {
+                    "heading": "those areas.",
+                    "content": [
+                        "Reflecting these trends, our survey respondents \u2013 who ",
+                        "are all commercial users of mathematical optimization \u2013 ",
+                        "reported that they have had formal training in a wide range ",
+                        "of fields beyond operations research including computer ",
+                        "science (29.6%), engineering (nearly 38%), and data "
+                    ]
+                },
+                {
+                    "heading": "science (almost 19%).",
+                    "content": [
+                        "It should be noted, however, that the majority (61.1%) said ",
+                        "that they had formal training in operations research \u2013 ",
+                        "demonstrating the enduring importance of this field in the "
+                    ]
+                },
+                {
+                    "heading": "mathematical optimization space.",
+                    "content": [
+                        "Interestingly, the number of respondents indicating that ",
+                        "they have formal training in data science rose by around ",
+                        "17% compared to our 2019 customer survey \u2013 suggesting ",
+                        "that a growing number of data scientists are starting to "
+                    ]
+                },
+                {
+                    "heading": "use mathematical optimization.",
+                    "content": [
+                        "Who Is Using Mathematical Optimization Today"
+                    ]
+                },
+                {
+                    "heading": "Profile of Users",
+                    "content": [
+                        "Your formal training was in which field?",
+                        "(Select all that apply)"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 6,
+        "content": {
+            "sections": [
+                {
+                    "heading": "6",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved.",
+                        "Role in the Company",
+                        "In the past, operations research professionals were the ",
+                        "primary users of mathematical optimization applications ",
+                        "\u2013 but this dynamic is changing. With the introduction ",
+                        "of applications with more user-friendly interfaces, we ",
+                        "are seeing a wider range of individuals across various ",
+                        "business functions utilizing mathematical optimization "
+                    ]
+                },
+                {
+                    "heading": "technologies. ",
+                    "content": [
+                        "The results of our survey demonstrate this ",
+                        "\u201cdemocratization\u201d of mathematical optimization across ",
+                        "the professional spectrum \u2013 nearly 63% of respondents ",
+                        "have job titles other than \u201coperations research.\u201d Around ",
+                        "14% of respondents stated that their role is \u201cdata science,\u201d ",
+                        "while around 9% said that their role is \u201canalytics\u201d and ",
+                        "\u201cengineering.\u201d Other respondents had C-suite positions ",
+                        "\u2013 including CEO and CTO \u2013 indicating the presence of ",
+                        "mathematical optimization users at the highest levels of "
+                    ]
+                },
+                {
+                    "heading": "organizations today.",
+                    "content": [
+                        "Years of Experience Using Mathematical "
+                    ]
+                },
+                {
+                    "heading": "Optimization",
+                    "content": [
+                        "Once companies have successfully implemented ",
+                        "mathematical optimization technologies and begin ",
+                        "to use them in mission-critical applications in their ",
+                        "organizations, they typically end up using these ",
+                        "technologies for a significant amount of time. The users ",
+                        "of these applications build up years of experience with ",
+                        "mathematical optimization, often becoming experts in the ",
+                        "area. This phenomenon is illustrated by the results of our ",
+                        "survey, which show that almost 58% of commercial users ",
+                        "have four or more years of experience with mathematical ",
+                        "optimization, while nearly 26% of commercial users have ",
+                        "been using this AI technology for 10 or more years.",
+                        "Who Is Using Mathematical Optimization Today"
+                    ]
+                },
+                {
+                    "heading": "Profile of Users",
+                    "content": [
+                        "How many years of commercial experience ",
+                        "do you have working with mathematical "
+                    ]
+                },
+                {
+                    "heading": "optimization?",
+                    "content": [
+                        "My role in my company is:"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 7,
+        "content": {
+            "sections": [
+                {
+                    "heading": "7",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved."
+                    ]
+                },
+                {
+                    "heading": "Common Use Cases",
+                    "content": [
+                        "One of the key strengths of mathematical ",
+                        "optimization is its versatility. Mathematical ",
+                        "optimization solvers \u2013 the algorithmic ",
+                        "engines that make every application ",
+                        "run \u2013 are embedded in a vast and ever-",
+                        "expanding array of applications to address ",
+                        "a broad range of complex, real-world ",
+                        "business problems and enable optimal ",
+                        "decision making and business outcomes. ",
+                        "The results of our survey showcase the ",
+                        "versatility of mathematical optimization ",
+                        "in the business world today, with ",
+                        "respondents stating that they use or plan ",
+                        "to use mathematical optimization to tackle ",
+                        "a wide range of business problems. The ",
+                        "most popular use cases of mathematical ",
+                        "optimization among respondents are ",
+                        "planning (52.5%), operational applications ",
+                        "(42.4%), logistics (41.9%), and resource "
+                    ]
+                },
+                {
+                    "heading": "scheduling (36.4%). ",
+                    "content": [
+                        "How Companies Today Are Using Mathematical Optimization",
+                        "Which use cases do you use or plan to use mathematical ",
+                        "optimization for? (Select all that apply)"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 8,
+        "content": {
+            "sections": [
+                {
+                    "heading": "8",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved."
+                    ]
+                },
+                {
+                    "heading": "Type of Development",
+                    "content": [
+                        "Broadly speaking, there are two different ",
+                        "ways that companies can implement and ",
+                        "use mathematical optimization solvers: ",
+                        "1) They custom build an application (using ",
+                        "in-house OR specialists and data scientists ",
+                        "or external consultants) and embed the "
+                    ]
+                },
+                {
+                    "heading": "solver in it. ",
+                    "content": [
+                        "2) They purchase an off-the-shelf, ",
+                        "customizable software application, which ",
+                        "is built by a third-party software vendor ",
+                        "and has the solver embedded in it. ",
+                        "Although both approaches are common ",
+                        "today, the majority (77.7%) of respondents ",
+                        "to our survey indicated that they custom ",
+                        "built their applications, while a minority ",
+                        "(16.8%) said that they use an off-the-shelf ",
+                        "application or a combination of an off-the-",
+                        "shelf and custom-built applications. ",
+                        "It is important to note that this split is ",
+                        "most likely a reflection of the fact that the ",
+                        "survey respondents are Gurobi customers ",
+                        "(who typically purchase, embed, and ",
+                        "use our solver in their custom-built ",
+                        "applications), while the other main user ",
+                        "group (those who use mathematical ",
+                        "optimization through an off-the-shelf ",
+                        "application) are underrepresented in this ",
+                        "survey. In the business world today, there ",
+                        "is a more balanced mix of the two types of "
+                    ]
+                },
+                {
+                    "heading": "deployment. ",
+                    "content": [
+                        "How Companies Today Are Using Mathematical Optimization",
+                        "Where does the mathematical optimization solver live? ",
+                        "(Select all that apply)"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 9,
+        "content": {
+            "sections": [
+                {
+                    "heading": "9",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved.",
+                        "How Companies Today Are Using Mathematical Optimization"
+                    ]
+                },
+                {
+                    "heading": "Business Benefits Achieved",
+                    "content": [
+                        "Mathematical optimization is a proven, ",
+                        "powerful AI technology that has delivered ",
+                        "tremendous benefits in terms of efficiency ",
+                        "and profitability for companies around ",
+                        "world and across numerous industries. ",
+                        "Indeed, using mathematical optimization, ",
+                        "companies have realized billions of dollars ",
+                        "in cost savings and revenue growth. ",
+                        "One of the unique features of ",
+                        "mathematical optimization is that in your ",
+                        "company\u2019s application you can specify ",
+                        "which business objectives you want to ",
+                        "achieve, and then use the application ",
+                        "to help you achieve them. You may, for ",
+                        "example, want to minimize operating costs ",
+                        "or employee overtime hours or machine ",
+                        "downtime, or maximize on-time delivery ",
+                        "performance or risk-adjusted investment ",
+                        "returns or revenue growth. No matter ",
+                        "what your business objectives are, if you ",
+                        "can define them in mathematical terms ",
+                        "in your application, then mathematical ",
+                        "optimization can help you reach them. ",
+                        "The results of our survey reflect the ",
+                        "positive impact that mathematical ",
+                        "optimization has had in helping users ",
+                        "realize a variety of business outcomes. ",
+                        "The three most common business ",
+                        "objectives achieved among respondents ",
+                        "were maximizing resource utilization ",
+                        "(57.9%), maximizing profits (53.4%) and "
+                    ]
+                },
+                {
+                    "heading": "maximizing revenues (42.7%).",
+                    "content": [
+                        "Which business objectives does Gurobi help the ",
+                        "company achieve? (Select all that apply)"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 10,
+        "content": {
+            "sections": [
+                {
+                    "heading": "10",
+                    "content": [
+                        "State of Mathematical Optimization Report, 2021",
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved.",
+                        "How Companies Today Are Using Mathematical Optimization",
+                        "Increasing Importance Across the "
+                    ]
+                },
+                {
+                    "heading": "Enterprise    ",
+                    "content": [
+                        "As mathematical optimization is being used in an ",
+                        "expanding array of mission-critical applications by ",
+                        "business today and has delivered such significant ",
+                        "business value, it is no surprise that this AI technology ",
+                        "is gaining traction among decision makers within these "
+                    ]
+                },
+                {
+                    "heading": "companies. ",
+                    "content": [
+                        "The results of our survey highlight the increasing ",
+                        "importance of mathematical optimization across ",
+                        "enterprises today: 58.9% of respondents indicated that ",
+                        "mathematical optimization is gaining traction internally, ",
+                        "while 37.2% said that mathematical optimization is ",
+                        "retaining its importance in their organization.  ",
+                        "With the footprint of mathematical optimization expanding ",
+                        "across the enterprise, the future is bright for this AI "
+                    ]
+                },
+                {
+                    "heading": "technology. ",
+                    "content": []
+                },
+                {
+                    "heading": "Combining Mathematical Optimization ",
+                    "content": []
+                },
+                {
+                    "heading": "and Machine Learning",
+                    "content": [
+                        "Mathematical optimization and machine learning are ",
+                        "complementary, and a growing number of companies are ",
+                        "building and deploying applications that combine these "
+                    ]
+                },
+                {
+                    "heading": "two AI technologies.",
+                    "content": [
+                        "Nearly half (46%) of survey respondents stated that they ",
+                        "use mathematical optimization and machine learning "
+                    ]
+                },
+                {
+                    "heading": "together today. ",
+                    "content": [
+                        "There are many different ways that mathematical ",
+                        "optimization and machine learning can work together: ",
+                        "How much do you agree with this statement? "
+                    ]
+                },
+                {
+                    "heading": "Mathematical optimization is:",
+                    "content": []
+                },
+                {
+                    "heading": "58.9%",
+                    "content": []
+                },
+                {
+                    "heading": "Gaining more ",
+                    "content": []
+                },
+                {
+                    "heading": "traction within my ",
+                    "content": []
+                },
+                {
+                    "heading": "company and with ",
+                    "content": []
+                },
+                {
+                    "heading": "decision makers",
+                    "content": []
+                },
+                {
+                    "heading": "37.2%",
+                    "content": [
+                        "Is steady - neither "
+                    ]
+                },
+                {
+                    "heading": "losing or gaining ",
+                    "content": []
+                },
+                {
+                    "heading": "traction with ",
+                    "content": []
+                },
+                {
+                    "heading": "decision makers",
+                    "content": []
+                },
+                {
+                    "heading": "3.9 %",
+                    "content": []
+                },
+                {
+                    "heading": "Losing traction within ",
+                    "content": []
+                },
+                {
+                    "heading": "my company with ",
+                    "content": []
+                },
+                {
+                    "heading": "decision makers",
+                    "content": []
+                },
+                {
+                    "heading": "46.1%",
+                    "content": [
+                        "of those surveyed use "
+                    ]
+                },
+                {
+                    "heading": "mathematical optimization in ",
+                    "content": [
+                        "concert with machine learning.",
+                        "machine learning predictions can serve as input for mathematical optimization solutions, mathematical optimization ",
+                        "solutions can serve as input for machine learning predictions, and mathematical optimization can actually be used to ",
+                        "generate optimal solutions to classification, prediction, and other problems that are usually solved with machine learning.",
+                        "Today\u2019s data scientists and operations research professionals are just beginning to discover all the possible ways to ",
+                        "integrate and utilize these two powerful AI technologies together."
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 11,
+        "content": {
+            "sections": [
+                {
+                    "heading": "11",
+                    "content": [
+                        "\u00a9 Gurobi Optimization, LLC. All Rights Reserved."
+                    ]
+                },
+                {
+                    "heading": "Conclusion",
+                    "content": [
+                        "To learn more about how mathematical optimization could benefit your business, ",
+                        "visit Gurobi.com or contact us at sales@gurobi.com."
+                    ]
+                },
+                {
+                    "heading": "\u0084 ",
+                    "content": [
+                        "Impact across industries: Companies across more than 40 different industries (including ",
+                        "electrical power, logistics, financial services, and telecommunications) use mathematical ",
+                        "optimization in their operations. "
+                    ]
+                },
+                {
+                    "heading": "\u0084 ",
+                    "content": [
+                        "Expanding user base: A broad range of professionals from various fields (including ",
+                        "operations research, engineering, computer science, and \u2013 more and more \u2013 data science)   ",
+                        "and various functions and levels across the enterprise are using mathematical optimization "
+                    ]
+                },
+                {
+                    "heading": "technologies today. ",
+                    "content": []
+                },
+                {
+                    "heading": "\u0084 ",
+                    "content": [
+                        "A vast array of applications: Companies are embedding mathematical optimization solvers ",
+                        "in a wide variety of off-the-shelf and custom-built applications to address a whole host ",
+                        "of business problems. Increasingly, companies are building applications that combine ",
+                        "mathematical optimization and machine learning.  "
+                    ]
+                },
+                {
+                    "heading": "\u0084 ",
+                    "content": [
+                        "Proven business value: Companies that utilize mathematical optimization technologies ",
+                        "are consistently able to achieve their business objectives such as minimizing costs and ",
+                        "maximizing resource utilization and revenue. "
+                    ]
+                },
+                {
+                    "heading": "\u0084 ",
+                    "content": [
+                        "Growing power and presence across the enterprise: Businesses today are continuously ",
+                        "developing and deploying new, mission-critical mathematical optimization applications, and ",
+                        "this AI technology is gaining traction among decision makers across the enterprise.",
+                        "Mathematical optimization has firmly established itself as an essential AI technology for companies today. In this ",
+                        "report, we highlighted numerous key trends that illustrate the increasing importance of mathematical optimization in our "
+                    ]
+                },
+                {
+                    "heading": "business world:",
+                    "content": []
+                }
+            ]
+        }
+    },
+    {
+        "page": 12,
+        "content": {
+            "sections": [
+                {
+                    "heading": "Gurobi.com      sales@gurobi.com",
+                    "content": [
+                        "\u00a9 2021 Gurobi Optimization, LLC"
+                    ]
+                }
+            ]
+        }
+    }
+]

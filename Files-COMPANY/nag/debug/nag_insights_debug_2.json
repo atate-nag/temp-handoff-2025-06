@@ -1,0 +1,45 @@
+[
+    {
+        "id": "insight-3",
+        "description": "Bright computing not a competitor – just interesting slide!",
+        "sourceDocument": "European HPC Service Competitors 3 July 2020 (etp4hpc fellow members).docx",
+        "extractionDate": "2024-03-12",
+        "categories": [
+            "Competitor"
+        ],
+        "relevanceScore": 7.5
+    },
+    {
+        "id": "insight-18",
+        "description": "great - cheap competitor analysis in 5 mins",
+        "sourceDocument": "European HPC Service Competitors 3 July 2020 (etp4hpc fellow members).docx",
+        "extractionDate": "2024-03-12",
+        "categories": [
+            "Competitor"
+        ],
+        "relevanceScore": 7.5
+    },
+    {
+        "id": "insight-20",
+        "description": "Most staff focussed on HPC (i.e. all tech guys)",
+        "sourceDocument": "European HPC Service Competitors 3 July 2020 (etp4hpc fellow members).docx",
+        "extractionDate": "2024-03-12",
+        "categories": [
+            "High Performance Computing"
+        ],
+        "relevanceScore": 9.0
+    },
+    {
+        "id": "insight-21",
+        "description": "NAG Cloud and ML Product Manager @NAGTalk Mike C @walkingrandomly talks Cloud HPC https://bit.ly/31cFzap  in “ETP4HPC Webinar - meet our @ISChpc  co-exhibitors” Big thanks to organisers @Etp4H",
+        "sourceDocument": "European HPC Service Competitors 3 July 2020 (etp4hpc fellow members).docx",
+        "extractionDate": "2024-03-12",
+        "categories": [
+            "NAG",
+            "High Performance Computing",
+            "Cloud Services",
+            "Machine Learning"
+        ],
+        "relevanceScore": 10.0
+    }
+]

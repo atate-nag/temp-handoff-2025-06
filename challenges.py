@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import json
 import matplotlib.pyplot as plt
 
+
 def plot_challenges(challenges):
     # Prepare lists for the x and y coordinates and labels
     x_coords = []
@@ -10,25 +11,30 @@ def plot_challenges(challenges):
 
     # Calculate the coordinates for each challenge
     for challenge in challenges:
-        x_score = challenge['importance']
-        y_score = challenge['addressability']
+        x_score = challenge["importance"]
+        y_score = challenge["addressability"]
         x_coords.append(x_score)
         y_coords.append(y_score)
-        labels.append(challenge['challenge'])  # Adjusted for correct attribute 'challenge'
+        labels.append(
+            challenge["challenge"]
+        )  # Adjusted for correct attribute 'challenge'
 
     # Create a scatter plot with larger figure size for better visibility
     fig, ax = plt.subplots(figsize=(10, 8))  # Adjust the figure size as needed
-    scatter = ax.scatter(x_coords, y_coords, s=100, alpha=0.6, color='blue')  # Adjust size as needed
+    scatter = ax.scatter(
+        x_coords, y_coords, s=100, alpha=0.6, color="blue"
+    )  # Adjust size as needed
 
     # Add labels for each point
     for label, x, y in zip(labels, x_coords, y_coords):
-        ax.text(x, y, ' ' + label, ha='right', va='bottom', fontsize=9, wrap=True)
+        ax.text(x, y, " " + label, ha="right", va="bottom", fontsize=9, wrap=True)
 
     # Set the axis labels, title, etc.
     # Your existing code here to set up the plot...
 
     # IMPORTANT: Return the figure object instead of plt
     return fig
+
 
 def find_top_right_challenge(challenges):
     if isinstance(challenges, str):
@@ -37,7 +43,7 @@ def find_top_right_challenge(challenges):
     top_right_challenge = None
     # Iterate through the challenges to find the one with the highest combined score
     for challenge in challenges:
-        combined_score = challenge['importance'] + challenge['addressability']
+        combined_score = challenge["importance"] + challenge["addressability"]
         if combined_score > max_combined_score:
             max_combined_score = combined_score
             top_right_challenge = challenge
@@ -180,4 +186,3 @@ def find_top_right_challenge(challenges):
 # top_challenge = find_top_right_challenge(challenges)
 #
 # print(top_challenge)
-

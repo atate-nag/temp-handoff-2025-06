@@ -8,6 +8,15 @@ import concurrent.futures
 import json
 import shutil
 import sys
+from run_assistant_thread import (
+    run_trends_analysis,
+    run_challenges_analysis,
+    run_capabilities_analysis,
+    run_actions,
+    overseer_manage_assistant,
+    import_data_files_and_upload,
+    parallel_file_process,
+)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core_components.src.agents.openAI import client, load_agents, query_assistant
@@ -23,15 +32,7 @@ from langchain_openai import OpenAIEmbeddings
 from challenges import find_top_right_challenge
 from powerpoint import create_powerpoint
 from retrieval import find_and_download_files, retrieve_docs
-from run_assistant_thread import (
-    import_data_files,
-    overseer_manage_assistant,
-    parallel_file_process,
-    run_actions,
-    run_capabilities_analysis,
-    run_challenges_analysis,
-    run_trends_analysis,
-)
+
 
 RETRIEVAL_PIPELINE = False
 DEBUG_RUN = None
@@ -110,13 +111,17 @@ else:
 # data_dir = "Files-DATA"
 
 # debug run is for the latter stages so that you can read files and not prduce them again
+DEBUG_RUN = None
+# some intermediates files are created neccesarily, but this forces all to be created
+PRODUCE_INTERMEDIATES = None
 
+START_AT_STAGE = 1  # 1-data import 2-Company-insights 3-Market insights 4-Trends/Capabilities 5-Challenges 6-Actions
 
 if not DEBUG_RUN:
     # read contents of the Files-COMPANY directory
     # step 1: Extract the data files without loss of information
-    company_data = import_data_files(client, data_dir)
-    print(f"Main: Company data imported: file_id={company_data.id}")
+    company_data, _ = import_data_files_and_upload(client, data_dir)
+    print(f"Main: Company data imported: file_id={company_data}")
 
     # step 2: Run through the insight files on the company, extract and collect in company_insights
     company_insights = parallel_file_process(

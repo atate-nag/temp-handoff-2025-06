@@ -1,0 +1,463 @@
+[
+    {
+        "page": 1,
+        "content": {
+            "sections": [
+                {
+                    "heading": "NAG STRATEGIC BACKGROUND ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": [
+                        "Highly Confidential to NAG and advisors \u2013 not fit for distribution "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "1 ",
+                    "content": []
+                },
+                {
+                    "heading": "DOCUMENT PURPOSE ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": [
+                        "A brief, imprecise overview of the strategic background in which NAG is operating. This is not meant to provide ",
+                        "a strategic analysis but may facilitate in the development of one. This document can be read by NAG Strategic ",
+                        "advisors to get a sense of what the company is currently doing before real discussions can begin. "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "2 ",
+                    "content": []
+                },
+                {
+                    "heading": "HISTORY ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": [
+                        "NAG has existed in some form since 1970 and has been a commercial company since 1976. The NAG Library, a ",
+                        "collection of numerical algorithms, has been the primary product and revenue generator through this period ",
+                        "and remains one of two major revenues streams today. Through the 1980s and 1990s NAG developed a strong ",
+                        "reputation in the area of numerical analysis and numerical software development. The product became world-",
+                        "recognised, both in the user community and in the academic research community. Major academic / research ",
+                        "players contributed to the NAG Library in areas such as Statistics, Linear Algebra and Mathematical ",
+                        "Optimization. NAG remains strongly linked to world class researchers, such as Jack Dongarra (Manchester & ",
+                        "Tennessee  - HPC, Linear Algebra) Nick Higham (Manchester - numerical Analysis) and Uwe Naumann (RWTH ",
+                        "Aachen, Automatic Differentiation) to name just a few.  ",
+                        "The NAG Library remained the strongest collection of algorithms through a competitive period, with IMSL ",
+                        "(Visual Numerics, now Perforce) the closest direct competitor, having a stronger presence in the US but weaker ",
+                        "in the UK and EMEA. Students were taught the NAG library in their Fortran and engineering undergraduate ",
+                        "courses and entered the workforce with knowledge of the product and its abilities. It remained well-recognised ",
+                        "and well regarded name in the field of numerical analysis and HPC and was used in a variety of Engineering "
+                    ]
+                },
+                {
+                    "heading": "sectors.  ",
+                    "content": [
+                        "Over the period 2000-2010 the NAG Library developed a strong customer base in sell-side Financial Services, as ",
+                        "the investment banks that developed their own pricing libraries required a robust and supported algorithmic ",
+                        "underpinning to their own codes. NAG today remains strongly embedded in a majority of the tier-1 banks and ",
+                        "several smaller banks. The financial sector is a rather impenetrable sector in which the customer\u2019s technical ",
+                        "problems are not always articulated well for proprietary/competitive reasons. NAG has been unable to either ",
+                        "strongly tune the product to the needs of these customers, nor to capitalize on the market penetration by ",
+                        "developing successor products (with the except of the AD Suite, mentioned below). The financial clients are ",
+                        "mostly on perpetual licenses with limited annual service/support revenues for NAG.  "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": [
+                        "During a similar period, the fundamental algorithms that affect processor performance (linear Algebra, FFTs, ",
+                        "RNGs) started being developed in-house by processor vendors to provide value-add to their products. These ",
+                        "companies could exploit more specific tunings for their own hardware and as such NAG could not develop "
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 2,
+        "content": {
+            "sections": [
+                {
+                    "heading": "recruiting technical staff.  ",
+                    "content": [
+                        "products that were competitive. This part of the NAG library\u2019s business was lost, although NAG continues to ",
+                        "partner in the development of those libraries (e.g. Arm, Intel).  ",
+                        "The Library business model has some natural limitations, it is a collection of user-agnostic functionality that ",
+                        "covers a broad mathematical spectrum. As such, traditional product management techniques that tailor the ",
+                        "product\u2019s feature sets to a perceived need in the market, are difficult to apply. Content has sometimes been ",
+                        "added to the library according to the interests of the research community or opportunistic developments inside ",
+                        "the company, with little commercial awareness. Recent attempts to address this have been fraught with ",
+                        "obstacles. A trio of conditions make this problem difficult \u2013 the user-agnostic nature of numerical content, the ",
+                        "aggregation of content into the library format, and the proprietary nature of many of NAG\u2019s clients.  ",
+                        "NAG has over years attempted to develop or productise various other technologies, such as new compilers, ",
+                        "visualization frameworks and PDE solvers (twice). None of the new products has ever had any strong success. ",
+                        "However, the GenStat product that was spun-off to start a new company VSN has been mildly successful, and ",
+                        "NAG still owns a 25% stake in that company.  ",
+                        "NAG has historically performed technical services alongside numerical library development, providing both an ",
+                        "alternative (minor) revenue stream and boosting library renewals. Major service work was established with ",
+                        "technology providers such as Intel, Arm and AMD, usually to develop some portion of their numerical software. ",
+                        "NAG developed the bulk of AMD\u2019s ACML library in the early Opteron period. In the 2000s, NAG began providing ",
+                        "HPC services as an offering and established a major contract with HECToR, the UK national resource, to provide ",
+                        "CSE support. For approx. 7 years (2007-2014) NAG successfully established this service and the company ",
+                        "became both larger and financially very strong on the back of this. NAG was aggressively outbid in the HECToR ",
+                        "follow-on project called ARCHER, lost the business, and as a result went through significant reductions in staff.  ",
+                        "Around 2010 NAG developed a relationship with an O&G major in Houston, through which a modest amount of ",
+                        "HPC service work ensued. Over a number of years NAG developed the relationship to the point of providing ",
+                        "continued HPC service provision on behalf of the client, a continual arrangement with >10 staff provided for ",
+                        "many years. This relationship has provided a sustainable revenue stream with strong margins for several years. ",
+                        "NAG has failed to replicate the model, which seems to be strongly tailored to the clients\u2019 internal difficulties ",
+                        "NAG has provided a commercial Fortran compiler since the 1980s. It is world renowned in a niche setting \u2013 ",
+                        "strong support of the Fortran standard and error checking. It is used by many Fortran customers as a second, ",
+                        "supporting compiler to help development. It has never been a commercially lucrative product but provides ",
+                        "some reputational value to NAG.  ",
+                        "NAG has commercialized the Automatic Differentiation products of RWTH Aachen. These products have found a ",
+                        "market within Financial Services. The company has reason to believe that automatic differentiation (similar to ",
+                        "back-propagation in Machine Learning) represents some real opportunity for NAG but this is yet to be realized. ",
+                        "The collaboration with RWTH Aachen is extremely strong and has been recently ramped up, NAG funds multiple ",
+                        "PhD positions there, with those students working part-time as engineers at NAG. The cost of sale of current the ",
+                        "product is high, revenues of the product remain low and penetration outside of FSI is low. ",
+                        "Brian Ford was NAG\u2019s founder and CEO until 2005, Rob Meyer was CEO in the period 2005-2019 and Adrian ",
+                        "Tate is the current CEO. Since 2019, NAG has been undergoing a period of transformation, with changes to the ",
+                        "Executive team, collaboration style, development practices, emphasis on product, and marketing. The company ",
+                        "structure and culture have been drastically altered. Progress has been made in terms of innovation and ",
+                        "sustainability but many of NAG\u2019s problems remain. In particular, the company is considered to have a lack of ",
+                        "focus, with too many balls in the air, too little time spent engaging with the market and too long spent talking "
+                    ]
+                },
+                {
+                    "heading": "internally with itself. ",
+                    "content": []
+                }
+            ]
+        }
+    },
+    {
+        "page": 3,
+        "content": {
+            "sections": [
+                {
+                    "heading": "3 ",
+                    "content": []
+                },
+                {
+                    "heading": "CURRENT PRODUCT PORTFOLIO AND STRENGTHS ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "NAG LIBRARY  ",
+                    "content": [
+                        "Revenues (GBP) : Approx 4 Million GBP ",
+                        "Profitability : Low (pre-2022), High (post-2022) ",
+                        "Value Proposition :  Robust, supported collection of algorithms,  ",
+                        "Key Clients : Most banks, some major industrial (Airbus, NeilsenIQ,  ",
+                        "Competitive Position :  Owns the market in general libraries. Budget option version the Optimization Libraries "
+                    ]
+                },
+                {
+                    "heading": "(Gurobi,  ",
+                    "content": [
+                        "Strengths : High barrier to exit, solution gets baked into applications and sticky, renewals strong, attrition low ",
+                        "Weakness :  Cost of Sale is high, new business very low and decreasing ",
+                        "Trends : Value is eroding over time as new usage models become dominant, new business very low, not able to ",
+                        "corner any of the data-science boom  "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "MANAGED SERVICES ",
+                    "content": [
+                        "Revenues : Approx 4 Million GBP "
+                    ]
+                },
+                {
+                    "heading": "Profitability :  medium ",
+                    "content": [
+                        "Value Proposition :  Avoids internal recruiting concerns via outsourcing of HPC service ",
+                        "Key Clients :  O&G major Client (only one) ",
+                        "Competitive Position :  Strongly embedded in the client, major competition is the decision to do in-house, "
+                    ]
+                },
+                {
+                    "heading": "currently not likely,  ",
+                    "content": [
+                        "Strengths : current relationship remains strong, but personnel changes will risk this ",
+                        "Weakness :  considered to be \u201cnot replicable\u201d, also not something that can be discussed openly ",
+                        "Trends : Losing people to the \u201cgreat resignation\u201d "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "HPC CLOUD SERVICES ",
+                    "content": [
+                        "Revenues : Approx 1 Million GBP "
+                    ]
+                },
+                {
+                    "heading": "Profitability :  zero ",
+                    "content": [
+                        "Value Proposition :  get better cost-to-solution from your migration to Cloud HPC with mix of traditional HPC ",
+                        "tuning and Cloud / sysadmin support ",
+                        "Key Clients :  via the CSPs - Google, Microsoft, AWS ",
+                        "Competitive Position :  Red Oak and other UK small business compete for the business, main competitor is the ",
+                        "client organisations doing the work in-house "
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 4,
+        "content": {
+            "sections": [
+                {
+                    "heading": "major CSPs ",
+                    "content": [
+                        "Strengths : momentum achieved through the GTM efforts of the last year, strong / building relationship all three ",
+                        "Weakness :  business has been patchy and slow, but picking up ",
+                        "Trends :  Cloud is growing, we are hitting the tipping point for HPC but clients still struggling "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "AUTOMATIC DIFFERENTIATION SUITE ",
+                    "content": [
+                        "Revenues : Approx. 0.5 Million "
+                    ]
+                },
+                {
+                    "heading": "Profitability :  zero ",
+                    "content": [
+                        "Value Proposition :  calculating sensitivities much more quickly can save your business lots of money ",
+                        "Key Clients :  tier1 and tier2 investment banks, some automotive and F1 ",
+                        "Competitive Position :  open-source software exists that is comparable, but very hard to use. Startups MatLogica ",
+                        "and MOCAx have strong niche products and aggressively marketed.  ",
+                        "Strengths : great relationship with RWTH Aachen has enabled and resourced the product development. This is ",
+                        "really a solutions space, product and service together achieve results, we have an advantage in this regard ",
+                        "compared to small players.  ",
+                        "Weakness :  Our pricing appears to be wrong, but we already have perpetual licenses with major clients. Poor ",
+                        "traction outside of FSI.  ",
+                        "Trends :  the need for sensitivities happens everywhere that volatility happens, and we expect it to grow. ",
+                        "Scientific domains and machine learning are two areas of interest.  "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "NAG FORTRAN COMPILER ",
+                    "content": [
+                        "Revenues : Approx. 0.3 Million "
+                    ]
+                },
+                {
+                    "heading": "Profitability :  zero ",
+                    "content": [
+                        "Value Proposition :  you need a second compiler to do error-checking and standard support properly. ",
+                        "Key Clients :  US national labs ",
+                        "Competitive Position :  NAG has a niche product that serves its niche well with zero growth potential.   ",
+                        "Strengths : World-recognized in a very small niche, supports Co-arrays and more of the standard than other "
+                    ]
+                },
+                {
+                    "heading": "compilers  ",
+                    "content": [
+                        "Weakness :  No optimization capability, not for performance ",
+                        "Trends :  Fortran continues its resurgence and will be embedded in performance codes for many years/decades. ",
+                        "The world has moved onto LLVM-based compilers and all collaboration requires this basis.  "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": "4 ",
+                    "content": []
+                },
+                {
+                    "heading": "RECENT DEVELOPMENTS ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                }
+            ]
+        }
+    },
+    {
+        "page": 5,
+        "content": {
+            "sections": [
+                {
+                    "heading": "large technology providers.  ",
+                    "content": [
+                        "In March 2022 NAG entered into a Framework Agreement with AMD that allowed AMD to make offers of ",
+                        "employment to NAG employees. For each employee that accepted the offer, NAG would be rewarded ",
+                        "financially. At the time of writing the transaction is yet to complete but is set to be quite successful. This style of ",
+                        "transaction is related to \u201cacquihire\u201d (where a company is acquired for its staff) which is a recent trend and a ",
+                        "reaction to the Great Resignation / global talent crunch. The scope of the deal means it is expected to drastically ",
+                        "accelerate the reprograming of NAGs internal dynamics and will increase profitability of the NAG Library. It is ",
+                        "expected that the replacements to departing staff will be at two levels a) junior staff to build the next ",
+                        "generation of engineers b) technical staff with more domain knowledge on how our products are used in the ",
+                        "market, to drive innovations.  ",
+                        "The people that have moved to AMD have done so voluntarily, and with an enormous increase in benefits. The ",
+                        "transaction is much more amicable and positive than M&A activity.  ",
+                        "Following the transaction, plus the existing healthy cash position, NAG has a cash balance of around 18 Million ",
+                        "GBP, which is expected to be used to invest in meet strategic aims. This should be a mixture of rebuilding to ",
+                        "support organic growth and inorganic activity to accelerate both growth and innovations. For those staff that ",
+                        "did not move, this growth and focus period will represent an exciting opportunity for the company.  ",
+                        "We feel that our supplies of UK based technical talent remain open and that we could restaff any new ",
+                        "enterprise rather quickly. This leads to the potential for further Acquihire transactions with AMD or with other "
+                    ]
+                },
+                {
+                    "heading": "5 ",
+                    "content": []
+                },
+                {
+                    "heading": "NAG STRATEGIC AMBITION ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": [
+                        "NAG\u2019s current strategic path has been around transformation. We have built missing capabilities and completely ",
+                        "reprogrammed the internal dynamics of the company. In an older company, change can happen too quickly so ",
+                        "this has been paced according to what the company can handle. We have built an innovation system, taken new ",
+                        "services to market, developed both Product Management and Product Marketing functions, started new ",
+                        "product discovery and new market discovery. Despite these successes, NAG is still too internal focused, ",
+                        "struggles with the market information needed to make product decisions, and is yet to display real success ",
+                        "outside the core areas of numerical software and managed services.  ",
+                        "The NAG brand has been neglected over the years, and while there are some sectors that NAG has strong ",
+                        "reputation for its size, there are other sectors where the name is not well regarded. The company still looks old-",
+                        "fashioned. Further improvements in presentation must be made, but the purpose of the company and the way ",
+                        "that it positions itself to the outside needs a reset. It will be important to not throw the baby out with the "
+                    ]
+                },
+                {
+                    "heading": "bathwater.  ",
+                    "content": [
+                        "NAG is primarily a products/technology company and will innovate to develop new IP in key areas. Candidate ",
+                        "areas are HPC technology in Cloud enablement, Optimization software targeting Portfolio Optimization, and ",
+                        "new AD products with a higher-level of abstraction. These product developments will be expensive, high-risk ",
+                        "and potentially dangerous for a company of this level. Ways to de-risk these efforts are central to NAG\u2019s "
+                    ]
+                },
+                {
+                    "heading": "sustainability plans. ",
+                    "content": [
+                        "One of NAG\u2019s traditional strengths has been the cross-over of services and product development, meaning that ",
+                        "inefficiencies on both sides can be mitigated by staff moving between them. The recent success with acquihire ",
+                        "transactions means that NAG may have an interesting and unique path to further de-risking product offerings, ",
+                        "by including the option of such transactions in the paths to exit. New service offerings can be very difficult to ",
+                        "make sufficient margins due to consultant utilization, and new product offerings are naturally risky due to ",
+                        "product-market fit. NAG can explore acquihire transactions simultaneously to these other enterprises, which ",
+                        "means that when developments or new offerings do not become sufficiently profitable, then another route to "
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "page": 6,
+        "content": {
+            "sections": [
+                {
+                    "heading": "semi-academic staff.  ",
+                    "content": [
+                        "profitability can be taken. NAG may have a unique ability to consider the Aquihire transaction as a strategic ",
+                        "route, due to the availability of RSE-level talent in the UK and the attractiveness of NAG as employer to those "
+                    ]
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": []
+                },
+                {
+                    "heading": " ",
+                    "content": [
+                        "NAG\u2019s status as a not-for-profit group is useful for these purposes, and for maintaining the collaborations with ",
+                        "industry that allow NAG to punch above its weight. However, NAG intends to start for-profit subsidiaries inside ",
+                        "the group, through which equity participation and outside investment are legitimate considerations. \u201cNAG ",
+                        "Solutions\u201d is expected to be incorporated this year, with benefit structure more appealing to a new generation ",
+                        "of technical. NAG Solutions can be used as an exit vehicle for acquihire transactions.  "
+                    ]
+                },
+                {
+                    "heading": "NAG",
+                    "content": []
+                },
+                {
+                    "heading": "New Product ",
+                    "content": []
+                },
+                {
+                    "heading": "Innovations",
+                    "content": []
+                },
+                {
+                    "heading": "Professional ",
+                    "content": []
+                },
+                {
+                    "heading": "Services",
+                    "content": []
+                },
+                {
+                    "heading": "Managed ",
+                    "content": []
+                },
+                {
+                    "heading": "Service ",
+                    "content": []
+                },
+                {
+                    "heading": "Development",
+                    "content": []
+                },
+                {
+                    "heading": "Acquihire",
+                    "content": []
+                },
+                {
+                    "heading": "/ asset sale",
+                    "content": []
+                }
+            ]
+        }
+    }
+]

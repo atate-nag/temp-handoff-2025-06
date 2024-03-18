@@ -6,19 +6,21 @@ from capabilities import plot_capabilities
 from challenges import plot_challenges
 from actions import print_actions_pretty
 
+
 # Function to save your figures as images
 def save_fig_as_image(fig, filename):
     # Check if the figure is a Plotly figure by looking for the 'write_image' attribute
-    if hasattr(fig, 'write_image'):
+    if hasattr(fig, "write_image"):
         fig.write_image(filename)
     # Check if the figure is a Matplotlib figure by looking for the 'savefig' method
-    elif hasattr(fig, 'savefig'):
-        fig.savefig(filename, bbox_inches='tight')
+    elif hasattr(fig, "savefig"):
+        fig.savefig(filename, bbox_inches="tight")
         plt.close(fig)
     else:
         print("The provided figure object is not recognized.")
 
-def create_powerpoint(json_trends, json_capabilities, json_challenges, actions_json ):
+
+def create_powerpoint(json_trends, json_capabilities, json_challenges, actions_json):
     # Initialize presentation
     prs = Presentation()
     # Slide titles
@@ -26,7 +28,7 @@ def create_powerpoint(json_trends, json_capabilities, json_challenges, actions_j
     image_paths = {
         "Trend Radar": "trend radar.png",
         "Capabilities": "capabilities.png",
-        "Challenges": "challenges.png"
+        "Challenges": "challenges.png",
     }
 
     # Assuming you have functions that generate matplotlib figures for each analysis
@@ -55,11 +57,13 @@ def create_powerpoint(json_trends, json_capabilities, json_challenges, actions_j
             tf = content_placeholder.text_frame
             tf.text = "What we will do:"
 
-            for action in actions_json:  # Assuming actions_json is a list of action dictionaries
+            for (
+                action
+            ) in actions_json:  # Assuming actions_json is a list of action dictionaries
                 p = tf.add_paragraph()
                 p.text = f"{action['action']} - {action['how']} - {action['who']}"
                 p.level = 0
                 p.font.size = Pt(14)
 
-    prs.save('strategy_presentation.pptx')
+    prs.save("strategy_presentation.pptx")
     print("Strategy Presentation Saved")
