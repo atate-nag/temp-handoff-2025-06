@@ -2,6 +2,7 @@ import json
 import os
 import openai
 
+
 class FileHandler:
     def __init__(self, client, base_path="./Intermediates/"):
         self.client = client
@@ -13,7 +14,9 @@ class FileHandler:
 
         # Check if file already exists locally and has been uploaded
         if handle in self.file_ids:
-            print(f"File for handle '{handle}' already uploaded with ID: {self.file_ids[handle]}")
+            print(
+                f"File for handle '{handle}' already uploaded with ID: {self.file_ids[handle]}"
+            )
             return self.file_ids[handle]
 
         # Serialize data to JSON and write to local file
@@ -22,7 +25,9 @@ class FileHandler:
 
         # Upload to OpenAI
         with open(local_file_path, "rb") as json_local_file:
-            openai_response = self.client.files.create(file=json_local_file, purpose=purpose)
+            openai_response = self.client.files.create(
+                file=json_local_file, purpose=purpose
+            )
             print(f"Wrote file {local_file_path} and uploaded to {openai_response.id}")
 
         # Store the file ID with its handle for later use
@@ -37,7 +42,9 @@ class FileHandler:
 
         # Check if file already exists locally and has been uploaded
         if handle in self.file_ids:
-            print(f"File for handle '{handle}' already uploaded with ID: {self.file_ids[handle]}")
+            print(
+                f"File for handle '{handle}' already uploaded with ID: {self.file_ids[handle]}"
+            )
             return self.file_ids[handle]
 
         # write to local file
@@ -46,7 +53,9 @@ class FileHandler:
 
         # Upload to OpenAI
         with open(local_file_path, "rb") as json_local_file:
-            openai_response = self.client.files.create(file=json_local_file, purpose=purpose)
+            openai_response = self.client.files.create(
+                file=json_local_file, purpose=purpose
+            )
             print(f"Wrote file {local_file_path} and uploaded to {openai_response.id}")
 
         # Store the file ID with its handle for later use

@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     folder = "Files-MARKET-retrieved"
     company_data = "Files-COMPANY-retrieved"
-    company_data = import_data_files(client, "Files-COMPANY-retrieved")
+    company_data, _ = import_data_files_and_upload(client, "Files-COMPANY-retrieved")
     # print(f"Queries: {queries}")
     # retrieved_docs = retrieve_docs(
     #     files, increased_queries
