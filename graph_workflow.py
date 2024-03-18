@@ -4,7 +4,7 @@ import os
 import openai
 from dotenv import load_dotenv
 from run_assistant_thread import (parallel_file_process, import_data_files_and_upload, overseer_manage_assistant,
-                                  run_capabilities_analysis, run_recommender_analysis)
+                                  run_capabilities_analysis, run_recommender_analysis, run_competition_analysis)
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
 from dochandler import import_data_files
@@ -39,6 +39,7 @@ def get_step_function(step_name):
         "displayCapabilities" : display_capabilities,
         "cleanInsights" : clean_insights,
         "pruneInsights" : prune_insights,
+        "buildCompetitiveEnvironment" : build_competitive_environment,
     }
     return step_map.get(step_name, None)  # Return None if not found
 def execute_workflow():
@@ -234,7 +235,36 @@ def prune_insights(companyName):
         json_file.write(str_recommender_content)
 
     # now add the capabilities to the graph
-    # company_graph.add_capability_and_evidence(companyName, recommender_content)
+    company_graph.prune_insights_from_recommendation(companyName, recommender_content)
+    return
+
+def build_competitive_environment(companyName, updateGraph):
+    # check through the company graph to see what competitors are known
+    # Agent must define new nodes in the graph so we can create company nodes
+    # first get the insight graph state
+    json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
+    print(json_graph)
+    filename_prefix = f"company_and_insight_graph_{companyName}"
+    file = file_handler.direct_upload(json_graph, filename_prefix, companyName, purpose="assistants")
+    print(f"Newly uploaded file ID for '{companyName}': {file}")
+
+    # now call the recommender agent and it give a set of recommendations and justifications
+    competition_file = overseer_manage_assistant(client, None, "competition",
+                                                          0, run_competition_analysis, file)
+
+    # how much basic information do we have on each competitor? Dump the competition graph
+
+    print(competition_file)
+    str_competition_file = client.files.retrieve_content(competition_file)
+    competition_content = json.loads(client.files.retrieve_content(competition_file))
+
+    with open(
+            f"./Intermediates/competition.json",
+            "w",
+            encoding="utf-8",
+    ) as json_file:
+        json_file.write(str_competition_file)
+
     return
 
 # Load the workflow configuration

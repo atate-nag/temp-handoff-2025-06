@@ -58,6 +58,14 @@ class CompanyGraph(BaseGraph):
         """
         tx.run(query, company_name=company_name)
 
+    # def prune_insights_from_recommendation(self, comppany_name, recommendations):
+    #     with self.driver.session() as session:
+    #         session.write_transaction(self._prune_insights_recommendation, comppany_name, recommendations)
+    #
+    # @staticmethod
+    # def _prune_insights_recommendation(tx, company_name, recommendations):
+
+
     @staticmethod
     def _delete_company_node(tx, company_name):
         query = """
@@ -141,10 +149,8 @@ class CompanyGraph(BaseGraph):
         tx.run(query, company_name=company_name)
 
     def dump_company_insight_graph_to_json(self, company_name):
-
         ''' this function does not dump the full graph, it will only return the true insight ID , description
         and confidence of the insight. Then a walker will be able to derive the provenance of relationships'''
-
         with self.driver.session() as session:
             # Example Cypher query to retrieve a company, its insights, and relationships
             result = session.run("""
@@ -198,7 +204,6 @@ class CompanyGraph(BaseGraph):
                 irreplaceability=capability["irreplaceability"],
                 confidence=capability["confidence"]
             ).single()[0]
-
             for insight_id in capability["evidenced by"]:
                 print(f"evidence from {insight_id} for capability {name}")
                 tx.run(
@@ -207,10 +212,11 @@ class CompanyGraph(BaseGraph):
                     "MERGE (cap)-[:EVIDENCED_BY]->(i)",
                     name=name, insight_id=insight_id
                 )
+
     def display_company_capabilities(self, company_name):
         with self.driver.session() as session:
             result = session.read_transaction(self._get_company_capabilities, company_name)
-            #print(f"display result is {result}")
+            # print(f"display result is {result}")
             # for capability, insights in result:
             #     print(f"insights for {capability}are {insights}")
             # import sys

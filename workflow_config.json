@@ -54,7 +54,7 @@
       }
     },
     "pruneInsights" : {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag"
       }
@@ -76,13 +76,21 @@
     "pruneCapabilities" : {
       "enabled": false,
       "parameters" : {
-        "companyName": "nag"
+        "companyName": "nag",
+        "updateGraph": true
       }
     },
     "displayCapabilities": {
       "enabled": false,
       "parameters" : {
         "companyName": "nag"
+      }
+    },
+    "buildCompetitiveEnvironment": {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag",
+        "updateGraph": true
       }
     }
   }

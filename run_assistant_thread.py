@@ -27,6 +27,9 @@ actions_description = "Actions Agent"
 recommender_agent = "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ"
 recommender_description = "Recommender Agent"
 
+competition_agent = "asst_uphvlsvGIbtXQAx89cFShovV"
+competition_description = "Competition Description"
+
 def success_criteria_met(client,thread):
     print(f"Success Criteria: Checking thread {thread.id}")
     file_direct = retrieve_file_annotation(client, thread)
@@ -48,7 +51,6 @@ def overseer_manage_assistant(client, write_intermediate, prefix, index, assista
     for retry in range(max_retries):
         print(f"Retry {retry} for {assistant_function.__name__}")
         # run_steps, retrieve_response, thread = assistant_function(client, *args)
-
 
         # Check if success criteria are met
         file = success_criteria_met(client, thread)
@@ -408,6 +410,11 @@ def run_challenges_analysis(client, trends_file, capabilities_file):
     )
     return challenges_steps, challenges_response, challenges_thread
 
+def run_competition_analysis(client, insight_file):
+    competition_prompt = f"Define the competitive environment based on the file {insight_file}"
+    competition_steps, competition_response, competition_thread = run_assistant(client, competition_agent,
+                                competition_prompt, file_ids=[insight_file], description=competition_description)
+    return competition_steps, competition_response, competition_thread, competition_agent
 
 def run_actions(client, challenge, trends_file, capabilities_file):
     actions_prompt = (
