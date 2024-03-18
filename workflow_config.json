@@ -1,0 +1,89 @@
+{
+  "workflow": {
+    "createCompanies": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "updateCompanyData": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag",
+        "dataDir": "Files-DATA/"
+      }
+    },
+    "deleteInsights": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "cleanInsights": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "deleteCompany": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "dumpCompanyGraph": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "extractInsights": {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag",
+        "sourceDir": "Files-COMPANY/",
+        "debug": false,
+        "updateGraph" : true
+      }
+    },
+    "displayInsights": {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag",
+        "relevanceFrom" : 9.2
+      }
+    },
+    "pruneInsights" : {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag"
+      }
+    },
+    "deleteCapabilities": {
+      "enabled": true,
+      "parameters": {
+        "companyName": "nag"
+      }
+    },
+    "evaluateCapabilities": {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag",
+        "debug" : false,
+        "updateGraph" : true
+      }
+    },
+    "pruneCapabilities" : {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag"
+      }
+    },
+    "displayCapabilities": {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag"
+      }
+    }
+  }
+}

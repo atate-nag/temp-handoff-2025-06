@@ -1,6 +1,7 @@
 from docx import Document
 import json
 
+
 class Node:
     def __init__(self, title=None, content=None, level=0):
         self.title = title
@@ -22,14 +23,16 @@ class Node:
         return {
             "title": self.title,
             "content": self.content,
-            "children": [child.to_dict() for child in self.children]
+            "children": [child.to_dict() for child in self.children],
         }
+
 
 def get_heading_level(paragraph):
     """Extract heading level from paragraph style."""
-    if paragraph.style.name.startswith('Heading'):
+    if paragraph.style.name.startswith("Heading"):
         return int(paragraph.style.name.split()[-1])
     return None
+
 
 def read_docx(file_path):
     document = Document(file_path)

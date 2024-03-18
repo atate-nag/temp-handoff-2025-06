@@ -1,5 +1,6 @@
 import json
 
+
 def print_actions_pretty(actions):
 
     # Print each action in a formatted way
