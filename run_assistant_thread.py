@@ -4,9 +4,7 @@ import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from core_components.src.agents.openAI import load_agents
-
 from dochandler import Rdoc
 from datetime import datetime
 from dochandler import Rdoc
@@ -35,19 +33,18 @@ recommender_description = "Recommender Agent"
 competition_agent = "asst_uphvlsvGIbtXQAx89cFShovV"
 competition_description = "Competition Description"
 
-def success_criteria_met(client,thread):
+qm_agent = "asst_81bPWyyQJy4iqI7zyUEeoWhl"
 
-    print(f"Success Criteria: Checking thread {thread.id}")
+def retrieve_from_file_or_text(client,thread):
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct:
-        print(f"Success Criteria:got a direct file {file_direct}")
         return file_direct
     else:
         file_from_response = return_json_and_file(client, thread)
-        print(f"Success Criteria: found a file response at {file_from_response}")
         if file_from_response:
             return file_from_response
     return None
+
 
 
 def overseer_manage_assistant(
@@ -59,42 +56,106 @@ def overseer_manage_assistant(
 
     for retry in range(max_retries):
         print(f"Retry {retry} for {assistant_function.__name__}")
-        # run_steps, retrieve_response, thread = assistant_function(client, *args)
 
-        # Check if success criteria are met
-        file = success_criteria_met(client, thread)
-        if file:
-            print(f"good file from retrieval on attempt: {retry }")
+        #file = retrieve_from_file_or_text(client, thread)
 
-            if write_intermediate:
-                json_content = download_file_by_id(client, file)
-                with open(
-                    f"./Intermediates/insight_{prefix}_{index}.json",
-                    "w",
-                    encoding="utf-8",
-                ) as json_file:
-                    json_file.write(json_content)
+        file = quality_manager(client, thread)
 
-            return file
-        # If not successful, reply to the thread and insist on the file
-        print(
-            "Success criteria not met. Requesting refinement or a different approach."
-        )
-        client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
-        )
-        description = f"retry run due to lack of output file"
-        print(f"retry number { retry } for {assistant_function.__name__}")
-        run_steps, retrieve_response = run_thread(client, agent, thread, 3, description)
-        # TODO: add some logic that will do a QA on the content before deciding to proceed or not
-        # Logic to wait or handle the thread's response can be added here
+        # if file:
+        #     print(f"good file from retrieval on attempt: {retry }")
+        #
+        #     if write_intermediate:
+        #         json_content = download_file_by_id(client, file)
+        #         with open(
+        #             f"./Intermediates/insight_{prefix}_{index}.json",
+        #             "w",
+        #             encoding="utf-8",
+        #         ) as json_file:
+        #             json_file.write(json_content)
+        #
+        #     return file
+        # # If not successful, reply to the thread and insist on the file
+        # print(
+        #     "Success criteria not met. Requesting refinement or a different approach."
+        # )
+        # client.beta.threads.messages.create(
+        #     thread_id=thread.id,
+        #     role="user",
+        #     content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
+        # )
+        # description = f"retry run due to lack of output file"
+        # print(f"retry number { retry } for {assistant_function.__name__}")
+        # run_steps, retrieve_response = run_thread(client, agent, thread, 3, description)
+        # # TODO: add some logic that will do a QA on the content before deciding to proceed or not
+        # # Logic to wait or handle the thread's response can be added here
     print(
         f"{assistant_function.__name__} did not meet success criteria after {max_retries} attempts."
     )
     return None
 
+def quality_manager(client, thread):
+
+    ''' quality manager is going to assess the quality of agent output by
+        1) checking if some additional user resposne is needed and performing it
+        2) checking if the desired outputs were produced, requesting them if not
+        3) checking that desired outputs are in the format needed
+        4) checking that desired outputs are sufficiently numerous
+        5) checking that desired outputs are sufficiently detailed '''
+
+    # 1 - checking if some additional user response is needed
+
+    messages = client.beta.threads.messages.list(thread_id=thread.id).data
+    response = ""
+    for message in messages:
+        if message.role == "assistant" and message.content[0].type == "text":
+            #print(message.content[0].text.value)
+            response += message.content[0].text.value
+
+    print(response)
+
+    # send the message to the QM agent and he will provide a suitable prompt
+
+    with open(
+            f"./Intermediates/response.json", "w", encoding="utf-8"
+    ) as file:
+        file.write(response)
+    with open(
+            f"./Intermediates/response.json", "rb"
+    ) as openai_file:
+        openai_response = client.files.create(
+            file=openai_file, purpose="assistants"
+    )
+    print(
+        f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
+    )
+
+    qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
+    qm_steps, qm_response, qm_thread = run_assistant(
+        client,
+        qm_agent,
+        qm_prompt,
+        file_ids=[openai_response.id],
+        description="QM:",
+    )
+
+    qm_messages = client.beta.threads.messages.list(thread_id=qm_thread.id).data
+    qm_response = ""
+    for message in qm_messages:
+        if message.role == "assistant" and message.content[0].type == "text":
+            print(message.content[0].text.value)
+            qm_response += message.content[0].text.value
+
+    print(qm_response)
+
+    sys.exit()
+
+    client.beta.threads.messages.create(
+        thread_id=thread.id,
+        role="user",
+        content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
+    )
+    description = f"retry run due to lack of output file"
+    run_steps, retrieve_response = run_thread(client, agent, thread, 3, description)
 
 def retrieve_run(client, thread_id, run_id, max_retries, description):
     retries = 0
@@ -415,25 +476,6 @@ def run_trends_analysis(client, insight_files, data_files_id):
     )  # Modified to return necessary info
 
 
-def run_capabilities_analysis(client, insight_file):
-    capabilities_prompt = (
-        f"Evaluate the capabilities of the company described in the file {insight_file}"
-    )
-    capabilities_steps, capabilities_response, capabilities_thread = run_assistant(
-        client,
-        capabilities_agent,
-        capabilities_prompt,
-        file_ids=[insight_file],
-        description=capabilities_description,
-    )
-    return (
-        capabilities_steps,
-        capabilities_response,
-        capabilities_thread,
-        capabilities_agent,
-    )
-
-
 def run_recommender_analysis(client, insight_file):
     recommender_prompt = (
         f"Make the neccesary recommendations for the insights in {insight_file}"
@@ -453,16 +495,15 @@ def run_recommender_analysis(client, insight_file):
     )
 
 
-def run_capabilities_analysis(client, insight_files, data_files_id):
+def run_capabilities_analysis(client, file):
     capabilities_prompt = (
-        f"Generate the capabilities possessed by NAG Or Numerical Algorithms Group with basic information "
-        f"contained in the file {data_files_id} and collected insights in {insight_files}"
+        f"Generate the capabilities relevant to the company and insights in the file {file}"
     )
     capabilities_steps, capabilities_response, capabilities_thread = run_assistant(
         client,
         capabilities_agent,
         capabilities_prompt,
-        file_ids=data_files_id + insight_files,
+        file_ids=[file],
         description=capabilities_description,
     )
     return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
@@ -487,6 +528,8 @@ def run_competition_analysis(client, insight_file):
     competition_steps, competition_response, competition_thread = run_assistant(client, competition_agent,
                                 competition_prompt, file_ids=[insight_file], description=competition_description)
     return competition_steps, competition_response, competition_thread, competition_agent
+
+
 
 def run_actions(client, challenge, trends_file, capabilities_file):
     actions_prompt = (

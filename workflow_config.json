@@ -66,11 +66,11 @@
       }
     },
     "evaluateCapabilities": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
         "debug" : false,
-        "updateGraph" : true
+        "updateGraph" : false
       }
     },
     "pruneCapabilities" : {
@@ -87,7 +87,7 @@
       }
     },
     "buildCompetitiveEnvironment": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "updateGraph": true
