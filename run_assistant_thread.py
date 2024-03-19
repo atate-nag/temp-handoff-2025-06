@@ -1,8 +1,13 @@
 import json
 import os
 import re
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from core_components.src.agents.openAI import load_agents
+
+from dochandler import Rdoc
 from datetime import datetime
 from dochandler import Rdoc
 
@@ -31,6 +36,7 @@ competition_agent = "asst_uphvlsvGIbtXQAx89cFShovV"
 competition_description = "Competition Description"
 
 def success_criteria_met(client,thread):
+
     print(f"Success Criteria: Checking thread {thread.id}")
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct:
@@ -43,7 +49,10 @@ def success_criteria_met(client,thread):
             return file_from_response
     return None
 
-def overseer_manage_assistant(client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3):
+
+def overseer_manage_assistant(
+    client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3
+):
 
     print(f"Attempt 1 for {assistant_function.__name__}")
     run_steps, retrieve_response, thread, agent = assistant_function(client, *args)
@@ -123,6 +132,7 @@ def run_assistant(client, assistant, prompt, file_ids, description):
     run_steps, retrieve = run_thread(client, assistant, thread, 3, description)
     return run_steps, retrieve, thread
 
+
 def run_thread(client, assistant, thread, max_retries, description):
     run = client.beta.threads.runs.create(
         thread_id=thread.id,
@@ -135,10 +145,7 @@ def run_thread(client, assistant, thread, max_retries, description):
     retrieve = retrieve_run(client, thread.id, run.id, max_retries, description)
     end_time = time.time()
     print(f"Response received in {end_time - start_time} seconds")
-    run_steps = client.beta.threads.runs.steps.list(
-        thread_id=thread.id,
-        run_id=run.id
-    )
+    run_steps = client.beta.threads.runs.steps.list(thread_id=thread.id, run_id=run.id)
     return run_steps, retrieve
 
 
@@ -212,7 +219,9 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
     # # parallel loop - submit the process_file function on as many threads as there are files
     return_files = []
     # TODO: change the number of files per worker (single file per worker currently)
-    print(f"In parallel file processor with file_name = {file_dir} and company_data = {company_data}")
+    print(
+        f"In parallel file processor with file_name = {file_dir} and company_data = {company_data}"
+    )
     with ThreadPoolExecutor(max_workers=len(files)) as executor:
         future_to_file = {
             executor.submit(
@@ -237,8 +246,9 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
                 print(f"Generated an exception: {exc}")
     return return_files
 
+
 # TODO move file handling into appropriate module
-def import_data_files_and_upload(client, data_dir, type):
+def import_data_files_and_upload(client, data_dir, document_type="data"):
     # import all the files in the given directory and optionally write intermediates
     data_files = [
         f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))
@@ -246,57 +256,31 @@ def import_data_files_and_upload(client, data_dir, type):
     company_data = (
         []
     )  # company_data will be a list of json objects containing info about the company
-    for i, file_name in enumerate(data_files):
-        file_path = os.path.join(data_dir, file_name)  # Full path to the file
-        _, file_extension = os.path.splitext(file_name)  # Extract file extension
-        format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
-        print(f"format is {format}")
-        doc = Rdoc.create(file_path, format, "data")
-        json_doc = doc.build_structured_data()
-        with open(
-            f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8"
-        ) as json_file:
-            json_file.write(json_doc)
-        with open(f"./Intermediates/structured_data_{i}.json", "rb") as json_local_file:
-            json_openai_response = client.files.create(
-                file=json_local_file,
-                purpose="assistants"
-            )
-        print(f"wrote file ./Intermediates/structured_data_{i}.json and uploaded to {json_openai_response.id}")
-    return json_openai_response, doc
-
-def upload_file(client, file):
-    with open(file, "rb") as json_openai_file:
-        json_openai_response = client.files.create(
-            file=json_openai_file,
-            purpose="assistants"
-        )
-    print(f"wrote file {file} and uploaded to {json_openai_response.id}")
-    return json_openai_response
-
-def import_files_and_upload(client, data_dir, type):
-    # import all the files in the given directory and optionally write intermediates
-    data_files = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))]
-    company_data = []  # company_data will be a list of json objects containing info about the company
     responses = []
     docs = []
     for i, file_name in enumerate(data_files):
         file_path = os.path.join(data_dir, file_name)  # Full path to the file
         _, file_extension = os.path.splitext(file_name)  # Extract file extension
-        format = file_extension.lstrip('.')  # Remove the leading '.' from the extension
+        format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
         print(f"format is {format}")
-        doc = Rdoc.create(file_path, format, type)
-        docs.append(doc)
+        doc = Rdoc.create(file_path, format, document_type)
         json_doc = doc.build_structured_data()
-        with open(f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8") as json_file:
+        with open(
+            f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8"
+        ) as json_file:
             json_file.write(json_doc)
-        with open(f"./Intermediates/structured_data_{i}.json", "rb") as json_openai_file:
+        with open(
+            f"./Intermediates/structured_data_{i}.json", "rb"
+        ) as json_openai_file:
             json_openai_response = client.files.create(
                 file=json_openai_file, purpose="assistants"
             )
 
-        print(f"wrote file ./Intermediates/structured_data_{i}.json and uploaded to {json_openai_response.id}")
+        print(
+            f"wrote file ./Intermediates/structured_data_{i}.json and uploaded to {json_openai_response.id}"
+        )
         responses.append(json_openai_response.id)
+        docs.append(doc)
     return responses, docs
 
 
@@ -330,14 +314,29 @@ def process_file(
             file=json_openai_file, purpose="assistants"
         )
 
-    condense_file = overseer_manage_assistant(client, write_intermediate, prefix, index, run_condense_analysis,
-                                              json_openai_response)
-    print(f"Process file: completed the condense file operations and returned {condense_file}")
+    condense_file = overseer_manage_assistant(
+        client,
+        write_intermediate,
+        prefix,
+        index,
+        run_condense_analysis,
+        json_openai_response,
+    )
 
     if condense_file:
-        insight_file = overseer_manage_assistant(client, write_intermediate, prefix, index, run_insight_analysis,
-                                                 condense_file, company_data, file_name)
-        print(f"Process file: completed the condense file operations and returned {insight_file}")
+        insight_file = overseer_manage_assistant(
+            client,
+            write_intermediate,
+            prefix,
+            index,
+            run_insight_analysis,
+            condense_file,
+            company_data,
+            file_name,
+        )
+        print(
+            f"Process file: completed the condense file operations and returned {insight_file}"
+        )
 
         return insight_file
     else:
@@ -351,50 +350,123 @@ def download_content_and_write(client, agent_file, local_filename):
     ) as json_file:
         json_file.write(json_content)
     return json_file
-def run_insight_analysis(client, condense_file, data_file, source_file):
+
+
+def run_insight_analysis(client, condense_file, data_files_id, source_file):
     today_date = datetime.today().date()
-    insight_prompt = (f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
-                      f"with basic information contained in the file {data_file.id} and potential insights "
-                      f"in {condense_file}. Today's date is {today_date} and the source file is called {source_file}.")
-    insight_steps, insight_response, insight_thread = run_assistant(client, insight_agent, insight_prompt,
-                                                                   file_ids=[data_file.id,condense_file],
-                                                                   description=insight_description)
+    insight_prompt = (
+        f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
+        f"with basic information contained in the files {data_files_id} and potential insights "
+        f"in {condense_file}. Today's date is {today_date} and the source file is called {source_file}."
+    )
+    insight_steps, insight_response, insight_thread = run_assistant(
+        client,
+        insight_agent,
+        insight_prompt,
+        file_ids=[*data_files_id, condense_file],
+        description=insight_description,
+    )
     return insight_steps, insight_response, insight_thread, insight_agent
+
 
 def run_condense_analysis(client, raw_file):
     condense_prompt = f"Condense the json file {raw_file.id}"
 
-    condense_steps, condense_response, condense_thread = run_assistant(client, condense_agent, condense_prompt,
-                                                                   file_ids=[raw_file.id],
-                                                                   description=condense_description)
+    condense_steps, condense_response, condense_thread = run_assistant(
+        client,
+        condense_agent,
+        condense_prompt,
+        file_ids=[raw_file.id],
+        description=condense_description,
+    )
     return condense_steps, condense_response, condense_thread, condense_agent
 
 
-def run_trends_analysis(client, insight_files, data_file):
+def run_performance_retrieval_evaluation(client, insight_file, queries):
+    performance_prompt = f"Evaluate the how relevant are the insight files {insight_file} regarding the queries: {queries}"
+    performance_steps, performance_response, performance_thread = run_assistant(
+        client,
+        assistants["OpenAI"]["retrieval_performance_evaluator"]["id"],
+        performance_prompt,
+        file_ids=insight_file,
+        description="performance_description",
+    )
+    return performance_steps, performance_response, performance_thread
+
+
+def run_trends_analysis(client, insight_files, data_files_id):
     trends_prompt = (
         f"Generate the trends that are affecting NAG Or Numerical Algorithms Group with basic information "
-        f"contained in the file {data_file.id} and collected insights in {insight_files}"
+        f"contained in the file {data_files_id} and collected insights in {insight_files}"
     )
 
-    trends_steps, trends_response, trends_thread = run_assistant(client, trends_agent, trends_prompt,
-                                                                 file_ids=[data_file.id] + insight_files,
-                                                                 description=trends_description)
-    return trends_steps, trends_response, trends_thread, trends_agent # Modified to return necessary info
+    trends_steps, trends_response, trends_thread = run_assistant(
+        client,
+        trends_agent,
+        trends_prompt,
+        file_ids= data_files_id + insight_files,
+        description=trends_description,
+    )
+    return (
+        trends_steps,
+        trends_response,
+        trends_thread,
+        trends_agent,
+    )  # Modified to return necessary info
 
 
 def run_capabilities_analysis(client, insight_file):
-    capabilities_prompt = (f"Evaluate the capabilities of the company described in the file {insight_file}")
-    capabilities_steps, capabilities_response, capabilities_thread = run_assistant(client, capabilities_agent, capabilities_prompt,
-                                                                 file_ids=[insight_file],
-                                                                 description=capabilities_description)
-    return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
+    capabilities_prompt = (
+        f"Evaluate the capabilities of the company described in the file {insight_file}"
+    )
+    capabilities_steps, capabilities_response, capabilities_thread = run_assistant(
+        client,
+        capabilities_agent,
+        capabilities_prompt,
+        file_ids=[insight_file],
+        description=capabilities_description,
+    )
+    return (
+        capabilities_steps,
+        capabilities_response,
+        capabilities_thread,
+        capabilities_agent,
+    )
+
 
 def run_recommender_analysis(client, insight_file):
-    recommender_prompt = (f"Make the neccesary recommendations for the insights in {insight_file}")
-    recommender_steps, recommender_response, recommender_thread = run_assistant(client, recommender_agent, recommender_prompt,
-                                                                 file_ids=[insight_file],
-                                                                 description=recommender_description)
-    return recommender_steps, recommender_response, recommender_thread, recommender_agent
+    recommender_prompt = (
+        f"Make the neccesary recommendations for the insights in {insight_file}"
+    )
+    recommender_steps, recommender_response, recommender_thread = run_assistant(
+        client,
+        recommender_agent,
+        recommender_prompt,
+        file_ids=[insight_file],
+        description=recommender_description,
+    )
+    return (
+        recommender_steps,
+        recommender_response,
+        recommender_thread,
+        recommender_agent,
+    )
+
+
+def run_capabilities_analysis(client, insight_files, data_files_id):
+    capabilities_prompt = (
+        f"Generate the capabilities possessed by NAG Or Numerical Algorithms Group with basic information "
+        f"contained in the file {data_files_id} and collected insights in {insight_files}"
+    )
+    capabilities_steps, capabilities_response, capabilities_thread = run_assistant(
+        client,
+        capabilities_agent,
+        capabilities_prompt,
+        file_ids=data_files_id + insight_files,
+        description=capabilities_description,
+    )
+    return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
+
 
 def run_challenges_analysis(client, trends_file, capabilities_file):
     challenges_prompt = (
@@ -408,7 +480,7 @@ def run_challenges_analysis(client, trends_file, capabilities_file):
         file_ids=[trends_file, capabilities_file],
         description=challenges_description,
     )
-    return challenges_steps, challenges_response, challenges_thread
+    return challenges_steps, challenges_response, challenges_thread, challenges_agent
 
 def run_competition_analysis(client, insight_file):
     competition_prompt = f"Define the competitive environment based on the file {insight_file}"
@@ -431,4 +503,4 @@ def run_actions(client, challenge, trends_file, capabilities_file):
         file_ids=[trends_file, capabilities_file],
         description=actions_description,
     )
-    return actions_steps, actions_response, actions_thread
+    return actions_steps, actions_response, actions_thread, actions_agent

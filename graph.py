@@ -4,6 +4,8 @@ from utility import clean_text
 import uuid
 import json
 import logging
+
+
 class BaseGraph:
     def __init__(self, uri, user, password):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
@@ -13,11 +15,10 @@ class BaseGraph:
 
     def retrieve_entire_graph(self):
         with self.driver.session() as session:
-            result = session.run(
-                "MATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m"
-            )
+            result = session.run("MATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m")
             for record in result:
                 print(record)
+
 
 class CompanyGraph(BaseGraph):
     def delete_company(self, company_name):
@@ -26,11 +27,15 @@ class CompanyGraph(BaseGraph):
 
     def add_company_info(self, company_name, company_data):
         with self.driver.session() as session:
-            session.write_transaction(self._create_or_update_company_node, company_name, company_data)
+            session.write_transaction(
+                self._create_or_update_company_node, company_name, company_data
+            )
 
     def create_company_only(self, company_name):
         with self.driver.session() as session:
-            session.write_transaction(self._create_company_node_without_data, company_name)
+            session.write_transaction(
+                self._create_company_node_without_data, company_name
+            )
         print(f"CompanyGraph: created a node for {company_name}")
 
     def delete_company_insights(self, company_name):
@@ -103,24 +108,25 @@ class CompanyGraph(BaseGraph):
 
     @staticmethod
     def _create_company_node_without_data(tx, company_name):
-        query = (
-            "CREATE (c:Company {name: $company_name}) "
-            "RETURN c"
-        )
+        query = "CREATE (c:Company {name: $company_name}) " "RETURN c"
         result = tx.run(query, company_name=company_name)
         return result.single()
-    def dump_company_graph_to_json(self, company_name):
 
-        '''dumps the whole company graph to json including all fields of the insight nodes. This is useful for
+    def dump_company_graph_to_json(self, company_name):
+        """dumps the whole company graph to json including all fields of the insight nodes. This is useful for
         printing and debugging but is probably overkill to agents. Instead,  use the
-        dump_company_insight_graph_to_json method to send more selective information to agents'''
+        dump_company_insight_graph_to_json method to send more selective information to agents
+        """
 
         with self.driver.session() as session:
             # Example Cypher query to retrieve a company, its insights, and relationships
-            result = session.run("""
+            result = session.run(
+                """
                 MATCH (i:Insight)-[r:PROVIDES_INSIGHT_ON]->(c:Company {name: $company_name})
                 RETURN c AS company, collect(i) AS insights, collect(type(r)) AS relationships
-            """, company_name=company_name)
+            """,
+                company_name=company_name,
+            )
 
             # Assuming only one company node is targeted ( TODO support more companies also later?)
             record = result.single()
@@ -149,14 +155,19 @@ class CompanyGraph(BaseGraph):
         tx.run(query, company_name=company_name)
 
     def dump_company_insight_graph_to_json(self, company_name):
-        ''' this function does not dump the full graph, it will only return the true insight ID , description
-        and confidence of the insight. Then a walker will be able to derive the provenance of relationships'''
+
+        """this function does not dump the full graph, it will only return the true insight ID , description
+        and confidence of the insight. Then a walker will be able to derive the provenance of relationships
+        """
         with self.driver.session() as session:
             # Example Cypher query to retrieve a company, its insights, and relationships
-            result = session.run("""
+            result = session.run(
+                """
                    MATCH (i:Insight)-[r:PROVIDES_INSIGHT_ON]->(c:Company {name: $company_name})
                    RETURN c AS company, collect(i) AS insights, collect(type(r)) AS relationships
-               """, company_name=company_name)
+               """,
+                company_name=company_name,
+            )
             # Assuming only one company node is targeted; adjust as needed for your schema
             record = result.single()
             if record:
@@ -167,11 +178,16 @@ class CompanyGraph(BaseGraph):
                         {
                             # Directly access properties from the Node object
                             "id": insight.id,  # Accessing the Neo4j internal ID of the node
-                            "description": clean_text(insight["description"]),  # Directly access the 'description' property
-                            "relevanceScore": insight.get("relevanceScore", None)  # Safely get 'confidenceScore'
+                            "description": clean_text(
+                                insight["description"]
+                            ),  # Directly access the 'description' property
+                            "relevanceScore": insight.get(
+                                "relevanceScore", None
+                            ),  # Safely get 'confidenceScore'
                         }
-                        for insight in record["insights"] if insight is not None  # Ensure insight is not None
-                    ]
+                        for insight in record["insights"]
+                        if insight is not None  # Ensure insight is not None
+                    ],
                 }
                 # Serialize to JSON
                 json_data = json.dumps(graph_data, indent=4)
@@ -181,7 +197,9 @@ class CompanyGraph(BaseGraph):
 
     def add_capability_and_evidence(self, company_name, capability_data):
         with self.driver.session() as session:
-            session.write_transaction(self._create_capability_and_link, company_name, capability_data)
+            session.write_transaction(
+                self._create_capability_and_link, company_name, capability_data
+            )
 
     @staticmethod
     def _create_capability_and_link(tx, company_name, capability_data):
@@ -202,7 +220,7 @@ class CompanyGraph(BaseGraph):
                 scarcity=capability["scarcity"],
                 nonReplicability=capability["non-replicability"],
                 irreplaceability=capability["irreplaceability"],
-                confidence=capability["confidence"]
+                confidence=capability["confidence"],
             ).single()[0]
             for insight_id in capability["evidenced by"]:
                 print(f"evidence from {insight_id} for capability {name}")
@@ -210,12 +228,16 @@ class CompanyGraph(BaseGraph):
                     "MATCH (cap:Capability {name: $name}), (i:Insight) "
                     "WHERE ID(i) = $insight_id "
                     "MERGE (cap)-[:EVIDENCED_BY]->(i)",
-                    name=name, insight_id=insight_id
+                    name=name,
+                    insight_id=insight_id,
                 )
 
     def display_company_capabilities(self, company_name):
         with self.driver.session() as session:
-            result = session.read_transaction(self._get_company_capabilities, company_name)
+
+            result = session.read_transaction(
+                self._get_company_capabilities, company_name
+            )
             # print(f"display result is {result}")
             # for capability, insights in result:
             #     print(f"insights for {capability}are {insights}")
@@ -233,7 +255,6 @@ class CompanyGraph(BaseGraph):
         result = tx.run(query, company_name=company_name)
         return [(record["Capability"], record["Insights"]) for record in result]
 
-
     def _print_capabilities(self, capabilities):
         for capability, insights in capabilities:
             print(f"Capability: {capability['name']}")
@@ -244,7 +265,9 @@ class CompanyGraph(BaseGraph):
             print(f"  Irreplaceability: {capability['irreplaceability']}")
             print(f"  Confidence: {capability['confidence']}")
             print("Derived from Insights:")
-            print(f"  Insight ID: {', '.join([str(insight['id']) for insight in insights])}")
+            print(
+                f"  Insight ID: {', '.join([str(insight['id']) for insight in insights])}"
+            )
             print("\n")
 
     def prune_company_capabilities(self, company_name):
@@ -253,7 +276,9 @@ class CompanyGraph(BaseGraph):
 
     def link_insight_to_capability(self, capability_name, insight_id):
         with self.driver.session() as session:
-            session.write_transaction(self._link_insight_to_capability, capability_name, insight_id)
+            session.write_transaction(
+                self._link_insight_to_capability, capability_name, insight_id
+            )
 
     @staticmethod
     def _prune_company_capability(tx, company_name):
@@ -276,6 +301,7 @@ class CompanyGraph(BaseGraph):
         result = tx.run(query, capability_name=capability_name, insight_id=insight_id)
         return result.single()
 
+
 class InsightGraph(BaseGraph):
     def __init__(self, uri, user, password):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
@@ -285,25 +311,34 @@ class InsightGraph(BaseGraph):
 
     def add_insight(self, insight_data, company_name):
         with self.driver.session() as session:
-            session.write_transaction(self._create_insight_and_link, insight_data, company_name)
+            session.write_transaction(
+                self._create_insight_and_link, insight_data, company_name
+            )
 
     def get_company_insights_above_relevance(self, company_name, relevance_threshold):
         with self.driver.session() as session:
-            result = session.read_transaction(self._find_company_insights_above_relevance, company_name,
-                                              relevance_threshold)
+            result = session.read_transaction(
+                self._find_company_insights_above_relevance,
+                company_name,
+                relevance_threshold,
+            )
             print(f"result is {result}")
             return [record["i"]._properties for record in result]
 
     @staticmethod
     def _find_company_insights_above_relevance(tx, company_name, relevance_threshold):
-        print(f"Company name is {company_name} and relevance threshold is {relevance_threshold}")
+        print(
+            f"Company name is {company_name} and relevance threshold is {relevance_threshold}"
+        )
         query = """
         MATCH (i: Insight) - [:PROVIDES_INSIGHT_ON] -> (c:Company {name: $company_name}) 
         WHERE i.relevanceScore >= $relevance_threshold
         RETURN i
         """
         print(query)
-        result = tx.run(query, company_name=company_name, relevance_threshold=relevance_threshold)
+        result = tx.run(
+            query, company_name=company_name, relevance_threshold=relevance_threshold
+        )
         return list(result)
 
     @staticmethod
@@ -328,16 +363,25 @@ class InsightGraph(BaseGraph):
                 continue  # Skip this iteration
 
             # Ensure 'categories' is a list and 'extractionDate' is properly formatted
-            categories = insight.get('categories', [])
-            extractionDate = insight.get('extractionDate', datetime.today().strftime('%Y-%m-%d'))
+            categories = insight.get("categories", [])
+            extractionDate = insight.get(
+                "extractionDate", datetime.today().strftime("%Y-%m-%d")
+            )
 
             # Generate a unique UUID for each insight if not provided
-            unique_id = insight.get('id', str(uuid.uuid4()))
+            unique_id = insight.get("id", str(uuid.uuid4()))
 
             # Execute the query with all provided insight data
-            tx.run(query, company_name=company_name, id=unique_id, description=insight.get('description', ''),
-                   categories=categories, relevanceScore=insight.get('relevanceScore', 0),
-                   source=insight.get('sourceDocument', ''), extractionDate=extractionDate)
+            tx.run(
+                query,
+                company_name=company_name,
+                id=unique_id,
+                description=insight.get("description", ""),
+                categories=categories,
+                relevanceScore=insight.get("relevanceScore", 0),
+                source=insight.get("sourceDocument", ""),
+                extractionDate=extractionDate,
+            )
 
     def remove_non_integer_ids(self):
         with self.driver.session() as session:
@@ -358,23 +402,24 @@ class InsightGraph(BaseGraph):
         result = tx.run(query)
         return result.single()[0]
 
+
 def map_json_to_company_schema(company_data):
     company_node_data = {}
-    for child in company_data['children']:
-        if child['title'] == "Name":
-            company_node_data['Name'] = child['content'][0]
-        elif child['title'] == "HQ":
-            company_node_data['HQ'] = child['content'][0]
+    for child in company_data["children"]:
+        if child["title"] == "Name":
+            company_node_data["Name"] = child["content"][0]
+        elif child["title"] == "HQ":
+            company_node_data["HQ"] = child["content"][0]
         # Continue for other fields...
-        elif child['title'] == "Leadership":
-            company_node_data['Leadership'] = ', '.join(child['content'])
+        elif child["title"] == "Leadership":
+            company_node_data["Leadership"] = ", ".join(child["content"])
         # Handle nested children for products, services, markets, etc.
-        elif child['title'] == "Products and services":
-            for grandchild in child['children']:
-                if grandchild['title'] == "Products":
-                    company_node_data['Products'] = grandchild['content']
-                elif grandchild['title'] == "Services":
-                    company_node_data['Services'] = grandchild['content']
+        elif child["title"] == "Products and services":
+            for grandchild in child["children"]:
+                if grandchild["title"] == "Products":
+                    company_node_data["Products"] = grandchild["content"]
+                elif grandchild["title"] == "Services":
+                    company_node_data["Services"] = grandchild["content"]
         # Add more conditions as needed for other fields
 
     return company_node_data

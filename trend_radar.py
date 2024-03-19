@@ -2,6 +2,7 @@ import plotly.graph_objs as go
 import numpy as np
 import json
 
+
 def generate_trend_radar(categories):
     # Parse the JSON data
 
@@ -10,43 +11,49 @@ def generate_trend_radar(categories):
 
     # Define the category angles
     num_categories = len(categories)
-    angles = np.linspace(start=0, stop=2 * np.pi, num=num_categories, endpoint=False).tolist()
+    angles = np.linspace(
+        start=0, stop=2 * np.pi, num=num_categories, endpoint=False
+    ).tolist()
 
     # Define the readiness color scale
     readiness_color_map = {
-        'low': 'red',       # Low readiness
-        'medium': 'yellow', # Medium readiness
-        'high': 'green'     # High readiness
+        "low": "red",  # Low readiness
+        "medium": "yellow",  # Medium readiness
+        "high": "green",  # High readiness
     }
 
     # Function to map readiness value to color
     def map_readiness_to_color(readiness):
         if readiness >= 8:
-            return readiness_color_map['high']
+            return readiness_color_map["high"]
         elif readiness >= 6:
-            return readiness_color_map['medium']
+            return readiness_color_map["medium"]
         else:
-            return readiness_color_map['low']
+            return readiness_color_map["low"]
 
     # Add trends for each category
     for idx, (category, trend_list) in enumerate(categories.items()):
         for trend in trend_list:
             # Map the readiness to a color
-            readiness_color = map_readiness_to_color(trend['readiness'])
+            readiness_color = map_readiness_to_color(trend["readiness"])
 
             # Add trace for each trend
-            fig.add_trace(go.Scatterpolar(
-                r=[11 - trend['importance']],  # Inverted importance for radial position
-                theta=[angles[idx] * (180 / np.pi)],  # Angle in degrees
-                text=trend['trend'],
-                name=category,
-                marker=dict(
-                    size=trend['likelihood'] * 10,  # Size for likelihood
-                    color=readiness_color
-                ),
-                mode='markers+text',
-                textposition='top center'
-            ))
+            fig.add_trace(
+                go.Scatterpolar(
+                    r=[
+                        11 - trend["importance"]
+                    ],  # Inverted importance for radial position
+                    theta=[angles[idx] * (180 / np.pi)],  # Angle in degrees
+                    text=trend["trend"],
+                    name=category,
+                    marker=dict(
+                        size=trend["likelihood"] * 10,  # Size for likelihood
+                        color=readiness_color,
+                    ),
+                    mode="markers+text",
+                    textposition="top center",
+                )
+            )
 
     # Customize layout
     fig.update_layout(
@@ -54,8 +61,8 @@ def generate_trend_radar(categories):
             radialaxis=dict(visible=True, range=[0, 10], autorange="reversed"),
             angularaxis=dict(showticklabels=False),
         ),
-        title='Trend Radar',
-        showlegend=True
+        title="Trend Radar",
+        showlegend=True,
     )
 
     # Add category labels at the mean angle for each segment
@@ -73,10 +80,14 @@ def generate_trend_radar(categories):
             y=(0.5 + 0.5 * np.sin(angle)),  # Normalized y position
             showarrow=False,
             font=dict(size=12),
-            textangle=np.degrees(angle) - 90 if np.cos(angle) < 0 else np.degrees(angle) + 90,
-            xanchor='center',
-            yanchor='middle'
+            textangle=(
+                np.degrees(angle) - 90 if np.cos(angle) < 0 else np.degrees(angle) + 90
+            ),
+            xanchor="center",
+            yanchor="middle",
         )
-        radial_distance_for_annotations = 11  # Assuming the range is [0, 10] and adding 1 for padding
+        radial_distance_for_annotations = (
+            11  # Assuming the range is [0, 10] and adding 1 for padding
+        )
 
     return fig
