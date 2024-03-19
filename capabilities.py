@@ -12,37 +12,37 @@ def plot_capabilities(capabilities):
 
     # Calculate the coordinates for each capability
     for capability in capabilities:
-        x_score = capability['scarcity'] + capability['non-replicability']
-        y_score = capability['value potential'] + capability['irreplaceability']
+        x_score = capability["scarcity"] + capability["non-replicability"]
+        y_score = capability["value potential"] + capability["irreplaceability"]
         x_coords.append(x_score)
         y_coords.append(y_score)
-        labels.append(capability['capability'])
+        labels.append(capability["capability"])
 
     # Create a scatter plot
     fig, ax = plt.subplots(figsize=(8, 8))
-    scatter = ax.scatter(x_coords, y_coords, color='blue')
+    scatter = ax.scatter(x_coords, y_coords, color="blue")
 
     # Add labels for each point
     for label, x, y in zip(labels, x_coords, y_coords):
-        ax.text(x, y, ' ' + label, ha='left', va='center', fontsize=9)
+        ax.text(x, y, " " + label, ha="left", va="center", fontsize=9)
 
     # Define the maximum score for x and y axes to create a square plot
     max_score = max(max(x_coords), max(y_coords), 10)
     mid_point = max_score / 2
 
     # Draw quadrant lines at the half-way point
-    ax.axhline(mid_point, color='black', linestyle='--', linewidth=1)
-    ax.axvline(mid_point, color='black', linestyle='--', linewidth=1)
+    ax.axhline(mid_point, color="black", linestyle="--", linewidth=1)
+    ax.axvline(mid_point, color="black", linestyle="--", linewidth=1)
 
     # Set the axis labels
-    ax.set_xlabel('Sustainability (Scarcity + Non-replicability)')
-    ax.set_ylabel('Value Generation (Value Potential + Irreplaceability)')
+    ax.set_xlabel("Sustainability (Scarcity + Non-replicability)")
+    ax.set_ylabel("Value Generation (Value Potential + Irreplaceability)")
 
     # Set axis labels for Low and High
-    ax.text(0, -0.5, 'Low', ha='center', va='center', fontsize=12)
-    ax.text(max_score, -0.5, 'High', ha='center', va='center', fontsize=12)
-    ax.text(-0.5, 0, 'Low', ha='center', va='center', fontsize=12, rotation=90)
-    ax.text(-0.5, max_score, 'High', ha='center', va='center', fontsize=12, rotation=90)
+    ax.text(0, -0.5, "Low", ha="center", va="center", fontsize=12)
+    ax.text(max_score, -0.5, "High", ha="center", va="center", fontsize=12)
+    ax.text(-0.5, 0, "Low", ha="center", va="center", fontsize=12, rotation=90)
+    ax.text(-0.5, max_score, "High", ha="center", va="center", fontsize=12, rotation=90)
 
     # Set the axis ranges to be equal
     ax.set_xlim(0, max_score)
@@ -53,14 +53,15 @@ def plot_capabilities(capabilities):
     ax.set_yticks([])
 
     # Add grid
-    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+    ax.grid(True, which="both", linestyle="--", linewidth=0.5)
 
     # Set background to white and adjust plot
-    ax.set_facecolor('white')
+    ax.set_facecolor("white")
     plt.tight_layout()
 
     # Show the plot
     return fig
+
 
 # json_data = '''[
 #     {
@@ -139,4 +140,4 @@ def plot_capabilities(capabilities):
 #
 # # Call the function with the JSON data
 
-#plot_capabilities(json_data)
+# plot_capabilities(json_data)

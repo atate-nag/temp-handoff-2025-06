@@ -1,44 +1,44 @@
 {
   "workflow": {
     "createCompanies": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "updateCompanyData": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag",
         "dataDir": "Files-DATA/"
       }
     },
     "deleteInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "cleanInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "deleteCompany": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "dumpCompanyGraph": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "extractInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
@@ -47,7 +47,7 @@
       }
     },
     "displayInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "relevanceFrom" : 9.2
@@ -60,13 +60,13 @@
       }
     },
     "deleteCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag"
       }
     },
     "evaluateCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "debug" : false,
@@ -74,13 +74,13 @@
       }
     },
     "pruneCapabilities" : {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag"
       }
     },
     "displayCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag"
       }

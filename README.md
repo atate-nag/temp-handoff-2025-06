@@ -1,16 +1,18 @@
 # Project Name
 
-This is the end-to-end demonstrator of Socrates for the straegy use-case
+This is the dynamic workflow executor of Socrates for the straegy use-case
+This supercedes the strategy_executor.py. This version requies neo4j desktop 
+is already installed on your machine.
 
 ## Getting Started
 
-It should not be complex to run, just follow these steps. 
 
 ### Prerequisites
 
 Before you begin, ensure you have the following installed:
 - Python 3.x
 - pip (Python package installer)
+- neo4j desktop
 
 ### Setting Up Your Development Environment
 
@@ -29,6 +31,8 @@ Before you begin, ensure you have the following installed:
 
    Make sure that it contains the line
    OPENAI_API_KEY=your_api_key_here
+   NEO4J_USER=your_neo4j_user
+   NEO4J_PASSWORD=your_neo4j_password
 
    Security note: ensure the .env file is added to your .gitignore file to prevent accidentally committing your OpenAI API key to version control.
 
@@ -46,29 +50,52 @@ pip install -r requirements.txt
 
 4. **Copy your data sources**
 
-There are three directories for data
+There are three directories for data, you will state the names of those in the workflow_config.json
+An extra directory for the company in question will be required, to allow execution for mulitple companies. 
+The structure will need to be:
 
-./Files-DATA/ -> raw data about the company you are interested in
-./Files-INSIGHT/ -> Documents that potentially contain insghts about the comapny (e.g. internal docs)
-./Files-MARKET/ -> Documents that potentially contain insights about the environment (e.g market reports)
+./<data dir>/<company name>/ 
 
 Copy appropriate files in PPT/PPTX, PDF or DOC/DOCX format to those directories. 
 
 
+5. ** Modify the workflow configuration **
+
+Modify the workflow_config.json file to turn on the selective workflow components. The names are self-explanatory but this
+is what is supported so far
+
+    "createCompanies":
+    "updateCompanyData"
+    "deleteInsights"
+    "deleteCompany"
+    "dumpCompanyGraph"
+    "extractInsights"
+    "displayInsights"
+    "analyzeTrends"
+    "deleteCapabilities"
+    "evaluateCapabilities"
+    "displayCapabilities" 
+
+
+E.g. setting 
+
+   "evaluateCapabilities": {
+      "enabled": true,
+      "parameters" : {
+        "companyName": "nag",
+        "debug" : false,
+        "updateGraph" : true
+      }
+
+
+Will enable the evaluation of Capabilities of a company, with Insights that evidence those capabilties. 
+This workflow is always going to use the state of the data stored in the knowledge graph. So you should selectively swtich on the elements of the workflow that 
+you want to test in isolation. So you will have had to have generated the appropriate parts of the neo4j database in advance or run in debug mmode to use debug files. 
+
 4. **Run the application**
 
-python strategy_executor.py
-
-
-## NOTE:
-
-The the application will currentl run in parallel with the same number of workers as there
-are file in the FILES-Insight directory. More flexibility is coming up in this regard. 
+python graph_workflow.py
 
 The more files you provide, the longer in general the run wil take. 
 
 5. **Check Output**
-
-The tool outputs a strategy presentation called "strategy_presentation.pptx"
-
-
