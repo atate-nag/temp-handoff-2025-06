@@ -497,4 +497,4 @@ def run_actions(client, challenge, trends_file, capabilities_file):
         file_ids=[trends_file, capabilities_file],
         description=actions_description,
     )
-    return actions_steps, actions_response, actions_thread
+    return actions_steps, actions_response, actions_thread, actions_agent
