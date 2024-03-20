@@ -32,13 +32,13 @@
       }
     },
     "dumpCompanyGraph": {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "companyName": "nag"
       }
     },
     "extractInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
@@ -47,7 +47,7 @@
       }
     },
     "displayInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
         "relevanceFrom" : 9.2
@@ -70,18 +70,18 @@
       "parameters" : {
         "companyName": "nag",
         "debug" : false,
-        "updateGraph" : false
+        "updateGraph" : true
       }
     },
     "pruneCapabilities" : {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
         "updateGraph": true
       }
     },
     "displayCapabilities": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag"
       }

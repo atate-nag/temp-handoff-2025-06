@@ -304,14 +304,12 @@ def build_competitive_environment(companyName, updateGraph):
     print(competition_file)
     str_competition_file = client.files.retrieve_content(competition_file)
     competition_content = json.loads(client.files.retrieve_content(competition_file))
-
     with open(
             f"./Intermediates/competition.json",
             "w",
             encoding="utf-8",
     ) as json_file:
         json_file.write(str_competition_file)
-
     return
 
 

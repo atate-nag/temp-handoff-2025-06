@@ -45,117 +45,123 @@ def retrieve_from_file_or_text(client,thread):
             return file_from_response
     return None
 
+def retrieve_from_id_or_path(client,thread, file_str):
+    # the problem is that the file is either in
+    file_direct = retrieve_file_annotation(client, thread)
+    if file_direct == file_str:
+        return file_direct
+    file_from_path = retrieve_file_path(thread)
 
+    return None
 
 def overseer_manage_assistant(
     client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3
 ):
-
     print(f"Attempt 1 for {assistant_function.__name__}")
     run_steps, retrieve_response, thread, agent = assistant_function(client, *args)
+    file = quality_manager(client, thread, agent)
+    return file
 
-    for retry in range(max_retries):
-        print(f"Retry {retry} for {assistant_function.__name__}")
-
-        #file = retrieve_from_file_or_text(client, thread)
-
-        file = quality_manager(client, thread)
-
-        # if file:
-        #     print(f"good file from retrieval on attempt: {retry }")
-        #
-        #     if write_intermediate:
-        #         json_content = download_file_by_id(client, file)
-        #         with open(
-        #             f"./Intermediates/insight_{prefix}_{index}.json",
-        #             "w",
-        #             encoding="utf-8",
-        #         ) as json_file:
-        #             json_file.write(json_content)
-        #
-        #     return file
-        # # If not successful, reply to the thread and insist on the file
-        # print(
-        #     "Success criteria not met. Requesting refinement or a different approach."
-        # )
-        # client.beta.threads.messages.create(
-        #     thread_id=thread.id,
-        #     role="user",
-        #     content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
-        # )
-        # description = f"retry run due to lack of output file"
-        # print(f"retry number { retry } for {assistant_function.__name__}")
-        # run_steps, retrieve_response = run_thread(client, agent, thread, 3, description)
-        # # TODO: add some logic that will do a QA on the content before deciding to proceed or not
-        # # Logic to wait or handle the thread's response can be added here
-    print(
-        f"{assistant_function.__name__} did not meet success criteria after {max_retries} attempts."
-    )
-    return None
-
-def quality_manager(client, thread):
+def quality_manager(client, thread, agent):
 
     ''' quality manager is going to assess the quality of agent output by
-        1) checking if some additional user resposne is needed and performing it
+        1) checking if some additional user response is needed and performing it
         2) checking if the desired outputs were produced, requesting them if not
         3) checking that desired outputs are in the format needed
         4) checking that desired outputs are sufficiently numerous
         5) checking that desired outputs are sufficiently detailed '''
 
     # 1 - checking if some additional user response is needed
+    tries = 0
+    while True:
+        if tries == 3:
+            print(f"QM did not manage to get a good result after {tries} attempts")
+            return None
+        messages = client.beta.threads.messages.list(thread_id=thread.id).data
+        response = ""
+        for message in messages:
+            if message.role == "assistant" and message.content[0].type == "text":
+                #print(message.content[0].text.value)
+                response += message.content[0].text.value
 
-    messages = client.beta.threads.messages.list(thread_id=thread.id).data
-    response = ""
-    for message in messages:
-        if message.role == "assistant" and message.content[0].type == "text":
-            #print(message.content[0].text.value)
-            response += message.content[0].text.value
+        # send the message to the QM agent and he will provide a suitable prompt
 
-    print(response)
+        with open(
+                f"./Intermediates/response.json", "w", encoding="utf-8"
+        ) as file:
+            file.write(response)
+        with open(
+                f"./Intermediates/response.json", "rb"
+        ) as openai_file:
+            openai_response = client.files.create(
+                file=openai_file, purpose="assistants"
+        )
+        print(
+            f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
+        )
 
-    # send the message to the QM agent and he will provide a suitable prompt
+        qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
+        qm_steps, qm_response, qm_thread = run_assistant(
+            client,
+            qm_agent,
+            qm_prompt,
+            file_ids=[openai_response.id],
+            description="QM:",
+        )
 
-    with open(
-            f"./Intermediates/response.json", "w", encoding="utf-8"
-    ) as file:
-        file.write(response)
-    with open(
-            f"./Intermediates/response.json", "rb"
-    ) as openai_file:
-        openai_response = client.files.create(
-            file=openai_file, purpose="assistants"
-    )
-    print(
-        f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
-    )
+        qm_messages = client.beta.threads.messages.list(thread_id=qm_thread.id).data
+        qm_response = []
+        for message in qm_messages:
+            if message.role == "assistant" and message.content[0].type == "text":
+                print(message.content[0])
+                print(message.content[0].text.value)
+                qm_response.append(message.content[0].text.value)
 
-    qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
-    qm_steps, qm_response, qm_thread = run_assistant(
-        client,
-        qm_agent,
-        qm_prompt,
-        file_ids=[openai_response.id],
-        description="QM:",
-    )
+        # now we need to pull the qm response into a json format for processing
 
-    qm_messages = client.beta.threads.messages.list(thread_id=qm_thread.id).data
-    qm_response = ""
-    for message in qm_messages:
-        if message.role == "assistant" and message.content[0].type == "text":
-            print(message.content[0].text.value)
-            qm_response += message.content[0].text.value
+        qm_file = retrieve_from_file_or_text(client, qm_thread)
 
-    print(qm_response)
+        # annoyingly, we have to QM the QM agent  which may forget to product output file
 
-    sys.exit()
+        if qm_file:
+            print(f"good QM file retrieved")
+        # If not successful, reply to the thread and insist on the file
+        else:
+            client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
+            )
+            qm_steps, qm_response = run_thread(client, agent, thread, 3, "QM failure")
+            qm_file = retrieve_from_file_or_text(client, qm_thread)
 
-    client.beta.threads.messages.create(
-        thread_id=thread.id,
-        role="user",
-        content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
-    )
-    description = f"retry run due to lack of output file"
-    run_steps, retrieve_response = run_thread(client, agent, thread, 3, description)
+        qm_content_dict = json.loads(client.files.retrieve_content(qm_file))
+        print(qm_content_dict)
+
+        if qm_content_dict["completed"]:
+            # QM deemed the agent's task complete and so we can get the file
+            agent_output_file = retrieve_file_annotation(client, thread)
+            # agent_output_file = qm_content_dict["file id"]
+            # we need to do the best we can with either a valid file id or a file path
+            print(f"QM: returning file {agent_output_file}")
+            # now do the second QM job: detect if the output matches task requirements
+
+            return agent_output_file
+
+        # QM said task did not complete, need to go back to the agent
+        prompt = qm_content_dict["agent instructions"]
+        print(f"QM: agent did not complete and will be informed {prompt}")
+
+        client.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=prompt,
+        )
+        print(f"QM going back to {agent} ")
+        run_steps, retrieve_response = run_thread(client, agent, thread, 3,
+                                                  "Agent did not complete task")
+
+        tries += 1
 
 def retrieve_run(client, thread_id, run_id, max_retries, description):
     retries = 0
@@ -223,6 +229,19 @@ def retrieve_file_annotation(client, thread):
     print("No annotations for a file were found")
     return None
 
+def retrieve_file_path(client, thread):
+    # Retrieve file from "annotations" but when it is a path
+    messages = client.beta.threads.messages.list(thread_id=thread.id).data
+    for message in messages:
+        if message.role == "assistant" and message.content[0].type == "text":
+            annotations = message.content[0].text.annotations
+            for index, annotation in enumerate(annotations):
+                if annotation.file_path.file_id:
+                    print(annotation.file_path)
+                    file = annotation.file_path.file_id
+                    return file
+    print("No annotations for a file were found")
+    return None
 
 def download_file_by_id(client, file_id):
     content = client.files.retrieve_content(file_id)
