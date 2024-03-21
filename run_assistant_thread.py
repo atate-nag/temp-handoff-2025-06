@@ -157,7 +157,7 @@ def quality_manager(client, thread, agent):
             role="user",
             content=prompt,
         )
-        print(f"QM going back to {agent} ")
+        print(f"QM: going back to {agent} ")
         run_steps, retrieve_response = run_thread(client, agent, thread, 3,
                                                   "Agent did not complete task")
 
@@ -186,7 +186,7 @@ def retrieve_run(client, thread_id, run_id, max_retries, description):
 
 
 def run_assistant(client, assistant, prompt, file_ids, description):
-    print(f" running assistant with files {file_ids}")
+    print(f"Running {assistant} accessing stored files {file_ids}")
     thread = client.beta.threads.create(
         messages=[
             {
@@ -373,7 +373,6 @@ def process_file(
     file_path = os.path.join(insight_dir, file_name)  # Full path to the file
     _, file_extension = os.path.splitext(file_name)  # Extract file extension
     format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
-    print(f"format is for {file_name} is {format} and prefix is {prefix}")
     doc = Rdoc.create(file_path, format, "insight")
 
     # step 2 : convert to structured format (json)
@@ -432,18 +431,18 @@ def download_content_and_write(client, agent_file, local_filename):
     return json_file
 
 
-def run_insight_analysis(client, condense_file, data_files_id, source_file):
+def run_insight_analysis(client, condense_file, data_file, source_file):
     today_date = datetime.today().date()
     insight_prompt = (
         f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
-        f"with basic information contained in the files {data_files_id} and potential insights "
+        f"with basic information contained in the files {data_file.id} and potential insights "
         f"in {condense_file}. Today's date is {today_date} and the source file is called {source_file}."
     )
     insight_steps, insight_response, insight_thread = run_assistant(
         client,
         insight_agent,
         insight_prompt,
-        file_ids=[*data_files_id, condense_file],
+        file_ids=[data_file.id, condense_file],
         description=insight_description,
     )
     return insight_steps, insight_response, insight_thread, insight_agent
