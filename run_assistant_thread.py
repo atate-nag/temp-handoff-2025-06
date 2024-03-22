@@ -8,6 +8,7 @@ from core_components.src.agents.openAI import load_agents
 from dochandler import Rdoc
 from datetime import datetime
 from dochandler import Rdoc
+from agent import Agent
 
 condense_agent = "asst_AzJOCJFl1D8BKF4oNrge9XF8"
 condense_description = "Condensing Assistant for Json"
@@ -32,8 +33,6 @@ recommender_description = "Recommender Agent"
 
 competition_agent = "asst_uphvlsvGIbtXQAx89cFShovV"
 competition_description = "Competition Description"
-
-qm_agent = "asst_81bPWyyQJy4iqI7zyUEeoWhl"
 
 def retrieve_from_file_or_text(client,thread):
     file_direct = retrieve_file_annotation(client, thread)
@@ -62,10 +61,16 @@ def overseer_manage_assistant(
     file = quality_manager(client, thread, agent)
     return file
 
+def overseer_manage_agent(client, assistant_function, *args):
+    thread, response, agent = assistant_function(client, *args)
+    output_file = quality_manager(client, thread, agent)
+    return output_file
+
 def quality_manager(client, thread, agent):
 
     ''' quality manager is going to assess the quality of agent output by
         1) checking if some additional user response is needed and performing it
+        2) Checking if the agent solved a simulation/proxy/
         2) checking if the desired outputs were produced, requesting them if not
         3) checking that desired outputs are in the format needed
         4) checking that desired outputs are sufficiently numerous
@@ -81,7 +86,6 @@ def quality_manager(client, thread, agent):
         response = ""
         for message in messages:
             if message.role == "assistant" and message.content[0].type == "text":
-                #print(message.content[0].text.value)
                 response += message.content[0].text.value
 
         # send the message to the QM agent and he will provide a suitable prompt
@@ -101,13 +105,16 @@ def quality_manager(client, thread, agent):
         )
 
         qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
-        qm_steps, qm_response, qm_thread = run_assistant(
-            client,
-            qm_agent,
-            qm_prompt,
-            file_ids=[openai_response.id],
-            description="QM:",
-        )
+        qm_agent = Agent(client, "qm_agent")
+        qm_thread = qm_agent.create_thread(client, qm_prompt, openai_response.id)
+        qm_response = qm_agent.run_and_retrieve_thread(client, qm_thread, 3)
+        # qm_steps, qm_response, qm_thread = run_assistant(
+        #     client,
+        #     qm_agent,
+        #     qm_prompt,
+        #     file_ids=[openai_response.id],
+        #     description="QM:",
+        # )
 
         qm_messages = client.beta.threads.messages.list(thread_id=qm_thread.id).data
         qm_response = []
@@ -120,7 +127,6 @@ def quality_manager(client, thread, agent):
         # now we need to pull the qm response into a json format for processing
 
         qm_file = retrieve_from_file_or_text(client, qm_thread)
-
         # annoyingly, we have to QM the QM agent  which may forget to product output file
 
         if qm_file:
@@ -128,15 +134,16 @@ def quality_manager(client, thread, agent):
         # If not successful, reply to the thread and insist on the file
         else:
             client.beta.threads.messages.create(
-                thread_id=thread.id,
+                thread_id=qm_thread.id,
                 role="user",
-                content="Please ensure a file-ID is produced for the JSON file that contains your completed task.",
+                content="Please write your dictionary to an external JSON file for processing, "
+                        "this will inform the agent team of the progress of the task you have assessed.",
             )
-            qm_steps, qm_response = run_thread(client, agent, thread, 3, "QM failure")
+            qm_response = qm_agent.run_and_retrieve_thread(client, qm_thread, 3)
             qm_file = retrieve_from_file_or_text(client, qm_thread)
 
         qm_content_dict = json.loads(client.files.retrieve_content(qm_file))
-        print(qm_content_dict)
+        # print(qm_content_dict)
 
         if qm_content_dict["completed"]:
             # QM deemed the agent's task complete and so we can get the file
@@ -158,9 +165,10 @@ def quality_manager(client, thread, agent):
             content=prompt,
         )
         print(f"QM: going back to {agent} ")
-        run_steps, retrieve_response = run_thread(client, agent, thread, 3,
-                                                  "Agent did not complete task")
-
+        response = agent.run_and_retrieve_thread(client, thread, 3)
+        file = retrieve_from_file_or_text(client, thread)
+        if file:
+            return file
         tries += 1
 
 def retrieve_run(client, thread_id, run_id, max_retries, description):
@@ -198,7 +206,6 @@ def run_assistant(client, assistant, prompt, file_ids, description):
     )
     run_steps, retrieve = run_thread(client, assistant, thread, 3, description)
     return run_steps, retrieve, thread
-
 
 def run_thread(client, assistant, thread, max_retries, description):
     run = client.beta.threads.runs.create(
@@ -472,7 +479,6 @@ def run_performance_retrieval_evaluation(client, insight_file, queries):
     )
     return performance_steps, performance_response, performance_thread
 
-
 def run_trends_analysis(client, insight_files, data_files_id):
     trends_prompt = (
         f"Generate the trends that are affecting NAG Or Numerical Algorithms Group with basic information "
@@ -542,10 +548,17 @@ def run_challenges_analysis(client, trends_file, capabilities_file):
     return challenges_steps, challenges_response, challenges_thread, challenges_agent
 
 def run_competition_analysis(client, insight_file):
+    agent_comp = Agent(client, agent_key="competition_agent")
+    print(agent_comp.agent_id, agent_comp.description)
+    prompt = f"Define the competitive environment based on the file {insight_file}"
+    # competition_steps, competition_response, competition_thread = run_assistant(client, agent_comp.agent_id,
+    #                             competition_prompt, file_ids=[insight_file], description=agent_comp.description)
+    # return competition_steps, competition_response, competition_thread, competition_agent
     competition_prompt = f"Define the competitive environment based on the file {insight_file}"
-    competition_steps, competition_response, competition_thread = run_assistant(client, competition_agent,
-                                competition_prompt, file_ids=[insight_file], description=competition_description)
-    return competition_steps, competition_response, competition_thread, competition_agent
+    thread = agent_comp.create_thread(client, prompt, insight_file)
+    retrieval = agent_comp.run_and_retrieve_thread(client, thread, max_retries=3)
+    return thread, retrieval, agent_comp
+
 
 
 

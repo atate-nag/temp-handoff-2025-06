@@ -1,0 +1,140 @@
+{
+  "known_agents": {
+    "competition_agent": {
+      "id": "asst_uphvlsvGIbtXQAx89cFShovV",
+      "description": "Competition Description",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "competitor": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description of competitive threat": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "Services": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "Leadership": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "Products": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "HQ": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "string",
+                      "pattern": "^[0-9,]+$"
+                    }
+                  },
+                  "required": [
+                    "Services",
+                    "Leadership",
+                    "Products",
+                    "name",
+                    "HQ",
+                    "size"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "description of competitive threat",
+                "data"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "competitor"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 1
+      }
+    },
+    "insight_agent": {
+      "id": "asst_iYvVBX1aaxu3KBgSEvIAZFEb",
+      "description": "Structured Extraction Agent"
+    },
+    "condense_agent": {
+      "id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",
+      "description": "Condensing Assistant for Json"
+    },
+    "trends_agent": {
+      "id": "asst_ripeR7nhZq822ek0PwDM31Fs",
+      "description": "Trends Agent"
+    },
+    "capabilities_agent": {
+      "id": "asst_NoLfJg1BUS4yNuZhurDAedXO",
+      "description": "Capabilities Agent"
+    },
+    "challenges_agent": {
+      "id": "asst_vlOVosMTXgg8qOf8FReoeNjg",
+      "description": "Challenges Agent"
+    },
+    "actions_agent": {
+      "id": "asst_ACUyLQAjjCii40BRs9sBPout",
+      "description": "Actions Agent"
+    },
+    "recommender_agent": {
+      "id": "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ",
+      "description": "Recommender Agent"
+    },
+    "qm_agent": {
+      "id": "asst_81bPWyyQJy4iqI7zyUEeoWhl",
+      "description": "Quality Manager Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean",
+            "description": "Indicates whether the task is completed."
+          },
+          "agent instructions": {
+            "type": "string",
+            "description": "Instructions for the agent."
+          },
+          "file id": {
+            "type": "string",
+            "description": "The identifier for the file."
+          }
+        },
+        "required": [
+          "completed",
+          "agent instructions",
+          "file id"
+        ],
+        "additionalProperties": false,
+        "description": "Schema for validating agent output."
+      }
+    }
+  }
+}

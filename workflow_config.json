@@ -38,7 +38,7 @@
       }
     },
     "extractInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
@@ -47,7 +47,7 @@
       }
     },
     "displayInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "relevanceFrom" : 9.2
@@ -66,7 +66,7 @@
       }
     },
     "evaluateCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "debug" : false,
@@ -74,20 +74,20 @@
       }
     },
     "pruneCapabilities" : {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "updateGraph": true
       }
     },
     "displayCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag"
       }
     },
     "buildCompetitiveEnvironment": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
         "updateGraph": true

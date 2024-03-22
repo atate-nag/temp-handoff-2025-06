@@ -11,6 +11,7 @@ from run_assistant_thread import (
     run_capabilities_analysis,
     run_recommender_analysis,
     run_competition_analysis,
+    overseer_manage_agent,
 )
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
@@ -296,8 +297,7 @@ def build_competitive_environment(companyName, updateGraph):
     print(f"Newly uploaded file ID for '{companyName}': {file}")
 
     # now call the recommender agent and it give a set of recommendations and justifications
-    competition_file = overseer_manage_assistant(client, None, "competition",
-                                                          0, run_competition_analysis, file)
+    competition_file = overseer_manage_agent(client, run_competition_analysis, file)
 
     # how much basic information do we have on each competitor? Dump the competition graph
 
@@ -311,7 +311,6 @@ def build_competitive_environment(companyName, updateGraph):
     ) as json_file:
         json_file.write(str_competition_file)
     return
-
 
 # Load the workflow configuration
 with open("workflow_config.json", "r") as file:
