@@ -30,7 +30,6 @@ uri = "bolt://localhost:7687"
 user = os.getenv("NEO4J_USER")
 password = os.getenv("NEO4J_PASSWORD")
 
-
 def get_step_function(step_name):
     """
     Returns the function mapped to the specified workflow step without executing it.
@@ -255,7 +254,6 @@ def clean_insights(companyName):
 def prune_insights(companyName):
 
     # first get the insight graph state
-
     json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
     print(json_graph)
 

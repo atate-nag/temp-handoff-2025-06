@@ -2,6 +2,8 @@
 import json
 import time
 
+from file_retrieval import retrieve_from_file_or_text
+
 class Agent:
     def __init__(self, client, agent_key=None, description=None, name=None, instructions=None):
         self.config = self.load_config("known_agents.json")
@@ -58,6 +60,62 @@ class Agent:
                 retries += 1
                 time.sleep(5)  # Wait before retrying
         print(f"Run {run_id} did not complete after {max_retries} retries.")
+        return None
+
+    def get_messages(self, client, thread):
+        messages = client.beta.threads.messages.list(thread_id=thread.id).data
+        response = ""
+        for message in messages:
+            if message.role == "assistant" and message.content[0].type == "text":
+                print(message.content[0])
+                print(message.content[0].text.value)
+                response += message.content[0].text.value
+        return response
+
+    def add_message(self, client, thread_id, prompt):
+        client.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",
+            content=prompt,
+        )
+
+    def retrieve_output_or_reissue(self, client, thread):
+        file = retrieve_from_file_or_text(client, thread)
+        if file:
+            print(f"good QM file retrieved")
+            return file
+        else:
+            client.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content="Please write your required output to an external JSON file for processing by the agent team"
+            )
+            response = self.run_and_retrieve_thread(client, thread, 3)
+            file = retrieve_from_file_or_text(client, thread)
+            return file
+
+    def upload_text_to_file(self,client,text):
+        with open(
+                f"./Intermediates/response.json", "w", encoding="utf-8"
+        ) as file:
+            file.write(text)
+        with open(
+                f"./Intermediates/response.json", "rb"
+        ) as openai_file:
+            openai_response = client.files.create(
+                file=openai_file, purpose="assistants"
+            )
+        print(
+            f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
+        )
+        return openai_response
+
+    @staticmethod
+    def retrieve_output(client, thread):
+        file = retrieve_from_file_or_text(client, thread)
+        if file:
+            print(f"good QM file retrieved")
+            return file
         return None
 
     def create_new_assistant(self, client, name, description, instructions):
