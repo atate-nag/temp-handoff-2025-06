@@ -3,6 +3,7 @@ from dochandler import Rdoc
 import os
 import openai
 from dotenv import load_dotenv
+from agent import Agent
 
 from run_assistant_thread import (
     parallel_file_process,
@@ -293,12 +294,14 @@ def build_competitive_environment(companyName, updateGraph):
     filename_prefix = f"company_and_insight_graph_{companyName}"
     file = file_handler.direct_upload(json_graph, filename_prefix, companyName, purpose="assistants")
     print(f"Newly uploaded file ID for '{companyName}': {file}")
-
-    # now call the recommender agent and it give a set of recommendations and justifications
-    competition_file = overseer_manage_agent(client, run_competition_analysis, file)
-
+    # set up the agent
+    prompt = f"Define the competitive environment based on the file {file}"
+    agent = Agent(client, agent_key="competition_agent", prompt=prompt)
+    print(agent.agent_id, agent.description)
+    # competition_file = overseer_manage_agent(client, run_competition_analysis, file)
+    run = agent.setup_run(file, qm=True)  # prepare for a run with QM enabled
     # how much basic information do we have on each competitor? Dump the competition graph
-
+    competition_file = agent.run_agent()
     print(competition_file)
     str_competition_file = client.files.retrieve_content(competition_file)
     competition_content = json.loads(client.files.retrieve_content(competition_file))

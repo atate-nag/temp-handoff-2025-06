@@ -10,48 +10,6 @@ from datetime import datetime
 from dochandler import Rdoc
 from agent import Agent
 
-condense_agent = "asst_AzJOCJFl1D8BKF4oNrge9XF8"
-condense_description = "Condensing Assistant for Json"
-
-insight_agent = "asst_iYvVBX1aaxu3KBgSEvIAZFEb"
-insight_description = "Structured Extraction Agent"
-
-trends_agent = "asst_ripeR7nhZq822ek0PwDM31Fs"
-trends_description = "Trends Agent"
-
-capabilities_agent = "asst_NoLfJg1BUS4yNuZhurDAedXO"
-capabilities_description = "Capabilities Agent"
-
-challenges_agent = "asst_vlOVosMTXgg8qOf8FReoeNjg"
-challenges_description = "Challenges Agent"
-
-actions_agent = "asst_ACUyLQAjjCii40BRs9sBPout"
-actions_description = "Actions Agent"
-
-recommender_agent = "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ"
-recommender_description = "Recommender Agent"
-
-competition_agent = "asst_uphvlsvGIbtXQAx89cFShovV"
-competition_description = "Competition Description"
-
-def retrieve_from_file_or_text(client,thread):
-    file_direct = retrieve_file_annotation(client, thread)
-    if file_direct:
-        return file_direct
-    else:
-        file_from_response = return_json_and_file(client, thread)
-        if file_from_response:
-            return file_from_response
-    return None
-
-def retrieve_from_id_or_path(client,thread, file_str):
-    # the problem is that the file is either in
-    file_direct = retrieve_file_annotation(client, thread)
-    if file_direct == file_str:
-        return file_direct
-    file_from_path = retrieve_file_path(thread)
-
-    return None
 
 def overseer_manage_assistant(
     client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3
@@ -63,11 +21,11 @@ def overseer_manage_assistant(
 
 def overseer_manage_agent(client, assistant_function, *args):
     thread, response, agent = assistant_function(client, *args)
+    # basically all the assistant_functions are the same minus the prompting
     output_file = quality_manager(client, thread, agent)
     return output_file
 
 def quality_manager(client, thread, agent):
-
     ''' quality manager is going to assess the quality of agent output by
         1) checking if some additional user response is needed and performing it
         2) Checking if the agent solved a simulation/proxy/
@@ -75,98 +33,34 @@ def quality_manager(client, thread, agent):
         3) checking that desired outputs are in the format needed
         4) checking that desired outputs are sufficiently numerous
         5) checking that desired outputs are sufficiently detailed '''
-
     # 1 - checking if some additional user response is needed
     tries = 0
     while True:
         if tries == 3:
             print(f"QM did not manage to get a good result after {tries} attempts")
             return None
-        messages = client.beta.threads.messages.list(thread_id=thread.id).data
-        response = ""
-        for message in messages:
-            if message.role == "assistant" and message.content[0].type == "text":
-                response += message.content[0].text.value
 
-        # send the message to the QM agent and he will provide a suitable prompt
-
-        with open(
-                f"./Intermediates/response.json", "w", encoding="utf-8"
-        ) as file:
-            file.write(response)
-        with open(
-                f"./Intermediates/response.json", "rb"
-        ) as openai_file:
-            openai_response = client.files.create(
-                file=openai_file, purpose="assistants"
-        )
-        print(
-            f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
-        )
-
+        response = agent.get_messages(client, thread)
+        openai_response = agent.upload_text_to_file(client, response)
         qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
         qm_agent = Agent(client, "qm_agent")
         qm_thread = qm_agent.create_thread(client, qm_prompt, openai_response.id)
         qm_response = qm_agent.run_and_retrieve_thread(client, qm_thread, 3)
-        # qm_steps, qm_response, qm_thread = run_assistant(
-        #     client,
-        #     qm_agent,
-        #     qm_prompt,
-        #     file_ids=[openai_response.id],
-        #     description="QM:",
-        # )
-
-        qm_messages = client.beta.threads.messages.list(thread_id=qm_thread.id).data
-        qm_response = []
-        for message in qm_messages:
-            if message.role == "assistant" and message.content[0].type == "text":
-                print(message.content[0])
-                print(message.content[0].text.value)
-                qm_response.append(message.content[0].text.value)
-
-        # now we need to pull the qm response into a json format for processing
-
-        qm_file = retrieve_from_file_or_text(client, qm_thread)
-        # annoyingly, we have to QM the QM agent  which may forget to product output file
-
-        if qm_file:
-            print(f"good QM file retrieved")
-        # If not successful, reply to the thread and insist on the file
-        else:
-            client.beta.threads.messages.create(
-                thread_id=qm_thread.id,
-                role="user",
-                content="Please write your dictionary to an external JSON file for processing, "
-                        "this will inform the agent team of the progress of the task you have assessed.",
-            )
-            qm_response = qm_agent.run_and_retrieve_thread(client, qm_thread, 3)
-            qm_file = retrieve_from_file_or_text(client, qm_thread)
-
+        qm_file = qm_agent.retrieve_output_or_reissue(client, qm_thread)
         qm_content_dict = json.loads(client.files.retrieve_content(qm_file))
-        # print(qm_content_dict)
 
         if qm_content_dict["completed"]:
-            # QM deemed the agent's task complete and so we can get the file
-            agent_output_file = retrieve_file_annotation(client, thread)
-            # agent_output_file = qm_content_dict["file id"]
-            # we need to do the best we can with either a valid file id or a file path
+            agent_output_file = agent.retrieve_output(client, qm_thread)
             print(f"QM: returning file {agent_output_file}")
-            # now do the second QM job: detect if the output matches task requirements
-
             return agent_output_file
 
         # QM said task did not complete, need to go back to the agent
         prompt = qm_content_dict["agent instructions"]
         print(f"QM: agent did not complete and will be informed {prompt}")
-
-        client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=prompt,
-        )
+        agent.add_message(client, thread.id, prompt)
         print(f"QM: going back to {agent} ")
         response = agent.run_and_retrieve_thread(client, thread, 3)
-        file = retrieve_from_file_or_text(client, thread)
+        file = agent.retrieve_output(client, thread)
         if file:
             return file
         tries += 1
@@ -191,7 +85,6 @@ def retrieve_run(client, thread_id, run_id, max_retries, description):
             time.sleep(5)  # Wait before retrying
     print(f"Run {run_id} did not complete after {max_retries} retries.")
     return None  # Return None if all retries fail
-
 
 def run_assistant(client, assistant, prompt, file_ids, description):
     print(f"Running {assistant} accessing stored files {file_ids}")
@@ -221,82 +114,6 @@ def run_thread(client, assistant, thread, max_retries, description):
     print(f"Response received in {end_time - start_time} seconds")
     run_steps = client.beta.threads.runs.steps.list(thread_id=thread.id, run_id=run.id)
     return run_steps, retrieve
-
-
-def retrieve_file_annotation(client, thread):
-    # Retrieve file from "annotations" which is where it (mostly) resides
-    messages = client.beta.threads.messages.list(thread_id=thread.id).data
-    for message in messages:
-        if message.role == "assistant" and message.content[0].type == "text":
-            annotations = message.content[0].text.annotations
-            for index, annotation in enumerate(annotations):
-                if annotation.file_path.file_id:
-                    file = annotation.file_path.file_id
-                    return file
-    print("No annotations for a file were found")
-    return None
-
-def retrieve_file_path(client, thread):
-    # Retrieve file from "annotations" but when it is a path
-    messages = client.beta.threads.messages.list(thread_id=thread.id).data
-    for message in messages:
-        if message.role == "assistant" and message.content[0].type == "text":
-            annotations = message.content[0].text.annotations
-            for index, annotation in enumerate(annotations):
-                if annotation.file_path.file_id:
-                    print(annotation.file_path)
-                    file = annotation.file_path.file_id
-                    return file
-    print("No annotations for a file were found")
-    return None
-
-def download_file_by_id(client, file_id):
-    content = client.files.retrieve_content(file_id)
-    return content
-
-
-def return_json_and_file(client, thread):
-    # Sometimes naughty little AIs still send via response, so must extract it via regular expressions
-    messages = client.beta.threads.messages.list(thread_id=thread.id).data
-    for message in messages:
-        if message.role == "assistant":  # Identify the assistant's message
-            for content in message.content:
-                if content.type == "text":
-                    match = re.search(r"\{.*\}", content.text.value, re.DOTALL)
-                    if match:
-                        json_string = match.group()
-                        # Remove or replace invalid control characters
-                        cleaned_json_string = re.sub(
-                            r"[\x00-\x1f\x7f]", "", json_string
-                        )
-                        cleaned_json_string = re.sub(
-                            r":\s*([0-9]+),([0-9]+)", r': "\1,\2"', cleaned_json_string
-                        )
-                        try:
-                            full_info = json.loads(cleaned_json_string)
-                            with open(
-                                f"json_file.json", "w", encoding="utf-8"
-                            ) as json_file:
-                                json_file.write(cleaned_json_string)
-                            with open(f"json_file.json", "rb") as json_file:
-                                file = client.files.create(
-                                    file=json_file, purpose="assistants"
-                                )
-                            print(
-                                f"JSON found in the message, written to file with ID: {file.id}"
-                            )
-                            return file.id
-                        except json.JSONDecodeError as e:
-                            print(f"Failed to decode JSON: {e}")
-                            print(f"Faulty JSON string: {repr(cleaned_json_string)}")
-                    else:
-                        print("No JSON found in the message, returning None")
-                        return None
-    # Extremely naughty AI did not produce anything! Hopefuly next round will be better
-    # TODO need to parse the run_steps and see what happened, respond accordingly
-    print("No JSON content was found")
-    return None
-
 
 def parallel_file_process(client, file_dir, company_data, prefix, write_intermediates):
     files = [
@@ -334,7 +151,6 @@ def parallel_file_process(client, file_dir, company_data, prefix, write_intermed
     return return_files
 
 
-# TODO move file handling into appropriate module
 def import_data_files_and_upload(client, data_dir, document_type="data"):
     # import all the files in the given directory and optionally write intermediates
     data_files = [
@@ -428,45 +244,26 @@ def process_file(
     else:
         return None
 
-
-def download_content_and_write(client, agent_file, local_filename):
-    json_content = download_file_by_id(client, agent_file)
-    with open(
-        f"./Intermediates/{local_filename}.json", "w", encoding="utf-8"
-    ) as json_file:
-        json_file.write(json_content)
-    return json_file
-
-
 def run_insight_analysis(client, condense_file, data_file, source_file):
     today_date = datetime.today().date()
-    insight_prompt = (
+    prompt = (
         f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
         f"with basic information contained in the files {data_file.id} and potential insights "
         f"in {condense_file}. Today's date is {today_date} and the source file is called {source_file}."
     )
-    insight_steps, insight_response, insight_thread = run_assistant(
-        client,
-        insight_agent,
-        insight_prompt,
-        file_ids=[data_file.id, condense_file],
-        description=insight_description,
-    )
-    return insight_steps, insight_response, insight_thread, insight_agent
-
+    agent = Agent(client, agent_key="insight_agent")
+    print(agent.agent_id, agent.description)
+    thread = agent.create_thread(client, prompt,[data_file.id, condense_file])
+    retrieval = agent.run_and_retrieve_thread(client, thread, max_retries=3)
+    return thread, retrieval, agent
 
 def run_condense_analysis(client, raw_file):
-    condense_prompt = f"Condense the json file {raw_file.id}"
-
-    condense_steps, condense_response, condense_thread = run_assistant(
-        client,
-        condense_agent,
-        condense_prompt,
-        file_ids=[raw_file.id],
-        description=condense_description,
-    )
-    return condense_steps, condense_response, condense_thread, condense_agent
-
+    agent = Agent(client, agent_key="condense_agent")
+    print(agent.agent_id, agent.description)
+    prompt = f"Condense the json file {raw_file.id}"
+    thread = agent.create_thread(client, prompt, raw_file)
+    retrieval = agent.run_and_retrieve_thread(client, thread, max_retries=3)
+    return thread, retrieval, agent
 
 def run_performance_retrieval_evaluation(client, insight_file, queries):
     performance_prompt = f"Evaluate the how relevant are the insight files {insight_file} regarding the queries: {queries}"
@@ -551,9 +348,6 @@ def run_competition_analysis(client, insight_file):
     agent_comp = Agent(client, agent_key="competition_agent")
     print(agent_comp.agent_id, agent_comp.description)
     prompt = f"Define the competitive environment based on the file {insight_file}"
-    # competition_steps, competition_response, competition_thread = run_assistant(client, agent_comp.agent_id,
-    #                             competition_prompt, file_ids=[insight_file], description=agent_comp.description)
-    # return competition_steps, competition_response, competition_thread, competition_agent
     competition_prompt = f"Define the competitive environment based on the file {insight_file}"
     thread = agent_comp.create_thread(client, prompt, insight_file)
     retrieval = agent_comp.run_and_retrieve_thread(client, thread, max_retries=3)
