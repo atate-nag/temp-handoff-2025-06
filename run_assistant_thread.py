@@ -39,9 +39,8 @@ def quality_manager(client, thread, agent):
         if tries == 3:
             print(f"QM did not manage to get a good result after {tries} attempts")
             return None
-
         response = agent.get_messages(client, thread)
-        openai_response = agent.upload_text_to_file(client, response)
+        openai_response = upload_text_to_file(client, response)
         qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
         qm_agent = Agent(client, "qm_agent")
         qm_thread = qm_agent.create_thread(client, qm_prompt, openai_response.id)
@@ -244,114 +243,114 @@ def process_file(
     else:
         return None
 
-def run_insight_analysis(client, condense_file, data_file, source_file):
-    today_date = datetime.today().date()
-    prompt = (
-        f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
-        f"with basic information contained in the files {data_file.id} and potential insights "
-        f"in {condense_file}. Today's date is {today_date} and the source file is called {source_file}."
-    )
-    agent = Agent(client, agent_key="insight_agent")
-    print(agent.agent_id, agent.description)
-    thread = agent.create_thread(client, prompt,[data_file.id, condense_file])
-    retrieval = agent.run_and_retrieve_thread(client, thread, max_retries=3)
-    return thread, retrieval, agent
+# def run_insight_analysis(client, condense_file, data_file, source_file):
+#     today_date = datetime.today().date()
+#     prompt = (
+#         f"Generate the insights that relate to the company NAG Or Numerical Algorithms Group "
+#         f"with basic information contained in the files {data_file.id} and potential insights "
+#         f"in {condense_file}. Today's date is {today_date} and the source file is called {source_file}."
+#     )
+#     agent = Agent(client, agent_key="insight_agent")
+#     print(agent.agent_id, agent.description)
+#     thread = agent.create_thread(client, prompt,[data_file.id, condense_file])
+#     retrieval = agent.run_and_retrieve_thread(client, thread, max_retries=3)
+#     return thread, retrieval, agent
 
-def run_condense_analysis(client, raw_file):
-    agent = Agent(client, agent_key="condense_agent")
-    print(agent.agent_id, agent.description)
-    prompt = f"Condense the json file {raw_file.id}"
-    thread = agent.create_thread(client, prompt, raw_file)
-    retrieval = agent.run_and_retrieve_thread(client, thread, max_retries=3)
-    return thread, retrieval, agent
+# def run_condense_analysis(client, raw_file):
+#     agent = Agent(client, agent_key="condense_agent")
+#     print(agent.agent_id, agent.description)
+#     prompt = f"Condense the json file {raw_file.id}"
+#     thread = agent.create_thread(client, prompt, raw_file)
+#     retrieval = agent.run_and_retrieve_thread(client, thread, max_retries=3)
+#     return thread, retrieval, agent
+#
+# def run_performance_retrieval_evaluation(client, insight_file, queries):
+#     performance_prompt = f"Evaluate the how relevant are the insight files {insight_file} regarding the queries: {queries}"
+#     performance_steps, performance_response, performance_thread = run_assistant(
+#         client,
+#         assistants["OpenAI"]["retrieval_performance_evaluator"]["id"],
+#         performance_prompt,
+#         file_ids=insight_file,
+#         description="performance_description",
+#     )
+#     return performance_steps, performance_response, performance_thread
+#
+# def run_trends_analysis(client, insight_files, data_files_id):
+#     trends_prompt = (
+#         f"Generate the trends that are affecting NAG Or Numerical Algorithms Group with basic information "
+#         f"contained in the file {data_files_id} and collected insights in {insight_files}"
+#     )
+#
+#     trends_steps, trends_response, trends_thread = run_assistant(
+#         client,
+#         trends_agent,
+#         trends_prompt,
+#         file_ids= data_files_id + insight_files,
+#         description=trends_description,
+#     )
+#     return (
+#         trends_steps,
+#         trends_response,
+#         trends_thread,
+#         trends_agent,
+#     )  # Modified to return necessary info
+#
+#
+# def run_recommender_analysis(client, insight_file):
+#     recommender_prompt = (
+#         f"Make the neccesary recommendations for the insights in {insight_file}"
+#     )
+#     recommender_steps, recommender_response, recommender_thread = run_assistant(
+#         client,
+#         recommender_agent,
+#         recommender_prompt,
+#         file_ids=[insight_file],
+#         description=recommender_description,
+#     )
+#     return (
+#         recommender_steps,
+#         recommender_response,
+#         recommender_thread,
+#         recommender_agent,
+#     )
+#
+#
+# def run_capabilities_analysis(client, file):
+#     capabilities_prompt = (
+#         f"Generate the capabilities relevant to the company and insights in the file {file}"
+#     )
+#     capabilities_steps, capabilities_response, capabilities_thread = run_assistant(
+#         client,
+#         capabilities_agent,
+#         capabilities_prompt,
+#         file_ids=[file],
+#         description=capabilities_description,
+#     )
+#     return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
+#
+#
+# def run_challenges_analysis(client, trends_file, capabilities_file):
+#     challenges_prompt = (
+#         f"Generate the challenges that NAG Or Numerical Algorithms Group faces, using the files {trends_file} "
+#         f"and {capabilities_file}"
+#     )
+#     challenges_steps, challenges_response, challenges_thread = run_assistant(
+#         client,
+#         challenges_agent,
+#         challenges_prompt,
+#         file_ids=[trends_file, capabilities_file],
+#         description=challenges_description,
+#     )
+#     return challenges_steps, challenges_response, challenges_thread, challenges_agent
 
-def run_performance_retrieval_evaluation(client, insight_file, queries):
-    performance_prompt = f"Evaluate the how relevant are the insight files {insight_file} regarding the queries: {queries}"
-    performance_steps, performance_response, performance_thread = run_assistant(
-        client,
-        assistants["OpenAI"]["retrieval_performance_evaluator"]["id"],
-        performance_prompt,
-        file_ids=insight_file,
-        description="performance_description",
-    )
-    return performance_steps, performance_response, performance_thread
-
-def run_trends_analysis(client, insight_files, data_files_id):
-    trends_prompt = (
-        f"Generate the trends that are affecting NAG Or Numerical Algorithms Group with basic information "
-        f"contained in the file {data_files_id} and collected insights in {insight_files}"
-    )
-
-    trends_steps, trends_response, trends_thread = run_assistant(
-        client,
-        trends_agent,
-        trends_prompt,
-        file_ids= data_files_id + insight_files,
-        description=trends_description,
-    )
-    return (
-        trends_steps,
-        trends_response,
-        trends_thread,
-        trends_agent,
-    )  # Modified to return necessary info
-
-
-def run_recommender_analysis(client, insight_file):
-    recommender_prompt = (
-        f"Make the neccesary recommendations for the insights in {insight_file}"
-    )
-    recommender_steps, recommender_response, recommender_thread = run_assistant(
-        client,
-        recommender_agent,
-        recommender_prompt,
-        file_ids=[insight_file],
-        description=recommender_description,
-    )
-    return (
-        recommender_steps,
-        recommender_response,
-        recommender_thread,
-        recommender_agent,
-    )
-
-
-def run_capabilities_analysis(client, file):
-    capabilities_prompt = (
-        f"Generate the capabilities relevant to the company and insights in the file {file}"
-    )
-    capabilities_steps, capabilities_response, capabilities_thread = run_assistant(
-        client,
-        capabilities_agent,
-        capabilities_prompt,
-        file_ids=[file],
-        description=capabilities_description,
-    )
-    return capabilities_steps, capabilities_response, capabilities_thread, capabilities_agent
-
-
-def run_challenges_analysis(client, trends_file, capabilities_file):
-    challenges_prompt = (
-        f"Generate the challenges that NAG Or Numerical Algorithms Group faces, using the files {trends_file} "
-        f"and {capabilities_file}"
-    )
-    challenges_steps, challenges_response, challenges_thread = run_assistant(
-        client,
-        challenges_agent,
-        challenges_prompt,
-        file_ids=[trends_file, capabilities_file],
-        description=challenges_description,
-    )
-    return challenges_steps, challenges_response, challenges_thread, challenges_agent
-
-def run_competition_analysis(client, insight_file):
-    agent_comp = Agent(client, agent_key="competition_agent")
-    print(agent_comp.agent_id, agent_comp.description)
-    prompt = f"Define the competitive environment based on the file {insight_file}"
-    competition_prompt = f"Define the competitive environment based on the file {insight_file}"
-    thread = agent_comp.create_thread(client, prompt, insight_file)
-    retrieval = agent_comp.run_and_retrieve_thread(client, thread, max_retries=3)
-    return thread, retrieval, agent_comp
+# def run_competition_analysis(client, insight_file):
+#     agent_comp = Agent(client, agent_key="competition_agent")
+#     print(agent_comp.agent_id, agent_comp.description)
+#     prompt = f"Define the competitive environment based on the file {insight_file}"
+#     competition_prompt = f"Define the competitive environment based on the file {insight_file}"
+#     thread = agent_comp.create_thread(prompt, input_files=insight_file)
+#     retrieval = agent_comp.run_and_retrieve_thread()
+#     return thread, retrieval, agent_comp
 
 
 

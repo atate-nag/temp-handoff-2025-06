@@ -80,9 +80,13 @@ class CompanyGraph(BaseGraph):
         tx.run(query, company_name=company_name)
 
     def get_company_info(self, company_name):
-        with self.driver.session() as session:
-            result = session.read_transaction(self._retrieve_company_node, company_name)
-            return result
+        with (self.driver.session() as session):
+            try:
+                result = session.read_transaction(self._retrieve_company_node, company_name)
+            except Exception as e:
+                print(f"Error retrieving company {company_name} from graph: Probably no company{e}"
+                      f" of that name exists. Real error is {e}")
+        return result
 
     @staticmethod
     def _retrieve_company_node(tx, company_name):

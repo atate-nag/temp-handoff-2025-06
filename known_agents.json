@@ -108,8 +108,8 @@
       "description": "Recommender Agent"
     },
     "qm_agent": {
-      "id": "asst_81bPWyyQJy4iqI7zyUEeoWhl",
-      "description": "Quality Manager Agent",
+      "id": "asst_9eE5PxZx9cs4WgDHvp7YquT3",
+      "description": "QM run problems Agent",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",

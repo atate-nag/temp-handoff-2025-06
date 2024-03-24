@@ -9,9 +9,9 @@ from run_assistant_thread import (
     parallel_file_process,
     import_data_files_and_upload,
     overseer_manage_assistant,
-    run_capabilities_analysis,
-    run_recommender_analysis,
-    run_competition_analysis,
+    # run_capabilities_analysis,
+    # run_recommender_analysis,
+    # run_competition_analysis,
     overseer_manage_agent,
 )
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
@@ -99,101 +99,6 @@ def update_company_data(dataDir, companyName):
 
     return
 
-
-def extract_insights(sourceDir, companyName, debug, updateGraph):
-    #  first see if this companyName has a data file in the handler yet
-    file_id = file_handler.check_and_retrieve_file(companyName)
-    company_data = company_graph.get_company_info(companyName)
-    print(f"Company data for {companyName} is {company_data}")
-    if not company_data:
-        print(
-            "Error: Cannot generate insights for {companyName} as there is no node or data in the graph for a company "
-            "of that name"
-        )
-        return None
-    debug_dir = os.path.join(sourceDir, companyName, "debug")
-
-    if debug:
-        if os.path.exists(debug_dir):
-            # Iterate over each file in the debug directory
-            for filename in os.listdir(debug_dir):
-                file_path = os.path.join(debug_dir, filename)
-                if os.path.isfile(file_path) and file_path.endswith(".json"):
-                    # Load insights from the file
-                    with open(file_path, "rb") as local_file:
-                        insight_content = json.loads(local_file.read())
-                        # Optional: process each insight (e.g., print relevanceScore type for debugging)
-                        if debug:
-                            for insight in insight_content:
-                                print(type(insight["relevanceScore"]))
-
-                        # Update the graph with insights from the current file
-                        if updateGraph:
-                            insight_graph.add_insight(insight_content, companyName)
-        else:
-            print(
-                f"No debug directory found for company {companyName} at path: {debug_dir}"
-            )
-    else:
-        if file_id:
-            print(f"File ID for '{companyName}': {file_id}")
-        else:
-            # If the file doesn't exist, generate and upload it
-            filename_prefix = f"company_data_{companyName}"
-            file_id = file_handler.serialize_and_upload(
-                company_data, filename_prefix, companyName, purpose="assistants"
-            )
-            print(f"Newly uploaded file ID for '{companyName}': {file_id}")
-        company_insight_dir = os.path.join(sourceDir, companyName)
-        print(
-            f"Extracting insights from source dir {company_insight_dir} and insight manager {insight_graph}"
-        )
-        company_insights = parallel_file_process(
-            client, company_insight_dir, file_id, "company", None
-        )
-        print(f"company insights are {company_insights}")
-        for id in company_insights:
-            insight_content = json.loads(client.files.retrieve_content(id))
-            print(f"Main: Company insights extracted: content = {insight_content}")
-            if updateGraph:
-                insight_graph.add_insight(insight_content, companyName)
-    return
-
-
-def evaluate_capabilities(companyName, debug, updateGraph):
-    # dump the graph in a form suitable to send on to the AI agents
-    json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-    print(json_graph)
-    if debug:
-        # read the relevant files from debug directory instead of generating more capabilities
-        capabilities_file = f"debug_capabilities_{companyName}.json"
-        with open(capabilities_file, "rb") as local_file:
-            capabilities_content = json.loads(local_file.read())
-    else:
-        # upload the graph date to openAI and get file-ID
-        filename_prefix = f"company_and_insight_graph_{companyName}"
-        # file = file_handler.serialize_and_upload(json_graph, filename_prefix, companyName, purpose="assistants")
-        file = file_handler.direct_upload(
-            json_graph, filename_prefix, companyName, purpose="assistants"
-        )
-        print(f"Newly uploaded file ID for '{companyName}': {file}")
-        # now call the capabilities agent and it will define a set of core capabilities
-        capabilities_file = overseer_manage_assistant(
-            client, None, "capabilities", 0, run_capabilities_analysis, file
-        )
-        # download the file and dump
-        print(capabilities_file)
-        capabilities_content = json.loads(
-            client.files.retrieve_content(capabilities_file)
-        )
-
-    # now add the capabilities to the graph
-
-    if updateGraph:
-        company_graph.add_capability_and_evidence(companyName, capabilities_content)
-    return
-
-
 def display_insights(companyName, relevanceFrom):
     print(
         f"display insights, Company: {companyName}, relevanceFrom={relevanceFrom} and type is {type(relevanceFrom)}"
@@ -273,21 +178,77 @@ def prune_insights(companyName):
     recommender_content = json.loads(
         client.files.retrieve_content(recommended_insights_file)
     )
-
     with open(
         f"./Intermediates/insight_recommendations.json",
         "w",
         encoding="utf-8",
     ) as json_file:
         json_file.write(str_recommender_content)
-
     # now add the capabilities to the graph
     company_graph.prune_insights_from_recommendation(companyName, recommender_content)
     return
 
+
+def extract_insights(sourceDir, companyName, debug, updateGraph):
+    # task 1: load company data from graph or from a debug file (if debug == True)
+    company_data_json = company_graph.get_company_info(companyName)
+    llm_graph_file = file_handler.serialize_and_upload(company_data_json, "insights", companyName)
+    if debug:
+        print(f"Debug of insights not currently supported")
+        return None
+    print(f"File ID for '{companyName}': {llm_graph_file}")
+    sys.exit()
+    company_insight_dir = os.path.join(sourceDir, companyName)
+    print(
+        f"Extracting insights from source dir {company_insight_dir} and insight manager {insight_graph}"
+    )
+    company_insights = parallel_file_process(
+        client, company_insight_dir, file_id, "company", None
+    )
+    print(f"company insights are {company_insights}")
+    for id in company_insights:
+        insight_content = json.loads(client.files.retrieve_content(id))
+        print(f"Main: Company insights extracted: content = {insight_content}")
+        if updateGraph:
+            insight_graph.add_insight(insight_content, companyName)
+    return
+
+
+def evaluate_capabilities(companyName, debug, updateGraph):
+    # dump the graph in a form suitable to send on to the AI agents
+    json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
+    print(json_graph)
+    if debug:
+        # read the relevant files from debug directory instead of generating more capabilities
+        capabilities_file = f"debug_capabilities_{companyName}.json"
+        with open(capabilities_file, "rb") as local_file:
+            capabilities_content = json.loads(local_file.read())
+    else:
+        # upload the graph date to openAI and get file-ID
+        filename_prefix = f"company_and_insight_graph_{companyName}"
+        # file = file_handler.serialize_and_upload(json_graph, filename_prefix, companyName, purpose="assistants")
+        file = file_handler.direct_upload(
+            json_graph, filename_prefix, companyName, purpose="assistants"
+        )
+        print(f"Newly uploaded file ID for '{companyName}': {file}")
+        # now call the capabilities agent and it will define a set of core capabilities
+        capabilities_file = overseer_manage_assistant(
+            client, None, "capabilities", 0, run_capabilities_analysis, file
+        )
+        # download the file and dump
+        print(capabilities_file)
+        capabilities_content = json.loads(
+            client.files.retrieve_content(capabilities_file)
+        )
+
+    # now add the capabilities to the graph
+
+    if updateGraph:
+        company_graph.add_capability_and_evidence(companyName, capabilities_content)
+    return
+
+
 def build_competitive_environment(companyName, updateGraph):
-    # check through the company graph to see what competitors are known
-    # Agent must define new nodes in the graph so we can create company nodes
     # first get the insight graph state
     json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
     print(json_graph)
@@ -296,21 +257,20 @@ def build_competitive_environment(companyName, updateGraph):
     print(f"Newly uploaded file ID for '{companyName}': {file}")
     # set up the agent
     prompt = f"Define the competitive environment based on the file {file}"
-    agent = Agent(client, agent_key="competition_agent", prompt=prompt)
+    agent = Agent(client, file_handler, "competition_agent", prompt=prompt)
     print(agent.agent_id, agent.description)
-    # competition_file = overseer_manage_agent(client, run_competition_analysis, file)
     run = agent.setup_run(file, qm=True)  # prepare for a run with QM enabled
     # how much basic information do we have on each competitor? Dump the competition graph
     competition_file = agent.run_agent()
     print(competition_file)
     str_competition_file = client.files.retrieve_content(competition_file)
     competition_content = json.loads(client.files.retrieve_content(competition_file))
-    with open(
-            f"./Intermediates/competition.json",
-            "w",
-            encoding="utf-8",
-    ) as json_file:
-        json_file.write(str_competition_file)
+
+    # if UpdateGraph for every company in the competitors, we should create a new Company node
+
+    # display competitor graph
+
+
     return
 
 # Load the workflow configuration

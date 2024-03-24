@@ -1,15 +1,18 @@
 
 import json
 import time
-from file_retrieval import retrieve_from_file_or_text
+import sys
+
+from filehandler import retrieve_from_file_or_text
 from quality_manager import QualityManager
 class Agent:
-    def __init__(self, client, agent_key=None, prompt=None, description=None, name=None, instructions=None):
+    def __init__(self, client, filehandler, agent_key=None, prompt=None, description=None, name=None, instructions=None):
         self.config = self.load_config("known_agents.json")
         self.known_agents = self.config['known_agents']
         self.client = client
         self.qm = None
         self.max_retries = 3
+        self.filehandler = filehandler
         if agent_key and agent_key in self.known_agents:
             self.agent_id = self.known_agents[agent_key]['id']
             self.description = self.known_agents[agent_key]['description']
@@ -30,35 +33,51 @@ class Agent:
         # Retrieve details for a specific thread by ID
         return self.thread_details.get(thread_id)
 
+    def set_prompt(self, prompt):
+        self.prompt = prompt
+
     def active_thread(self):
         return self.threads[-1]
+
     def set_input_files(self, input_files):
         for file in input_files:
             self.input_files.append(file)
-    def setup_run(self, input_files, qm=True, max_retries=3):
+
+    def setup_run(self, input_files=None, qm=True, max_retries=3):
         self.max_retries = max_retries
+        print(f"In Setup Run with input files: {input_files}")
         if input_files:
             thread = self.create_thread(self.prompt, input_files)
         else:
-            thread = self.create_thread( self.prompt)
+            thread = self.create_thread(self.prompt)
+        print(f"Thread input files: {self.input_files}")
+
         # build a QM instance
         self.threads.append(thread)
         if qm:
-            self.qm = QualityManager( self, Agent(self.client, "qm_agent") )
+            self.qm = QualityManager(self, Agent(self.client, self.filehandler, "qm_agent") )
             print("Agent: setup_run created a QM instance")
         return
 
     def run_agent(self):
         # 1) run the agent
         retrieve = self.run_and_retrieve_thread()
-        # 2) run the QM if enabled
-        print("Agent: QM is enabled")
+        # 2) optionally run the QM if enabled
         if self.qm:
-            agent_file = self.qm.assess_run_quality(self.active_thread())
+            # 2.1 Check for output
+            agent_file = self.retrieve_output()
+            if agent_file:
+                # 2.2 Check the output file for quality and quantity
+                print("Check output consistency")
+                sys.exit()
+            else:
+                # 2.3 If no output then see what else was up with agent and repeat
+                agent_file = self.qm.assess_run_quality(self.active_thread())
             return agent_file
         else:
-            # TODO implement the nonQM version
-            return None
+            print("Agent: QM is not enabled")
+            file = self.retrieve_output_or_reissue(self.active_thread())
+            return file
 
     def run_and_retrieve_thread(self):
         client = self.client
@@ -121,7 +140,7 @@ class Agent:
         client = self.client
         file = retrieve_from_file_or_text(self.client,thread)
         if file:
-            print(f"good QM file retrieved")
+            print(f"good file retrieved")
             return file
         else:
             client.beta.threads.messages.create(
@@ -134,25 +153,12 @@ class Agent:
             return file
 
     def upload_text_to_file(self,text):
-        with open(
-                f"./Intermediates/response.json", "w", encoding="utf-8"
-        ) as file:
-            file.write(text)
-        with open(
-                f"./Intermediates/response.json", "rb"
-        ) as openai_file:
-            openai_response = self.client.files.create(
-                file=openai_file, purpose="assistants"
-            )
-        print(
-            f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
-        )
-        return openai_response
+        return self.filehandler.upload_text_to_file(self.client,text)
 
     def retrieve_output(self):
         file = retrieve_from_file_or_text(self.client, self.active_thread())
         if file:
-            print(f"good QM file retrieved")
+            print(f"good file retrieved")
             return file
         return None
 
@@ -179,6 +185,9 @@ class Agent:
                             self.input_files.append(input_file)
 
         print(f"file_ids = {self.input_files}")
+        for input_file in self.input_files:
+            file = self.filehandler.serialize_and_upload(input_file, f"_thread_", input_file)
+
         # Create the thread with the prompt and input file
         thread = self.client.beta.threads.create(
             messages=[

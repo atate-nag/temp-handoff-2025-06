@@ -1,5 +1,5 @@
 
-
+# TODO this file is defunct, combined with filehandler
 def retrieve_from_file_or_text(client,thread):
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct:
