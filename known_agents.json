@@ -102,7 +102,49 @@
     },
     "insight_agent": {
       "id": "asst_iYvVBX1aaxu3KBgSEvIAZFEb",
-      "description": "Structured Extraction Agent"
+      "description": "Structured Extraction Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "insight": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "minLength": 200,
+                  "pattern": ".*\\.$"
+                },
+                "sourceDocument": {
+                  "type": "string"
+                },
+                "extractionDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "relevanceScore": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 99
+                }
+              },
+              "required": ["description", "sourceDocument", "extractionDate", "categories", "relevanceScore"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["insight"],
+          "additionalProperties": false
+        },
+        "minItems": 1
+      }
     },
     "condense_agent": {
       "id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",

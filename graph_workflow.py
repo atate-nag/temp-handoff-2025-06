@@ -205,14 +205,19 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
     # Now call the condense agent to get rid of all the junk in the file
     # this is where the parallelism should be
     for file in input_files:
-        prompt = f"Condense the file {input_files}"
-        print(prompt)
-        agent = Agent(client, file_handler, "condense_agent", prompt=prompt)
-        print(agent.agent_id, agent.description)
-        agent.setup_run(file, qm=False)  # not clear we can QM the condense process
-        agent_output = agent.run_agent()
-        print(f"condensed agent output = {agent_output}")
-
+        cond_prompt = f"Condense the file {file}"
+        print(cond_prompt)
+        cond_agent = Agent(client, file_handler, "condense_agent", prompt=cond_prompt)
+        print(cond_agent.agent_id, cond_agent.description)
+        cond_agent.setup_run(file, qm=False)  # not clear we can QM the condense process
+        cond_agent_output = cond_agent.run_agent()
+        print(f"condensed agent output = {cond_agent_output}")
+        # setup and execute the insight agent with QM in place
+        insight_prompt = f"Extract the insights from the file {cond_agent_output}"
+        insight_agent = Agent(client, file_handler, "insight_agent", prompt=insight_prompt)
+        print(insight_agent.agent_id, insight_agent.description)
+        insight_agent.setup_run(cond_agent_output, qm=True)  # not clear we can QM the condense process
+        insight_agent_output = insight_agent.run_agent()
     sys.exit()
     company_insights = parallel_file_process(
         client, company_insight_dir, file_id, "company", None

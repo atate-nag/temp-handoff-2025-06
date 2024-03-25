@@ -38,10 +38,10 @@
       }
     },
     "extractInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
-        "sourceDir": "Files-COMPANY/",
+        "sourceDir": "Files-COMPANY-TEST/",
         "debug": false,
         "updateGraph" : true
       }
@@ -87,7 +87,7 @@
       }
     },
     "buildCompetitiveEnvironment": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "updateGraph": true

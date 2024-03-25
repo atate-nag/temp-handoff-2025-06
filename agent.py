@@ -180,6 +180,8 @@ class Agent:
         self.description = assistant.description
 
     def create_thread(self, prompt, input_files=None):
+
+        # input files should be fileIDs already uploaded but will need adding to local list
         if input_files:
             if isinstance(input_files, str):
                 if input_files not in self.input_files:
@@ -189,9 +191,8 @@ class Agent:
                         if input_file not in self.input_files:
                             self.input_files.append(input_file)
 
-        print(f"file_ids = {self.input_files}")
-        for input_file in self.input_files:
-            file = self.filehandler.serialize_and_upload(input_file, f"_thread_", input_file)
+        # TODO safety check all input files already exist on the 
+        print(f"self.input_files = {self.input_files}")
         # Create the thread with the prompt and input file
         thread = self.client.beta.threads.create(
             messages=[
