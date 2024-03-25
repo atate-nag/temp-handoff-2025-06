@@ -106,7 +106,8 @@
     },
     "condense_agent": {
       "id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",
-      "description": "Condensing Assistant for Json"
+      "description": "Condensing Assistant for Json",
+      "output_schema": {}
     },
     "trends_agent": {
       "id": "asst_ripeR7nhZq822ek0PwDM31Fs",

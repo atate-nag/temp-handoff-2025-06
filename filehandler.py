@@ -2,6 +2,8 @@ import json
 import os
 import openai
 import re
+from dochandler import Rdoc
+
 
 class FileHandler:
     def __init__(self, client, base_path="./Intermediates/"):
@@ -63,6 +65,23 @@ class FileHandler:
         self.file_ids[handle] = openai_response.id
         return openai_response.id
 
+    def upload_dir(self, path_to_dir, company_name):
+        files = [
+            f for f in os.listdir(path_to_dir) if os.path.isfile(os.path.join(path_to_dir, f))
+        ]
+        print(f"FH: files are {files}")
+        uploaded_files = []
+        for i, file_name in enumerate(files):
+            print(f"FH: i,file_name = {i},{file_name}")
+            file_path = os.path.join(path_to_dir, file_name)  # Full path to the file
+            _, file_extension = os.path.splitext(file_name)  # Extract file extension
+            format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
+            doc = Rdoc.create(file_path, format, "insight")
+            # step 2 : convert to structured format (json)
+            json_doc = doc.build_structured_data()
+            uploaded_files.append(self.direct_upload(json_doc, "_raw_structered_",
+                                                     company_name, purpose="assistants"))
+        return uploaded_files
     def check_and_retrieve_file(self, handle):
         # Check if file has been uploaded and retrieve its ID
         if handle in self.file_ids:
@@ -90,6 +109,41 @@ class FileHandler:
         )
         self.file_ids[openai_response.id] = openai_response
         return openai_response.id
+
+    def import_data_files_and_upload(self, client, data_dir, document_type="data"):
+        # import all the files in the given directory and optionally write intermediates
+        data_files = [
+            f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))
+        ]
+        company_data = (
+            []
+        )  # company_data will be a list of json objects containing info about the company
+        responses = []
+        docs = []
+        for i, file_name in enumerate(data_files):
+            file_path = os.path.join(data_dir, file_name)  # Full path to the file
+            _, file_extension = os.path.splitext(file_name)  # Extract file extension
+            format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
+            print(f"format is {format}")
+            doc = Rdoc.create(file_path, format, document_type)
+            json_doc = doc.build_structured_data()
+            with open(
+                    f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8"
+            ) as json_file:
+                json_file.write(json_doc)
+            with open(
+                    f"./Intermediates/structured_data_{i}.json", "rb"
+            ) as json_openai_file:
+                json_openai_response = client.files.create(
+                    file=json_openai_file, purpose="assistants"
+                )
+
+            print(
+                f"wrote file ./Intermediates/structured_data_{i}.json and uploaded to {json_openai_response.id}"
+            )
+            responses.append(json_openai_response.id)
+            docs.append(doc)
+        return responses, docs
 
 def retrieve_from_file_or_text(client,thread):
     file_direct = retrieve_file_annotation(client, thread)
@@ -122,6 +176,9 @@ def retrieve_file_annotation(client, thread):
                     return file
     print("No annotations for a file were found")
     return None
+
+
+
 
 def retrieve_file_path(client, thread):
     # Retrieve file from "annotations" but when it is a path

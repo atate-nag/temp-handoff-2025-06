@@ -11,108 +11,108 @@ from dochandler import Rdoc
 from agent import Agent
 
 
-def overseer_manage_assistant(
-    client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3
-):
-    print(f"Attempt 1 for {assistant_function.__name__}")
-    run_steps, retrieve_response, thread, agent = assistant_function(client, *args)
-    file = quality_manager(client, thread, agent)
-    return file
+# def overseer_manage_assistant(
+#     client, write_intermediate, prefix, index, assistant_function, *args, max_retries=3
+# ):
+#     print(f"Attempt 1 for {assistant_function.__name__}")
+#     run_steps, retrieve_response, thread, agent = assistant_function(client, *args)
+#     file = quality_manager(client, thread, agent)
+#     return file
+#
+# def overseer_manage_agent(client, assistant_function, *args):
+#     thread, response, agent = assistant_function(client, *args)
+#     # basically all the assistant_functions are the same minus the prompting
+#     output_file = quality_manager(client, thread, agent)
+#     return output_file
 
-def overseer_manage_agent(client, assistant_function, *args):
-    thread, response, agent = assistant_function(client, *args)
-    # basically all the assistant_functions are the same minus the prompting
-    output_file = quality_manager(client, thread, agent)
-    return output_file
+# def quality_manager(client, thread, agent):
+#     ''' quality manager is going to assess the quality of agent output by
+#         1) checking if some additional user response is needed and performing it
+#         2) Checking if the agent solved a simulation/proxy/
+#         2) checking if the desired outputs were produced, requesting them if not
+#         3) checking that desired outputs are in the format needed
+#         4) checking that desired outputs are sufficiently numerous
+#         5) checking that desired outputs are sufficiently detailed '''
+#     # 1 - checking if some additional user response is needed
+#     tries = 0
+#     while True:
+#         if tries == 3:
+#             print(f"QM did not manage to get a good result after {tries} attempts")
+#             return None
+#         response = agent.get_messages(client, thread)
+#         openai_response = upload_text_to_file(client, response)
+#         qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
+#         qm_agent = Agent(client, "qm_agent")
+#         qm_thread = qm_agent.create_thread(client, qm_prompt, openai_response.id)
+#         qm_response = qm_agent.run_and_retrieve_thread(client, qm_thread, 3)
+#         qm_file = qm_agent.retrieve_output_or_reissue(client, qm_thread)
+#         qm_content_dict = json.loads(client.files.retrieve_content(qm_file))
+#
+#         if qm_content_dict["completed"]:
+#             agent_output_file = agent.retrieve_output(client, qm_thread)
+#             print(f"QM: returning file {agent_output_file}")
+#             return agent_output_file
+#
+#         # QM said task did not complete, need to go back to the agent
+#         prompt = qm_content_dict["agent instructions"]
+#         print(f"QM: agent did not complete and will be informed {prompt}")
+#         agent.add_message(client, thread.id, prompt)
+#         print(f"QM: going back to {agent} ")
+#         response = agent.run_and_retrieve_thread(client, thread, 3)
+#         file = agent.retrieve_output(client, thread)
+#         if file:
+#             return file
+#         tries += 1
 
-def quality_manager(client, thread, agent):
-    ''' quality manager is going to assess the quality of agent output by
-        1) checking if some additional user response is needed and performing it
-        2) Checking if the agent solved a simulation/proxy/
-        2) checking if the desired outputs were produced, requesting them if not
-        3) checking that desired outputs are in the format needed
-        4) checking that desired outputs are sufficiently numerous
-        5) checking that desired outputs are sufficiently detailed '''
-    # 1 - checking if some additional user response is needed
-    tries = 0
-    while True:
-        if tries == 3:
-            print(f"QM did not manage to get a good result after {tries} attempts")
-            return None
-        response = agent.get_messages(client, thread)
-        openai_response = upload_text_to_file(client, response)
-        qm_prompt = f"Check the agent completed the task in the given response file {openai_response.id}"
-        qm_agent = Agent(client, "qm_agent")
-        qm_thread = qm_agent.create_thread(client, qm_prompt, openai_response.id)
-        qm_response = qm_agent.run_and_retrieve_thread(client, qm_thread, 3)
-        qm_file = qm_agent.retrieve_output_or_reissue(client, qm_thread)
-        qm_content_dict = json.loads(client.files.retrieve_content(qm_file))
-
-        if qm_content_dict["completed"]:
-            agent_output_file = agent.retrieve_output(client, qm_thread)
-            print(f"QM: returning file {agent_output_file}")
-            return agent_output_file
-
-        # QM said task did not complete, need to go back to the agent
-        prompt = qm_content_dict["agent instructions"]
-        print(f"QM: agent did not complete and will be informed {prompt}")
-        agent.add_message(client, thread.id, prompt)
-        print(f"QM: going back to {agent} ")
-        response = agent.run_and_retrieve_thread(client, thread, 3)
-        file = agent.retrieve_output(client, thread)
-        if file:
-            return file
-        tries += 1
-
-def retrieve_run(client, thread_id, run_id, max_retries, description):
-    retries = 0
-    while retries < max_retries:
-        try:
-            retrieve = client.beta.threads.runs.retrieve(
-                thread_id=thread_id, run_id=run_id
-            )
-            print(f" Assistant {description} status: {retrieve.status}")
-            if retrieve.status == "completed":
-                return retrieve
-            elif retrieve.status == "failed" or retrieve.status == "expired":
-                print(f"Run {run_id} failed.")
-                return None
-            time.sleep(5)
-        except Exception as e:
-            print(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
-            retries += 1
-            time.sleep(5)  # Wait before retrying
-    print(f"Run {run_id} did not complete after {max_retries} retries.")
-    return None  # Return None if all retries fail
-
-def run_assistant(client, assistant, prompt, file_ids, description):
-    print(f"Running {assistant} accessing stored files {file_ids}")
-    thread = client.beta.threads.create(
-        messages=[
-            {
-                "role": "user",
-                "content": f"Read the files {file_ids} using code_interpreter. {prompt}",
-                "file_ids": file_ids,
-            }
-        ]
-    )
-    run_steps, retrieve = run_thread(client, assistant, thread, 3, description)
-    return run_steps, retrieve, thread
-
-def run_thread(client, assistant, thread, max_retries, description):
-    run = client.beta.threads.runs.create(
-        thread_id=thread.id,
-        assistant_id=assistant,
-        model="gpt-4-turbo-preview",
-        tools=[{"type": "code_interpreter"}],
-    )
-    # TODO: add explicit timeout not just retries
-    start_time = time.time()
-    retrieve = retrieve_run(client, thread.id, run.id, max_retries, description)
-    end_time = time.time()
-    print(f"Response received in {end_time - start_time} seconds")
-    run_steps = client.beta.threads.runs.steps.list(thread_id=thread.id, run_id=run.id)
-    return run_steps, retrieve
+# def retrieve_run(client, thread_id, run_id, max_retries, description):
+#     retries = 0
+#     while retries < max_retries:
+#         try:
+#             retrieve = client.beta.threads.runs.retrieve(
+#                 thread_id=thread_id, run_id=run_id
+#             )
+#             print(f" Assistant {description} status: {retrieve.status}")
+#             if retrieve.status == "completed":
+#                 return retrieve
+#             elif retrieve.status == "failed" or retrieve.status == "expired":
+#                 print(f"Run {run_id} failed.")
+#                 return None
+#             time.sleep(5)
+#         except Exception as e:
+#             print(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
+#             retries += 1
+#             time.sleep(5)  # Wait before retrying
+#     print(f"Run {run_id} did not complete after {max_retries} retries.")
+#     return None  # Return None if all retries fail
+#
+# def run_assistant(client, assistant, prompt, file_ids, description):
+#     print(f"Running {assistant} accessing stored files {file_ids}")
+#     thread = client.beta.threads.create(
+#         messages=[
+#             {
+#                 "role": "user",
+#                 "content": f"Read the files {file_ids} using code_interpreter. {prompt}",
+#                 "file_ids": file_ids,
+#             }
+#         ]
+#     )
+#     run_steps, retrieve = run_thread(client, assistant, thread, 3, description)
+#     return run_steps, retrieve, thread
+#
+# def run_thread(client, assistant, thread, max_retries, description):
+#     run = client.beta.threads.runs.create(
+#         thread_id=thread.id,
+#         assistant_id=assistant,
+#         model="gpt-4-turbo-preview",
+#         tools=[{"type": "code_interpreter"}],
+#     )
+#     # TODO: add explicit timeout not just retries
+#     start_time = time.time()
+#     retrieve = retrieve_run(client, thread.id, run.id, max_retries, description)
+#     end_time = time.time()
+#     print(f"Response received in {end_time - start_time} seconds")
+#     run_steps = client.beta.threads.runs.steps.list(thread_id=thread.id, run_id=run.id)
+#     return run_steps, retrieve
 
 def parallel_file_process(client, file_dir, company_data, prefix, write_intermediates):
     files = [

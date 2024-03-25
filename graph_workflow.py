@@ -5,14 +5,15 @@ import openai
 from dotenv import load_dotenv
 from agent import Agent
 
+# overseer_manage_assistant,
+# run_capabilities_analysis,
+# run_recommender_analysis,
+# run_competition_analysis,
+# overseer_manage_agent,
+
 from run_assistant_thread import (
     parallel_file_process,
     import_data_files_and_upload,
-    overseer_manage_assistant,
-    # run_capabilities_analysis,
-    # run_recommender_analysis,
-    # run_competition_analysis,
-    overseer_manage_agent,
 )
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
@@ -197,14 +198,26 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
         print(f"Debug of insights not currently supported")
         return None
     print(f"File ID for '{companyName}': {llm_graph_file}")
-    sys.exit()
     company_insight_dir = os.path.join(sourceDir, companyName)
-    print(
-        f"Extracting insights from source dir {company_insight_dir} and insight manager {insight_graph}"
-    )
+    # step 1 : generate a structured extraction of the document
+    print(f"Company insight Dir is {company_insight_dir}")
+    input_files = file_handler.upload_dir(company_insight_dir, companyName)
+    # Now call the condense agent to get rid of all the junk in the file
+    # this is where the parallelism should be
+    for file in input_files:
+        prompt = f"Condense the file {input_files}"
+        print(prompt)
+        agent = Agent(client, file_handler, "condense_agent", prompt=prompt)
+        print(agent.agent_id, agent.description)
+        agent.setup_run(file, qm=False)  # not clear we can QM the condense process
+        agent_output = agent.run_agent()
+        print(f"condensed agent output = {agent_output}")
+
+    sys.exit()
     company_insights = parallel_file_process(
         client, company_insight_dir, file_id, "company", None
     )
+
     print(f"company insights are {company_insights}")
     for id in company_insights:
         insight_content = json.loads(client.files.retrieve_content(id))
@@ -265,6 +278,7 @@ def build_competitive_environment(companyName, updateGraph):
     competition_content = json.loads(str_competition_file)
     print(str_competition_file)
     # if UpdateGraph for every company in the competitors, we should create a new Company node
+
     # display competitor graph
     return
 
