@@ -11,6 +11,7 @@ class Agent:
         self.known_agents = self.config['known_agents']
         self.client = client
         self.qm = None
+        self.qm_output = None
         self.max_retries = 3
         self.filehandler = filehandler
         if agent_key and agent_key in self.known_agents:
@@ -56,6 +57,7 @@ class Agent:
         self.threads.append(thread)
         if qm:
             self.qm = QualityManager(self, Agent(self.client, self.filehandler, "qm_agent") )
+            self.qm_output = QualityManager(self, Agent(self.client, self.filehandler, "qm_output_agent"))
             print("Agent: setup_run created a QM instance")
         return
 
@@ -65,15 +67,18 @@ class Agent:
         # 2) optionally run the QM if enabled
         if self.qm:
             # 2.1 Check for output
-            agent_file = self.retrieve_output()
-            if agent_file:
+            agent_output_file = self.retrieve_output()
+            if agent_output_file:
                 # 2.2 Check the output file for quality and quantity
                 print("Check output consistency")
-                sys.exit()
+                validated_output_file = self.qm_output.assess_output_quality(self, self.qm_output, agent_output_file)
+                if validated_output_file:
+                    print("Output file is validated by QM-Output")
+                    return validated_output_file
             else:
                 # 2.3 If no output then see what else was up with agent and repeat
-                agent_file = self.qm.assess_run_quality(self.active_thread())
-            return agent_file
+                agent_output_file = self.qm.assess_run_quality(self.active_thread())
+                return agent_output_file
         else:
             print("Agent: QM is not enabled")
             file = self.retrieve_output_or_reissue(self.active_thread())
@@ -187,7 +192,6 @@ class Agent:
         print(f"file_ids = {self.input_files}")
         for input_file in self.input_files:
             file = self.filehandler.serialize_and_upload(input_file, f"_thread_", input_file)
-
         # Create the thread with the prompt and input file
         thread = self.client.beta.threads.create(
             messages=[

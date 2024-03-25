@@ -31,7 +31,28 @@
                     "Leadership": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "joined": {
+                            "type": "string",
+                            "pattern": "^(\\d{4})$"
+                          },
+                          "experience": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "role",
+                          "joined"
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "Products": {
@@ -76,7 +97,7 @@
           ],
           "additionalProperties": false
         },
-        "minItems": 1
+        "minItems": 7
       }
     },
     "insight_agent": {
@@ -110,6 +131,35 @@
     "qm_agent": {
       "id": "asst_9eE5PxZx9cs4WgDHvp7YquT3",
       "description": "QM run problems Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean",
+            "description": "Indicates whether the task is completed."
+          },
+          "agent instructions": {
+            "type": "string",
+            "description": "Instructions for the agent."
+          },
+          "file id": {
+            "type": "string",
+            "description": "The identifier for the file."
+          }
+        },
+        "required": [
+          "completed",
+          "agent instructions",
+          "file id"
+        ],
+        "additionalProperties": false,
+        "description": "Schema for validating agent output."
+      }
+    },
+    "qm_output_agent": {
+      "id": "asst_wdqQ2lOkFya5bUoPZMcBti3l",
+      "description": "QM output Agent",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",

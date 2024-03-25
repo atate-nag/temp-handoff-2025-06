@@ -240,9 +240,7 @@ def evaluate_capabilities(companyName, debug, updateGraph):
         capabilities_content = json.loads(
             client.files.retrieve_content(capabilities_file)
         )
-
     # now add the capabilities to the graph
-
     if updateGraph:
         company_graph.add_capability_and_evidence(companyName, capabilities_content)
     return
@@ -264,13 +262,10 @@ def build_competitive_environment(companyName, updateGraph):
     competition_file = agent.run_agent()
     print(competition_file)
     str_competition_file = client.files.retrieve_content(competition_file)
-    competition_content = json.loads(client.files.retrieve_content(competition_file))
-
+    competition_content = json.loads(str_competition_file)
+    print(str_competition_file)
     # if UpdateGraph for every company in the competitors, we should create a new Company node
-
     # display competitor graph
-
-
     return
 
 # Load the workflow configuration
@@ -293,7 +288,6 @@ company_graph = CompanyGraph(uri, user, password)
 insight_graph = InsightGraph(uri, user, password)
 
 # generate the openAI files that are needed for this workflow
-
 # Collect and print enabled workflow steps
 enabled_steps = [
     step for step, details in workflow_config.items() if details["enabled"]
