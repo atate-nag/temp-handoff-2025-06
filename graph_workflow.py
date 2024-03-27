@@ -4,6 +4,8 @@ import os
 import openai
 from dotenv import load_dotenv
 from agent import Agent
+from datetime import datetime
+from multiprocessing import Process, Queue
 
 # overseer_manage_assistant,
 # run_capabilities_analysis,
@@ -21,16 +23,87 @@ from dochandler import import_data_files
 import json
 import sys
 
-# setup openaAI
-
 load_dotenv()
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 # setup neo4j database
 
 uri = "bolt://localhost:7687"
 user = os.getenv("NEO4J_USER")
 password = os.getenv("NEO4J_PASSWORD")
+# Load the workflow configuration
+with open("workflow_config.json", "r") as file:
+    config = json.load(file)
+workflow_config = config["workflow"]
+
+global company_graph, insight_graph, file_handler
+
+file_handler = FileHandler(client)
+
+# It is a design decision to have separate handlers for different parts of
+# the graph, but could be replaced with a single graph handler if the graph remains
+# simple. Let's observe how much complexity is required.
+
+company_graph = CompanyGraph(uri, user, password)
+insight_graph = InsightGraph(uri, user, password)
+
+def execute_workflow():
+    print("Enabled workflow steps:")
+    for step, details in workflow_config.items():
+        if details.get("enabled", False):
+            func = get_step_function(step)
+            if func:
+                # Unpack all parameters dynamically for the function
+                parameters = details.get("parameters", {})
+                print(f"- Executing {step} with parameters: {parameters}...")
+                func(**parameters)  # Use ** to unpack and pass named parameters
+            else:
+                print(f"No function defined for {step}.")
+    print("Finished workflow steps.")
+
+
+def main():
+    # # setup openaAI
+    #
+    # load_dotenv()
+    # client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    #
+    # # setup neo4j database
+    #
+    # uri = "bolt://localhost:7687"
+    # user = os.getenv("NEO4J_USER")
+    # password = os.getenv("NEO4J_PASSWORD")
+    # # Load the workflow configuration
+    # with open("workflow_config.json", "r") as file:
+    #     config = json.load(file)
+    #
+    # workflow_config = config["workflow"]
+    #
+    # global company_graph, insight_graph, file_handler
+
+    # initialise the openAI file handler class
+
+    # file_handler = FileHandler(client)
+    #
+    # # It is a design decision to have separate handlers for different parts of
+    # # the graph, but could be replaced with a single graph handler if the graph remains
+    # # simple. Let's observe how much complexity is required.
+    #
+    # company_graph = CompanyGraph(uri, user, password)
+    # insight_graph = InsightGraph(uri, user, password)
+
+    # generate the openAI files that are needed for this workflow
+    # Collect and print enabled workflow steps
+    enabled_steps = [
+        step for step, details in workflow_config.items() if details["enabled"]
+    ]
+    print("Enabled workflow steps:")
+    for step in enabled_steps:
+        print(f"- {step}")
+
+    execute_workflow()
+    company_graph.close()
+    insight_graph.close()
+
 
 def get_step_function(step_name):
     """
@@ -53,26 +126,9 @@ def get_step_function(step_name):
     }
     return step_map.get(step_name, None)  # Return None if not found
 
-
-def execute_workflow():
-    print("Enabled workflow steps:")
-    for step, details in workflow_config.items():
-        if details.get("enabled", False):
-            func = get_step_function(step)
-            if func:
-                # Unpack all parameters dynamically for the function
-                parameters = details.get("parameters", {})
-                print(f"- Executing {step} with parameters: {parameters}...")
-                func(**parameters)  # Use ** to unpack and pass named parameters
-            else:
-                print(f"No function defined for {step}.")
-    print("Finished workflow steps.")
-
-
 # Following are the workflow functionality functions - they are 1:1 mappings between
 # functions mentioned in the file wofkflow_config.json
 # note - camelCase naming denotes parameters directly inherited from the json config file
-
 
 def create_companies(companyName):
     global company_graph
@@ -159,11 +215,9 @@ def clean_insights(companyName):
 
 
 def prune_insights(companyName):
-
     # first get the insight graph state
     json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
     print(json_graph)
-
     filename_prefix = f"company_and_insight_graph_{companyName}"
     file = file_handler.direct_upload(
         json_graph, filename_prefix, companyName, purpose="assistants"
@@ -190,41 +244,62 @@ def prune_insights(companyName):
     return
 
 
+def condense_and_extract(file_id, companyName, json_graph_str, filename, output_queue):
+    cond_prompt = f"Condense the file {file_id}"
+    print(cond_prompt)
+    cond_agent = Agent(client, file_handler, "condense_agent", prompt=cond_prompt)
+    print(cond_agent.agent_id, cond_agent.description)
+    cond_agent.setup_run(file_id, qm=False)  # not clear we can QM the condense process
+    cond_agent_output = cond_agent.run_agent()
+    print(f"condensed agent output = {cond_agent_output}")
+    # setup and execute the insight agent with QM in place
+    insight_prompt = (f"Extract the insights about the company {companyName} with info={json_graph_str} "
+                      f"from the file {cond_agent_output}. You will need to know the name of the original sourcedocument"
+                      f" is '{filename}' and today's date is {datetime.today().date()} (these will be recorded in the "
+                      f"output data)")
+    print(f"Extract_Insights: insight_prompt = {insight_prompt}")
+    insight_agent = Agent(client, file_handler, "insight_agent", prompt=insight_prompt)
+    print(insight_agent.agent_id, insight_agent.description)
+    insight_agent.setup_run(cond_agent_output, qm=True)  # not clear we can QM the condense process
+    insight_agent_output = insight_agent.run_agent()
+    output_queue.put(insight_agent_output)
+    return insight_agent_output
+
 def extract_insights(sourceDir, companyName, debug, updateGraph):
     # task 1: load company data from graph or from a debug file (if debug == True)
-    company_data_json = company_graph.get_company_info(companyName)
-    llm_graph_file = file_handler.serialize_and_upload(company_data_json, "insights", companyName)
+    llm_company_data_graph = company_graph.get_company_info(companyName)
+    json_graph_str = json.dumps(llm_company_data_graph)
     if debug:
         print(f"Debug of insights not currently supported")
         return None
-    print(f"File ID for '{companyName}': {llm_graph_file}")
     company_insight_dir = os.path.join(sourceDir, companyName)
     # step 1 : generate a structured extraction of the document
     print(f"Company insight Dir is {company_insight_dir}")
-    input_files = file_handler.upload_dir(company_insight_dir, companyName)
+    input_files = file_handler.upload_dir(company_insight_dir, companyName, "insight")
+    print(f"input_files is {input_files}")
     # Now call the condense agent to get rid of all the junk in the file
     # this is where the parallelism should be
-    for file in input_files:
-        cond_prompt = f"Condense the file {file}"
-        print(cond_prompt)
-        cond_agent = Agent(client, file_handler, "condense_agent", prompt=cond_prompt)
-        print(cond_agent.agent_id, cond_agent.description)
-        cond_agent.setup_run(file, qm=False)  # not clear we can QM the condense process
-        cond_agent_output = cond_agent.run_agent()
-        print(f"condensed agent output = {cond_agent_output}")
-        # setup and execute the insight agent with QM in place
-        insight_prompt = f"Extract the insights from the file {cond_agent_output}"
-        insight_agent = Agent(client, file_handler, "insight_agent", prompt=insight_prompt)
-        print(insight_agent.agent_id, insight_agent.description)
-        insight_agent.setup_run(cond_agent_output, qm=True)  # not clear we can QM the condense process
-        insight_agent_output = insight_agent.run_agent()
-    sys.exit()
-    company_insights = parallel_file_process(
-        client, company_insight_dir, file_id, "company", None
-    )
+    processes = []
+    output_queue = Queue()
+
+    for file_id, filename in input_files:
+        print(f"starting process when file_id is {file_id}")
+        p = Process(target=condense_and_extract, args=(file_id, companyName, json_graph_str, filename, output_queue))
+        print(f"p = {p}")
+        processes.append(p)
+        p.start()
+
+    for p in processes:
+        p.join()
+
+    company_insights = []
+    while not output_queue.empty():
+        result = output_queue.get()
+        company_insights.append(result)
 
     print(f"company insights are {company_insights}")
     for id in company_insights:
+        print(f"company insight is {id}")
         insight_content = json.loads(client.files.retrieve_content(id))
         print(f"Main: Company insights extracted: content = {insight_content}")
         if updateGraph:
@@ -287,34 +362,6 @@ def build_competitive_environment(companyName, updateGraph):
     # display competitor graph
     return
 
-# Load the workflow configuration
-with open("workflow_config.json", "r") as file:
-    config = json.load(file)
 
-workflow_config = config["workflow"]
-
-global company_graph, insight_graph, file_handler
-
-# initialise the openAI file handler class
-
-file_handler = FileHandler(client)
-
-# It is a design decision to have separate handlers for different parts of
-# the graph, but could be replaced with a single graph handler if the graph remains
-# simple. Let's observe how much complexity is required.
-
-company_graph = CompanyGraph(uri, user, password)
-insight_graph = InsightGraph(uri, user, password)
-
-# generate the openAI files that are needed for this workflow
-# Collect and print enabled workflow steps
-enabled_steps = [
-    step for step, details in workflow_config.items() if details["enabled"]
-]
-print("Enabled workflow steps:")
-for step in enabled_steps:
-    print(f"- {step}")
-
-execute_workflow()
-company_graph.close()
-insight_graph.close()
+if __name__ == '__main__':
+    main()

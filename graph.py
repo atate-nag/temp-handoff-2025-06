@@ -121,7 +121,6 @@ class CompanyGraph(BaseGraph):
         printing and debugging but is probably overkill to agents. Instead,  use the
         dump_company_insight_graph_to_json method to send more selective information to agents
         """
-
         with self.driver.session() as session:
             # Example Cypher query to retrieve a company, its insights, and relationships
             result = session.run(
@@ -159,7 +158,6 @@ class CompanyGraph(BaseGraph):
         tx.run(query, company_name=company_name)
 
     def dump_company_insight_graph_to_json(self, company_name):
-
         """this function does not dump the full graph, it will only return the true insight ID , description
         and confidence of the insight. Then a walker will be able to derive the provenance of relationships
         """

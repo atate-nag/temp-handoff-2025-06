@@ -4,68 +4,41 @@ import openai
 import re
 from dochandler import Rdoc
 
+# TODO precent wasteful uploads by corelating local and remote file IDs
 
 class FileHandler:
     def __init__(self, client, base_path="./Intermediates/"):
         self.client = client
         self.base_path = base_path
-        self.file_ids = {}  # Changed to a dictionary to store files by a unique key
+        # self.uploaded_file_ids = {}  # Changed to a dictionary to store files by a unique key
 
-    def serialize_and_upload(self, data, filename_prefix, handle, purpose="assistants"):
-
-        # Check if file already exists locally and has been uploaded
-        if handle in self.file_ids:
-            print(
-                f"File for handle '{handle}' already uploaded with ID: {self.file_ids[handle]}"
-            )
-            return self.file_ids[handle]
-        # Serialize data to JSON and write to local file
-
+    def serialize_and_upload(self, data, filename_prefix, purpose="assistants"):
         local_file_path = f"{self.base_path}{filename_prefix}.json"
-
         with open(local_file_path, "w", encoding="utf-8") as json_file:
             json.dump(data, json_file)
-
         # Upload to OpenAI
         with open(local_file_path, "rb") as json_local_file:
             openai_response = self.client.files.create(
                 file=json_local_file, purpose=purpose
             )
             print(f"Wrote file {local_file_path} and uploaded to {openai_response.id}")
-
-        # Store the file ID with its handle for later use
-        self.file_ids[handle] = openai_response.id
         return openai_response
 
-    def direct_upload(self, data, filename_prefix, handle, purpose="assistants"):
-
+    def direct_upload(self, data, filename_prefix, purpose="assistants"):
         # Check if file already exists locally and has been uploaded
-        if handle in self.file_ids:
-            print(
-                f"File for handle '{handle}' already uploaded with ID: {self.file_ids[handle]}"
-            )
-            return self.file_ids[handle]
-
-        # data is already in json format, so don't serialise again (this leads to problems)
-
         local_file_path = f"{self.base_path}{filename_prefix}.json"
-
         # write to local file
         with open(local_file_path, "w", encoding="utf-8") as json_file:
             json_file.write(data)
-
         # Upload to OpenAI
         with open(local_file_path, "rb") as json_local_file:
             openai_response = self.client.files.create(
                 file=json_local_file, purpose=purpose
             )
             print(f"Wrote file {local_file_path} and uploaded to {openai_response.id}")
-
-        # Store the file ID with its handle for later use
-        self.file_ids[handle] = openai_response.id
         return openai_response.id
 
-    def upload_dir(self, path_to_dir, company_name):
+    def upload_dir(self, path_to_dir, company_name, doctype):
         files = [
             f for f in os.listdir(path_to_dir) if os.path.isfile(os.path.join(path_to_dir, f))
         ]
@@ -75,23 +48,13 @@ class FileHandler:
             print(f"FH: i,file_name = {i},{file_name}")
             file_path = os.path.join(path_to_dir, file_name)  # Full path to the file
             _, file_extension = os.path.splitext(file_name)  # Extract file extension
-            format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
-            doc = Rdoc.create(file_path, format, "insight")
+            file_format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
+            doc = Rdoc.create(file_path, file_format, doctype)
             # step 2 : convert to structured format (json)
             json_doc = doc.build_structured_data()
-            uploaded_files.append(self.direct_upload(json_doc, "_raw_structered_",
-                                                     company_name, purpose="assistants"))
+            uploaded_files.append((self.direct_upload(json_doc, f"{company_name}_insight_doc",
+                                                      purpose="assistants"), file_name))
         return uploaded_files
-    def check_and_retrieve_file(self, handle):
-        # Check if file has been uploaded and retrieve its ID
-        if handle in self.file_ids:
-            return self.file_ids[handle]
-        else:
-            return None
-
-    def get_file_id(self, handle):
-        # Retrieve the OpenAI file ID for a given handle
-        return self.file_ids.get(handle)
 
     def upload_text_to_file(self, client, text):
         with open(
@@ -107,7 +70,6 @@ class FileHandler:
         print(
             f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
         )
-        self.file_ids[openai_response.id] = openai_response
         return openai_response.id
 
     def import_data_files_and_upload(self, client, data_dir, document_type="data"):
@@ -145,7 +107,8 @@ class FileHandler:
             docs.append(doc)
         return responses, docs
 
-def retrieve_from_file_or_text(client,thread):
+
+def retrieve_from_file_or_text(client, thread):
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct:
         return file_direct
@@ -155,7 +118,8 @@ def retrieve_from_file_or_text(client,thread):
             return file_from_response
     return None
 
-def retrieve_from_id_or_path(client,thread, file_str):
+
+def retrieve_from_id_or_path(client, thread, file_str):
     # the problem is that the file is either in
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct == file_str:
@@ -178,8 +142,6 @@ def retrieve_file_annotation(client, thread):
     return None
 
 
-
-
 def retrieve_file_path(client, thread):
     # Retrieve file from "annotations" but when it is a path
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
@@ -193,6 +155,7 @@ def retrieve_file_path(client, thread):
                     return file
     print("No annotations for a file were found")
     return None
+
 
 def download_file_by_id(client, file_id):
     content = client.files.retrieve_content(file_id)
@@ -219,7 +182,7 @@ def return_json_and_file(client, thread):
                         try:
                             full_info = json.loads(cleaned_json_string)
                             with open(
-                                f"json_file.json", "w", encoding="utf-8"
+                                    f"json_file.json", "w", encoding="utf-8"
                             ) as json_file:
                                 json_file.write(cleaned_json_string)
                             with open(f"json_file.json", "rb") as json_file:
@@ -236,8 +199,7 @@ def return_json_and_file(client, thread):
                     else:
                         print("No JSON found in the message, returning None")
                         return None
-    # Extremely naughty AI did not produce anything! Hopefuly next round will be better
-    # TODO need to parse the run_steps and see what happened, respond accordingly
+    # Extremely naughty AI did not produce anything! Hopefully next round will be better
     print("No JSON content was found")
     return None
 
@@ -245,7 +207,7 @@ def return_json_and_file(client, thread):
 def download_content_and_write(client, agent_file, local_filename):
     json_content = download_file_by_id(client, agent_file)
     with open(
-        f"./Intermediates/{local_filename}.json", "w", encoding="utf-8"
+            f"./Intermediates/{local_filename}.json", "w", encoding="utf-8"
     ) as json_file:
         json_file.write(json_content)
     return json_file

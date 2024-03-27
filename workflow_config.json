@@ -41,7 +41,7 @@
       "enabled": true,
       "parameters" : {
         "companyName": "nag",
-        "sourceDir": "Files-COMPANY-TEST/",
+        "sourceDir": "Files-COMPANY/",
         "debug": false,
         "updateGraph" : true
       }

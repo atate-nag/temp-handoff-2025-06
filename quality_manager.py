@@ -37,19 +37,24 @@ class QualityManager:
         the output is generated to the correct quality according to pre-defined schema."""
         self.qm_agent.set_prompt(f"Check if the agent's output file {agent_output_file} adheres to the agent's  "
                                  f" output_requirements_schema={agent.output_schema}")
+        print(f"QM_output: prompt will be {self.qm_agent.prompt}")
         for try_count in range(self.max_tries):
             qm_run = self.qm_agent.setup_run(agent_output_file, qm=False)  # Do not QM the QM
             qm_file = self.qm_agent.run_agent()
             qm_content_dict = self.qm_agent.retrieve_file_content(qm_file)
-            if not qm_content_dict["validated"]:
-                prompt = qm_content_dict["agent instructions"]
+            print(f"QM_out: {qm_content_dict}")
+            if not qm_content_dict['validated']:
+                if isinstance(qm_content_dict['agent instructions'], list):
+                    prompt = ' '.join(qm_content_dict['agent instructions'])
+                else:
+                    prompt = str(qm_content_dict['agent instructions'])
                 print(f"QM: Agent did not complete and will be informed: {prompt}")
                 self.agent.add_message(agent.active_thread().id, prompt)
                 print(f"QM: Going back to {self.agent}")
-                response = self.agent.run_and_retrieve_thread()
-            file = self.agent.retrieve_output()
-            if file:
+                retrieve = self.agent.run_and_retrieve_thread()
+                agent_output_file = self.agent.retrieve_output()
+            else:
+                file = self.agent.retrieve_output()
                 return file
+        print(f"QM: Did not get a good response after {self.max_tries} attempts ")
         return None
-
-
