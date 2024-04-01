@@ -1,10 +1,45 @@
 from neo4j import GraphDatabase
 from datetime import datetime
 from utility import clean_text
+from debug import dprint
 import uuid
 import json
 import logging
 
+import neo4j
+from neo4j import GraphDatabase
+
+
+def run_query_and_summarize(session, query, parameters=None):
+    try:
+        result = session.run(query, parameters)
+        summary = result.consume()
+        counters = summary.counters
+        notifications = summary.notifications
+
+        # Print summary of changes made by the query
+        print(f"Nodes created: {counters.nodes_created}")
+        print(f"Nodes deleted: {counters.nodes_deleted}")
+        print(f"Relationships created: {counters.relationships_created}")
+        print(f"Relationships deleted: {counters.relationships_deleted}")
+        print(f"Properties set: {counters.properties_set}")
+        print(f"Labels added: {counters.labels_added}")
+        print(f"Labels removed: {counters.labels_removed}")
+        print(f"Indexes added: {counters.indexes_added}")
+        print(f"Indexes removed: {counters.indexes_removed}")
+        print(f"Constraints added: {counters.constraints_added}")
+        print(f"Constraints removed: {counters.constraints_removed}")
+
+        # Correctly print notifications/warnings
+        if notifications:
+            print("\nNotifications/Warnings:")
+            for notification in notifications:
+                print(f"- {notification['title']}: {notification['description']}")
+        else:
+            print("\nNo notifications or warnings.")
+
+    except neo4j.exceptions.Neo4jError as e:
+        print(f"Error executing query: {e.message}")
 
 class BaseGraph:
     def __init__(self, uri, user, password):
@@ -63,13 +98,59 @@ class CompanyGraph(BaseGraph):
         """
         tx.run(query, company_name=company_name)
 
-    # def prune_insights_from_recommendation(self, comppany_name, recommendations):
+    def prune_insights_from_recommendation(self, company_name, recommendations):
+        with self.driver.session() as session:
+            session.write_transaction(self._prune_insights_recommendation, company_name, recommendations)
+
+    @staticmethod
+    def _prune_insights_recommendation(tx, company_name, recommendations):
+        # Iterate over each recommendation
+        removed_nodes = 0
+        for recommendation in recommendations:
+            # Check if the recommendation is to prune the insight
+            if isinstance(recommendation, dict):
+                # Check if the recommendation is to prune the insight
+                if isinstance(recommendation, dict):
+                    insight_id = recommendation.get('id')
+                    if recommendation.get('recommendation') == 'prune':
+                        # Prune the insight by its ID and the company name
+                        dprint(f"Pruning insight {insight_id}")
+                        query = """
+                               MATCH (i:Insight)-[:PROVIDES_INSIGHT_ON]->(c:Company {name: $company_name})
+                               WHERE ID(i) = $insight_id
+                               DETACH DELETE i
+                               """
+                        dprint(query)
+                        run_query_and_summarize(tx, query, {"company_name": company_name, "insight_id": insight_id})
+                        removed_nodes += 1
+                    else:
+                        if recommendation.get('recommendation') == "retain":
+                            dprint(f"Retaining insight {insight_id}")
+                else:
+                    print(f"Unexpected type for recommendation: {type(recommendation)}. Expected a dictionary.")
+        dprint(f"Removed {removed_nodes}")
+
+    # def add_competition(self, company_name1, company_name2, product_service, market, competition_strength):
     #     with self.driver.session() as session:
-    #         session.write_transaction(self._prune_insights_recommendation, comppany_name, recommendations)
+    #         result = session.write_transaction(self._create_competition_relation, company_name1, company_name2,
+    #                                            product_service, market, competition_strength)
+    #         return result
     #
     # @staticmethod
-    # def _prune_insights_recommendation(tx, company_name, recommendations):
-
+    # def _create_competition_relation(tx, company_name1, company_name2, product_service, market, competition_strength):
+    #     query = """
+    #     MATCH (company1:Company {name: $company_name1}), (company2:Company {name: $company_name2})
+    #     MERGE (company1)-[r:COMPETES_WITH]->(company2)
+    #     SET r.productService = $product_service, r.market = $market, r.competitionStrength = $competition_strength
+    #     RETURN r
+    #     """
+    #     result = tx.run(query, company_name1=company_name1, company_name2=company_name2,
+    #                     product_service=product_service, market=market, competition_strength=competition_strength)
+    #     try:
+    #         return result.single()[0]
+    #     except Exception as e:
+    #         print(f"Failed to add competition relationship: {e}")
+    #         return None
 
     @staticmethod
     def _delete_company_node(tx, company_name):

@@ -5,13 +5,13 @@ import sys
 
 from filehandler import retrieve_from_file_or_text
 from quality_manager import QualityManager
+from debug import dprint
 class Agent:
     def __init__(self, client, filehandler, agent_key=None, prompt=None, description=None, name=None, instructions=None):
         self.config = self.load_config("known_agents.json")
         self.known_agents = self.config['known_agents']
         self.client = client
         self.qm = None
-        self.qm_output = None
         self.max_retries = 3
         self.filehandler = filehandler
         if agent_key and agent_key in self.known_agents:
@@ -46,19 +46,22 @@ class Agent:
 
     def setup_run(self, input_files=None, qm=True, max_retries=3):
         self.max_retries = max_retries
-        print(f"In Setup Run with input files: {input_files}")
+        dprint(f"input files: {input_files}")
         if input_files:
             thread = self.create_thread(self.prompt, input_files)
         else:
             thread = self.create_thread(self.prompt)
-        print(f"Thread input files: {self.input_files}")
+        dprint(f"Thread input files: {self.input_files}")
 
         # build a QM instance
         self.threads.append(thread)
         if qm:
-            self.qm = QualityManager(self, Agent(self.client, self.filehandler, "qm_agent") )
-            self.qm_output = QualityManager(self, Agent(self.client, self.filehandler, "qm_output_agent"))
-            print("Agent: setup_run created a QM instance")
+            # create two types of QM agent - run and output
+            qm_run_agent = Agent(self.client, self.filehandler, "qm_agent")
+            qm_output_agent = Agent(self.client, self.filehandler, "qm_output_agent")
+            self.qm = QualityManager(self, qm_run_agent, qm_output_agent )
+            dprint(f"setup_run created a QM instance with run_agent{self.qm.qm_run_agent} and "
+                  f"{self.qm.qm_output_agent} ")
         return
 
     def run_agent(self):
@@ -70,19 +73,27 @@ class Agent:
             agent_output_file = self.retrieve_output()
             if agent_output_file:
                 # 2.2 Check the output file for quality and quantity
-                print("Check output consistency")
-                validated_output_file = self.qm_output.assess_output_quality(self, self.qm_output, agent_output_file)
+                dprint("Check output consistency")
+                validated_output_file = self.qm.assess_output_quality(self, agent_output_file, self.active_thread())
                 if validated_output_file:
-                    print("Output file is validated by QM-Output")
+                    dprint("Output file is validated by QM-Output")
                     return validated_output_file
             else:
                 # 2.3 If no output then see what else was up with agent and repeat
                 agent_output_file = self.qm.assess_run_quality(self.active_thread())
-                return agent_output_file
+                if agent_output_file:
+                    dprint("output_file ")
+
+                    validated_output_file = self.qm.assess_output_quality(self, agent_output_file, self.active_thread())
+                    return validated_output_file
         else:
-            print("Agent: QM is not enabled")
+            dprint("QM is not enabled")
+            # agent_output_file = self.retrieve_output()
             file = self.retrieve_output_or_reissue(self.active_thread())
-            return file
+            if file:
+                return file
+        dprint("No good file came from any agent interaction")
+        return None
 
     def run_and_retrieve_thread(self):
         client = self.client
@@ -95,7 +106,7 @@ class Agent:
         start_time = time.time()
         retrieve = self.retrieve_run(run.id)
         end_time = time.time()
-        print("Retrieve time: " + str(end_time - start_time))
+        dprint("Retrieve time: " + str(end_time - start_time))
         return retrieve
 
     def retrieve_run(self, run_id ):
@@ -107,18 +118,18 @@ class Agent:
                 retrieve = client.beta.threads.runs.retrieve(
                     thread_id=thread_id, run_id=run_id
                 )
-                print(f" Assistant {self.description} status: {retrieve.status}")
+                dprint(f" Assistant {self.description} status: {retrieve.status}")
                 if retrieve.status == "completed":
                     return retrieve
                 elif retrieve.status == "failed" or retrieve.status == "expired":
-                    print(f"Run {run_id} failed.")
+                    dprint(f"Run {run_id} failed.")
                     return None
                 time.sleep(5)
             except Exception as e:
-                print(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
+                dprint(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
                 retries += 1
                 time.sleep(5)  # Wait before retrying
-        print(f"Run {run_id} did not complete after {self.max_retries} retries.")
+        dprint(f"Run {run_id} did not complete after {self.max_retries} retries.")
         return None
 
     def retrieve_file_content(self, file):
@@ -129,8 +140,8 @@ class Agent:
         response = ""
         for message in messages:
             if message.role == "assistant" and message.content[0].type == "text":
-                print(message.content[0])
-                print(message.content[0].text.value)
+                dprint(message.content[0])
+                dprint(message.content[0].text.value)
                 response += message.content[0].text.value
         return response
 
@@ -143,9 +154,11 @@ class Agent:
 
     def retrieve_output_or_reissue(self, thread):
         client = self.client
+        dprint(f" thread {thread}")
         file = retrieve_from_file_or_text(self.client,thread)
+        dprint(f"file is {file}")
         if file:
-            print(f"good file retrieved")
+            dprint(f"good file retrieved")
             return file
         else:
             client.beta.threads.messages.create(
@@ -153,6 +166,7 @@ class Agent:
                 role="user",
                 content="Please write your required output to an external JSON file for processing by the agent team"
             )
+            dprint("updated message to ask for output")
             response = self.run_and_retrieve_thread()
             file = retrieve_from_file_or_text(self.client,thread)
             return file
@@ -163,7 +177,7 @@ class Agent:
     def retrieve_output(self):
         file = retrieve_from_file_or_text(self.client, self.active_thread())
         if file:
-            print(f"good file retrieved")
+            dprint(f"good file retrieved")
             return file
         return None
 
@@ -191,8 +205,8 @@ class Agent:
                         if input_file not in self.input_files:
                             self.input_files.append(input_file)
 
-        # TODO safety check all input files already exist on the 
-        print(f"self.input_files = {self.input_files}")
+        # TODO safety check all input files already exist on the
+        dprint(f"self.input_files = {self.input_files}")
         # Create the thread with the prompt and input file
         thread = self.client.beta.threads.create(
             messages=[

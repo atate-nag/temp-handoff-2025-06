@@ -38,7 +38,7 @@
       }
     },
     "extractInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
@@ -54,9 +54,10 @@
       }
     },
     "pruneInsights" : {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
-        "companyName": "nag"
+        "companyName": "nag",
+        "debug" : false
       }
     },
     "deleteCapabilities": {
@@ -87,10 +88,11 @@
       }
     },
     "buildCompetitiveEnvironment": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag",
-        "updateGraph": true
+        "updateGraph": true,
+        "debug" : false
       }
     }
   }
