@@ -62,44 +62,12 @@ def execute_workflow():
 
 
 def main():
-    # # setup openaAI
-    #
-    # load_dotenv()
-    # client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    #
-    # # setup neo4j database
-    #
-    # uri = "bolt://localhost:7687"
-    # user = os.getenv("NEO4J_USER")
-    # password = os.getenv("NEO4J_PASSWORD")
-    # # Load the workflow configuration
-    # with open("workflow_config.json", "r") as file:
-    #     config = json.load(file)
-    #
-    # workflow_config = config["workflow"]
-    #
-    # global company_graph, insight_graph, file_handler
-
-    # initialise the openAI file handler class
-
-    # file_handler = FileHandler(client)
-    #
-    # # It is a design decision to have separate handlers for different parts of
-    # # the graph, but could be replaced with a single graph handler if the graph remains
-    # # simple. Let's observe how much complexity is required.
-    #
-    # company_graph = CompanyGraph(uri, user, password)
-    # insight_graph = InsightGraph(uri, user, password)
-
-    # generate the openAI files that are needed for this workflow
-    # Collect and dprint enabled workflow steps
     enabled_steps = [
         step for step, details in workflow_config.items() if details["enabled"]
     ]
     dprint("Enabled workflow steps:")
     for step in enabled_steps:
         dprint(f"- {step}")
-
     execute_workflow()
     company_graph.close()
     insight_graph.close()
@@ -122,7 +90,7 @@ def get_step_function(step_name):
         "displayCapabilities" : display_capabilities,
         "cleanInsights" : clean_insights,
         "pruneInsights" : prune_insights,
-        "buildCompetitiveEnvironment" : build_competitive_environment,
+        "buildCompetitiveEnvironment" : generic_agent_run,
     }
     return step_map.get(step_name, None)  # Return None if not found
 
@@ -333,7 +301,28 @@ def evaluate_capabilities(companyName, debug, updateGraph):
     return
 
 
-def build_competitive_environment(companyName, updateGraph, debug):
+def generic_agent_run(agentType, companyName, updateGraph, debugRun):
+    if debugRun:
+        dict_content = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
+    else:
+        json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
+        dprint(json_graph)
+        filename_prefix = f"{agentType}_graph_{companyName}"
+        agent_graph_file = file_handler.direct_upload(json_graph, filename_prefix, purpose="assistants")
+        agent = Agent(client, file_handler, agentType)
+        dprint(agent.agent_id, agent.description)
+        run = agent.setup_run(agent_graph_file, qm=True)  # prepare for a run with QM enabled
+        agent_file = agent.run_agent()
+        dprint(agent_file)
+        str_function_file = client.files.retrieve_content(agent_file)
+        dict_content = json.loads(str_function_file)
+        dprint(str_function_file)
+    if updateGraph:
+        for item in dict_content:
+            dprint(item)
+        # needs a generic graph updater also
+
+def build_competitive_environment(companyName, debug):
     # if debug, then just load from previous file
     if debug:
         competition_content = file_handler.local_json_read(f"debug_competitors_{companyName}.json")

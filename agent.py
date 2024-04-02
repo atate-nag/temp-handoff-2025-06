@@ -7,7 +7,7 @@ from filehandler import retrieve_from_file_or_text
 from quality_manager import QualityManager
 from debug import dprint
 class Agent:
-    def __init__(self, client, filehandler, agent_key=None, prompt=None, description=None, name=None, instructions=None):
+    def __init__(self, client, filehandler, agent_key=None, requirements=None):
         self.config = self.load_config("known_agents.json")
         self.known_agents = self.config['known_agents']
         self.client = client
@@ -17,14 +17,16 @@ class Agent:
         if agent_key and agent_key in self.known_agents:
             self.agent_id = self.known_agents[agent_key]['id']
             self.description = self.known_agents[agent_key]['description']
+            if self.known_agents[agent_key]['prompt']:
+                self.prompt = self.known_agents[agent_key]['prompt']
             if self.known_agents[agent_key]['output_schema']:
                 self.output_schema = self.known_agents[agent_key]['output_schema']
         else:
             self.create_new_assistant(client)
-        self.prompt = prompt  # does an agent instance need more than one promot?
         self.threads = []
         self.thread_details = {}  # notused yet: A dictionary to map threads to their details
         self.input_files = []
+        self.requirements = requirements
     @staticmethod
     def load_config(file_path):
         with open(file_path, 'r') as file:
@@ -44,7 +46,26 @@ class Agent:
         for file in input_files:
             self.input_files.append(file)
 
-    def setup_run(self, input_files=None, qm=True, max_retries=3):
+    def generate_runtime_prompt(self):
+        placeholder_values = {
+            "INPUT_FILES": self.input_files,
+            "AGENT_REQUIREMENTS": self.requirements,
+        }
+        # Prepare the prompt by replacing placeholders with actual runtime values
+        dprint("placeholder values:", placeholder_values)
+        prompt = self.prompt
+        for placeholder, value in placeholder_values.items():
+            # Convert list to string if necessary
+            if isinstance(value, list):
+                value_str = ', '.join(map(str, value))  # Ensure all elements are converted to strings
+            else:
+                value_str = str(value)
+            prompt = prompt.replace(f"{{{placeholder}}}", value_str)
+        self.prompt = prompt
+        dprint(f"End self-prompt is {self.prompt}")
+        return
+
+    def setup_run(self, input_files=None, runtime_values=False, qm=True, max_retries=3):
         self.max_retries = max_retries
         dprint(f"input files: {input_files}")
         if input_files:
@@ -52,16 +73,18 @@ class Agent:
         else:
             thread = self.create_thread(self.prompt)
         dprint(f"Thread input files: {self.input_files}")
-
         # build a QM instance
         self.threads.append(thread)
         if qm:
             # create two types of QM agent - run and output
             qm_run_agent = Agent(self.client, self.filehandler, "qm_agent")
-            qm_output_agent = Agent(self.client, self.filehandler, "qm_output_agent")
+            qm_output_agent = Agent(self.client, self.filehandler, "qm_output_agent", requirements=self.output_schema)
             self.qm = QualityManager(self, qm_run_agent, qm_output_agent )
             dprint(f"setup_run created a QM instance with run_agent{self.qm.qm_run_agent} and "
                   f"{self.qm.qm_output_agent} ")
+        # create a real prompt from generic prompt that has unresolved parameters possibly in it
+        self.generate_runtime_prompt()
+        dprint(f"Running agent with prompt {self.prompt}")
         return
 
     def run_agent(self):

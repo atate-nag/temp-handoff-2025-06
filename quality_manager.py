@@ -14,10 +14,14 @@ class QualityManager:
         """
         for try_count in range(self.max_tries):
             response = self.agent.get_messages(thread)
-            llm_response_file = self.agent.upload_text_to_file(response)
-            self.qm_run_agent.set_prompt(f"Check if the agent completed the task in the given "
-                                     f"response file {llm_response_file}")
-            qm_run = self.qm_run_agent.setup_run(llm_response_file, qm=False)  # Do not QM the QM
+            agent_response_file = self.agent.upload_text_to_file(response)
+            # self.qm_run_agent.set_prompt(f"Check if the agent completed the task in the given "
+            #                          f"response file {agent_response_file}")
+            # self.qm_run_agent.set_prompt = self.qm_run_agent.prompt.format(agent_response_file=agent_response_file)
+            runtime_values = {
+                "agent_output_file": agent_response_file,
+            }
+            qm_run = self.qm_run_agent.setup_run(agent_response_file, qm=False)  # Do not QM the QM
             qm_file = self.qm_run_agent.run_agent()
             qm_content_dict = self.qm_run_agent.retrieve_file_content(qm_file)
             dprint(f"output is {qm_content_dict}")
@@ -35,11 +39,12 @@ class QualityManager:
     def assess_output_quality(self, agent, agent_output_file, agent_thread):
         """The output passed is the external output of an agent run. The QM will assess if
         the output is generated to the correct quality according to pre-defined schema."""
-        self.qm_output_agent.set_prompt(f"Check if the agent's output file {agent_output_file} adheres to the agent's  "
-                                 f" output_requirements_schema={agent.output_schema}")
-        dprint(f"prompt will be {self.qm_output_agent.prompt}")
+        # self.qm_output_agent.set_prompt(f"Check if the agent's output file {agent_output_file} adheres to the agent's  "
+        #                          f" output_requirements_schema={agent.output_schema}")
+        # dprint(f"prompt will be {self.qm_output_agent.prompt}")
+        qm_run = self.qm_output_agent.setup_run(agent_output_file, qm=False)  # Do not QM the QM
         for try_count in range(self.max_tries):
-            qm_run = self.qm_output_agent.setup_run(agent_output_file, qm=False)  # Do not QM the QM
+            # TODO need an "update_run" rather than a full-blown setup run
             qm_file = self.qm_output_agent.run_agent()
             qm_content_dict = self.qm_output_agent.retrieve_file_content(qm_file)
             dprint(qm_content_dict)

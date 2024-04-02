@@ -54,7 +54,7 @@
       }
     },
     "pruneInsights" : {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "debug" : false
@@ -90,9 +90,10 @@
     "buildCompetitiveEnvironment": {
       "enabled": true,
       "parameters" : {
+        "agentType" : "competition_agent",
         "companyName": "nag",
-        "updateGraph": true,
-        "debug" : false
+        "updateGraph": false,
+        "debugRun" : false
       }
     }
   }
