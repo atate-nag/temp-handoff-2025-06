@@ -72,6 +72,7 @@ class Agent:
             thread = self.create_thread(self.prompt, input_files)
         else:
             thread = self.create_thread(self.prompt)
+        dprint(f"Running agent with prompt {self.prompt}")
         dprint(f"Thread input files: {self.input_files}")
         # build a QM instance
         self.threads.append(thread)
@@ -83,8 +84,6 @@ class Agent:
             dprint(f"setup_run created a QM instance with run_agent{self.qm.qm_run_agent} and "
                   f"{self.qm.qm_output_agent} ")
         # create a real prompt from generic prompt that has unresolved parameters possibly in it
-        self.generate_runtime_prompt()
-        dprint(f"Running agent with prompt {self.prompt}")
         return
 
     def run_agent(self):
@@ -230,6 +229,11 @@ class Agent:
 
         # TODO safety check all input files already exist on the
         dprint(f"self.input_files = {self.input_files}")
+
+        # now auto-generate the runtime prompt ready for uploading to thread
+
+        self.generate_runtime_prompt()
+
         # Create the thread with the prompt and input file
         thread = self.client.beta.threads.create(
             messages=[

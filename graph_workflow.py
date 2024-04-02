@@ -85,7 +85,7 @@ def get_step_function(step_name):
         "displayInsights" : display_insights,
         "deleteCompany" : delete_company,
         "dumpCompanyGraph" : dump_company_graph,
-        "evaluateCapabilities" : evaluate_capabilities,
+        "evaluateCapabilities" : generic_agent_run,
         "deleteCapabilities" : delete_capabilities,
         "displayCapabilities" : display_capabilities,
         "cleanInsights" : clean_insights,
@@ -302,6 +302,7 @@ def evaluate_capabilities(companyName, debug, updateGraph):
 
 
 def generic_agent_run(agentType, companyName, updateGraph, debugRun):
+    # TODO needs a generic intermediates write adding
     if debugRun:
         dict_content = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
     else:
@@ -320,7 +321,7 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
     if updateGraph:
         for item in dict_content:
             dprint(item)
-        # needs a generic graph updater also
+        # TODO needs a generic graph updater also
 
 def build_competitive_environment(companyName, debug):
     # if debug, then just load from previous file

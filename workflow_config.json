@@ -67,10 +67,11 @@
       }
     },
     "evaluateCapabilities": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
+        "agentType" : "capabilities_agent",
         "companyName": "nag",
-        "debug" : false,
+        "debugRun" : false,
         "updateGraph" : true
       }
     },
@@ -88,7 +89,7 @@
       }
     },
     "buildCompetitiveEnvironment": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "agentType" : "competition_agent",
         "companyName": "nag",
