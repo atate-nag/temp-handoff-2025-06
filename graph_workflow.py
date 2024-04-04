@@ -1,5 +1,4 @@
-from neo4j import GraphDatabase
-from dochandler import Rdoc
+
 import os
 import openai
 from dotenv import load_dotenv
@@ -7,16 +6,6 @@ from agent import Agent
 from datetime import datetime
 from multiprocessing import Process, Queue
 from debug import dprint
-# overseer_manage_assistant,
-# run_capabilities_analysis,
-# run_recommender_analysis,
-# run_competition_analysis,
-# overseer_manage_agent,
-
-from run_assistant_thread import (
-    parallel_file_process,
-    import_data_files_and_upload,
-)
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
 from dochandler import import_data_files
@@ -38,11 +27,6 @@ workflow_config = config["workflow"]
 global company_graph, insight_graph, file_handler
 
 file_handler = FileHandler(client)
-
-# It is a design decision to have separate handlers for different parts of
-# the graph, but could be replaced with a single graph handler if the graph remains
-# simple. Let's observe how much complexity is required.
-
 company_graph = CompanyGraph(uri, user, password)
 insight_graph = InsightGraph(uri, user, password)
 
@@ -125,7 +109,7 @@ def update_company_data(dataDir, companyName):
     dprint(f"Dir for company is {company_data_dir}")
     if os.path.exists(company_data_dir):
         dprint(f"Importing data for {companyName} at {company_data_dir}...")
-        remote_openai_company_data, company_data_doc = import_data_files_and_upload(
+        remote_openai_company_data, company_data_doc = file_handler.import_data_files_and_upload(
             client, company_data_dir, "data"
         )
         dprint(f"Uploaded file for {companyName} at {company_data_dir} ")

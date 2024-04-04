@@ -26,12 +26,16 @@ class QualityManager:
             else:
                 qm_content_dict = self.qm_run_agent.retrieve_file_content(qm_file)
                 dprint(f"output is {qm_content_dict}")
-                # TODO fix the logic problem of last iteration (as per output qm)
+                dprint(f"Check of qm_content_dict['completed'] == {qm_content_dict['completed']} and type = "
+                       f"{type(qm_content_dict['completed'])}")
                 if qm_content_dict['completed']:
+                    # this means the agent did complete the task as far as QM can see
                     file = self.agent.retrieve_output()
+                    dprint(f"returned output file is is {file}")
                     if file:
                         return file
                 else:
+                    # this means the agent did not complete the task, set instructions and reissue
                     prompt = qm_content_dict['agent instructions']
                     if try_count < self.max_tries - 1:
                         dprint(f"Agent did not complete and will be informed: {prompt}")
@@ -59,6 +63,8 @@ class QualityManager:
             qm_file = self.qm_output_agent.run_agent()
             qm_content_dict = self.qm_output_agent.retrieve_file_content(qm_file)
             dprint(qm_content_dict)
+            dprint(f"Check of qm_content_dict['validated'] == {qm_content_dict['validated']} and type = "
+                   f"{type(qm_content_dict['validated'])}")
             if qm_content_dict['validated']:
                 # If validated, retrieve and return the output file
                 file = self.qm_output_agent.retrieve_output()
@@ -79,7 +85,7 @@ class QualityManager:
                     agent_output_file = self.agent.retrieve_output()
                     qm_prompt = (f"The agent has produced new output {agent_output_file} following your advice. "
                                  "Please reassess.")
-                    self.qm_run_agent.add_message(self.qm_run_agent.active_thread().id, qm_prompt, agent_output_file)
+                    self.qm_output_agent.add_message(self.qm_output_agent.active_thread().id, qm_prompt, agent_output_file)
             else:
                 # Last attempt and not validated, attempt to handle or return whatever is possible
                 dprint("Last attempt was not validated. Attempting to proceed with available data.")
