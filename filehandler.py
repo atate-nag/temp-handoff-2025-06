@@ -119,7 +119,7 @@ class FileHandler:
 
 def retrieve_from_file_or_text(client, thread):
     file_direct = retrieve_file_annotation(client, thread)
-    dprint("returned from annotations {file_direct}")
+    dprint(f"returned from annotations {file_direct}")
     if file_direct:
         return file_direct
     else:
@@ -197,6 +197,8 @@ def return_json_and_file(client, thread):
                         cleaned_json_string = re.sub(
                             r":\s*([0-9]+),([0-9]+)", r': "\1,\2"', cleaned_json_string
                         )
+                        cleaned_json_string = re.sub(
+                            r'\b(False|True)\b', lambda match: match.group(0).lower(), cleaned_json_string)
                         try:
                             full_info = json.loads(cleaned_json_string)
                             with open(
@@ -214,6 +216,7 @@ def return_json_and_file(client, thread):
                         except json.JSONDecodeError as e:
                             dprint(f"Failed to decode JSON: {e}")
                             dprint(f"Faulty JSON string: {repr(cleaned_json_string)}")
+
                     else:
                         dprint("No JSON found in the message, returning None")
                         return None

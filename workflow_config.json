@@ -37,6 +37,15 @@
         "companyName": "nag"
       }
     },
+    "extractCondenseData": {
+      "enabled": false,
+      "parameters" : {
+        "companyName": "nag",
+        "sourceDir": "Files-COMPANY/",
+        "debug": false,
+        "updateGraph" : true
+      }
+    },
     "extractInsights": {
       "enabled": false,
       "parameters" : {
@@ -53,11 +62,13 @@
         "relevanceFrom" : 9.2
       }
     },
-    "pruneInsights" : {
+    "recommendInsightPruning" : {
       "enabled": false,
       "parameters" : {
+        "agentType" : "recommender_agent",
         "companyName": "nag",
-        "debug" : false
+        "debugRun" : false,
+        "updateGraph": false
       }
     },
     "deleteCapabilities": {
@@ -67,29 +78,29 @@
       }
     },
     "evaluateCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "agentType" : "capabilities_agent",
         "companyName": "nag",
         "debugRun" : false,
-        "updateGraph" : true
+        "updateGraph" : false
       }
     },
     "pruneCapabilities" : {
       "enabled": false,
       "parameters" : {
         "companyName": "nag",
-        "updateGraph": true
+        "updateGraph": false
       }
     },
     "displayCapabilities": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "companyName": "nag"
       }
     },
     "buildCompetitiveEnvironment": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "agentType" : "competition_agent",
         "companyName": "nag",

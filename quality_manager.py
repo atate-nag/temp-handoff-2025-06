@@ -12,39 +12,50 @@ class QualityManager:
         """The thread passed is the result of agent run, QM will make sure that it has solved
         the task, is not awaiting further instruction and has generated output.
         """
+        response = self.agent.get_messages(thread)
+        agent_response_file = self.agent.upload_text_to_file(response)
+        qm_run = self.qm_run_agent.setup_run(agent_response_file, qm=False)
         for try_count in range(self.max_tries):
-            response = self.agent.get_messages(thread)
-            agent_response_file = self.agent.upload_text_to_file(response)
-            # self.qm_run_agent.set_prompt(f"Check if the agent completed the task in the given "
-            #                          f"response file {agent_response_file}")
-            # self.qm_run_agent.set_prompt = self.qm_run_agent.prompt.format(agent_response_file=agent_response_file)
-            runtime_values = {
-                "agent_output_file": agent_response_file,
-            }
-            qm_run = self.qm_run_agent.setup_run(agent_response_file, qm=False)  # Do not QM the QM
             qm_file = self.qm_run_agent.run_agent()
-            qm_content_dict = self.qm_run_agent.retrieve_file_content(qm_file)
-            dprint(f"output is {qm_content_dict}")
-            # TODO fix the logic problem of last iteration (as per output qm)
-            if not qm_content_dict['completed']:
-                prompt = qm_content_dict['agent instructions']
-                dprint(f"Agent did not complete and will be informed: {prompt}")
-                self.agent.add_message(thread.id, prompt)
-                dprint(f"Going back to {self.agent}")
-                response = self.agent.run_and_retrieve_thread()
-            file = self.agent.retrieve_output()
-            if file:
-                return file
+            if not qm_file:
+                # agent did not produce output!
+                qm_prompt = (f"You did not produce your output in the required method. You should use code_interpreter"
+                             f"to generate a JSON file of your dictionary output, and provide the fileID in "
+                             f"the annotations")
+                self.qm_run_agent.add_message(self.qm_run_agent.active_thread().id, qm_prompt)
+            else:
+                qm_content_dict = self.qm_run_agent.retrieve_file_content(qm_file)
+                dprint(f"output is {qm_content_dict}")
+                # TODO fix the logic problem of last iteration (as per output qm)
+                if qm_content_dict['completed']:
+                    file = self.agent.retrieve_output()
+                    if file:
+                        return file
+                else:
+                    prompt = qm_content_dict['agent instructions']
+                    if try_count < self.max_tries - 1:
+                        dprint(f"Agent did not complete and will be informed: {prompt}")
+                        self.agent.add_message(thread.id, prompt)
+                        dprint(f"Going back to {self.agent}")
+                        retrieve = self.agent.run_and_retrieve_thread()
+                        response = self.agent.get_messages(thread)
+                        agent_response_file = self.agent.upload_text_to_file(response)
+                        qm_prompt = (f"The agent has updated the response: {agent_response_file}. Please reassess "
+                                     f"if it completed the task satisfactorily")
+                        self.qm_run_agent.add_message(self.qm_run_agent.active_thread().id, qm_prompt, agent_response_file)
+                    else:
+                        # Last attempt and not validated, attempt to handle or return whatever is possible
+                        dprint("Last attempt was not validated. Attempting to proceed with available data.")
+                        file = self.agent.retrieve_output()
+                        if file:
+                            return file
+
 
     def assess_output_quality(self, agent, agent_output_file, agent_thread):
         """The output passed is the external output of an agent run. The QM will assess if
         the output is generated to the correct quality according to pre-defined schema."""
-        # self.qm_output_agent.set_prompt(f"Check if the agent's output file {agent_output_file} adheres to the agent's  "
-        #                          f" output_requirements_schema={agent.output_schema}")
-        # dprint(f"prompt will be {self.qm_output_agent.prompt}")
         qm_run = self.qm_output_agent.setup_run(agent_output_file, qm=False)  # Do not QM the QM
         for try_count in range(self.max_tries):
-            # TODO need an "update_run" rather than a full-blown setup run
             qm_file = self.qm_output_agent.run_agent()
             qm_content_dict = self.qm_output_agent.retrieve_file_content(qm_file)
             dprint(qm_content_dict)
@@ -66,6 +77,9 @@ class QualityManager:
                     dprint(f"Going back to {self.agent}")
                     retrieve = self.agent.run_and_retrieve_thread()
                     agent_output_file = self.agent.retrieve_output()
+                    qm_prompt = (f"The agent has produced new output {agent_output_file} following your advice. "
+                                 "Please reassess.")
+                    self.qm_run_agent.add_message(self.qm_run_agent.active_thread().id, qm_prompt, agent_output_file)
             else:
                 # Last attempt and not validated, attempt to handle or return whatever is possible
                 dprint("Last attempt was not validated. Attempting to proceed with available data.")

@@ -1,5 +1,71 @@
 {
   "known_agents": {
+
+    "insight_agent": {
+      "id": "asst_iYvVBX1aaxu3KBgSEvIAZFEb",
+      "description": "Structured Extraction Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "insight": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "sourceDocument": {
+                  "type": "string"
+                },
+                "extractionDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "relevanceScore": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 99
+                }
+              },
+              "required": [
+                "description",
+                "sourceDocument",
+                "extractionDate",
+                "categories",
+                "relevanceScore"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "insight"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 1
+      }
+    },
+    "condense_agent": {
+      "id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",
+      "description": "Condensing Assistant for Json",
+      "output_schema": {},
+      "prompt" : "Condense the file(s): {INPUT_FILES}"
+    },
+
+    "recommender_agent": {
+      "id": "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ",
+      "description": "Recommender Agent",
+      "output_schema": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"title\": \"Insights\",\n  \"type\": \"array\",\n  \"items\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"id\": { \"type\": \"integer\" },\n      \"description\": { \"type\": \"string\" },\n      \"relevanceScore\": { \"type\": \"number\" },\n      \"recommendation\": {\n        \"type\": \"string\",\n        \"enum\": [\"prune\", \"retain\"]\n      },\n      \"justification\": { \"type\": \"string\" }\n    },\n    \"required\": [\"id\", \"description\", \"relevanceScore\", \"recommendation\", \"justification\"]\n  }\n}\n",
+      "prompt" : "Make the recommendations based on the file(s): {INPUT_FILES}"
+    },
     "competition_agent": {
       "id": "asst_uphvlsvGIbtXQAx89cFShovV",
       "description": "Competition Description",
@@ -96,6 +162,7 @@
                   "maximum": 99
                 }
               },
+              "minItems" : 5,
               "required": [
                 "name",
                 "description of competitive threat",
@@ -113,67 +180,6 @@
         }
       },
       "prompt": "Define the competitive environment based on the file(s): {INPUT_FILES}"
-    },
-    "insight_agent": {
-      "id": "asst_iYvVBX1aaxu3KBgSEvIAZFEb",
-      "description": "Structured Extraction Agent",
-      "output_schema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "insight": {
-              "type": "object",
-              "properties": {
-                "description": {
-                  "type": "string"
-                },
-                "sourceDocument": {
-                  "type": "string"
-                },
-                "extractionDate": {
-                  "type": "string",
-                  "format": "date"
-                },
-                "categories": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "relevanceScore": {
-                  "type": "number",
-                  "minimum": 0,
-                  "maximum": 99
-                }
-              },
-              "required": [
-                "description",
-                "sourceDocument",
-                "extractionDate",
-                "categories",
-                "relevanceScore"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "required": [
-            "insight"
-          ],
-          "additionalProperties": false
-        },
-        "minItems": 1
-      }
-    },
-    "condense_agent": {
-      "id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",
-      "description": "Condensing Assistant for Json",
-      "output_schema": {}
-    },
-    "trends_agent": {
-      "id": "asst_ripeR7nhZq822ek0PwDM31Fs",
-      "description": "Trends Agent"
     },
     "capabilities_agent": {
       "id": "asst_NoLfJg1BUS4yNuZhurDAedXO",
@@ -208,19 +214,7 @@
         }
       }
     },
-    "challenges_agent": {
-      "id": "asst_vlOVosMTXgg8qOf8FReoeNjg",
-      "description": "Challenges Agent"
-    },
-    "actions_agent": {
-      "id": "asst_ACUyLQAjjCii40BRs9sBPout",
-      "description": "Actions Agent"
-    },
-    "recommender_agent": {
-      "id": "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ",
-      "description": "Recommender Agent",
-      "output_schema": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"title\": \"Insights\",\n  \"type\": \"array\",\n  \"items\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"id\": { \"type\": \"integer\" },\n      \"description\": { \"type\": \"string\" },\n      \"relevanceScore\": { \"type\": \"number\" },\n      \"recommendation\": {\n        \"type\": \"string\",\n        \"enum\": [\"prune\", \"retain\"]\n      },\n      \"justification\": { \"type\": \"string\" }\n    },\n    \"required\": [\"id\", \"description\", \"relevanceScore\", \"recommendation\", \"justification\"]\n  }\n}\n"
-    },
+
     "qm_agent": {
       "id": "asst_9eE5PxZx9cs4WgDHvp7YquT3",
       "description": "QM run problems Agent",
@@ -280,6 +274,19 @@
         "description": "Schema for validating agent output."
       },
       "prompt": "Check if the agent's output file {INPUT_FILES} adheres to the agent's output_requirements_schema={AGENT_REQUIREMENTS}"
+    },
+
+    "trends_agent": {
+      "id": "asst_ripeR7nhZq822ek0PwDM31Fs",
+      "description": "Trends Agent"
+    },
+    "actions_agent": {
+      "id": "asst_ACUyLQAjjCii40BRs9sBPout",
+      "description": "Actions Agent"
+    },
+    "challenges_agent": {
+      "id": "asst_vlOVosMTXgg8qOf8FReoeNjg",
+      "description": "Challenges Agent"
     }
   }
 }

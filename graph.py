@@ -130,6 +130,24 @@ class CompanyGraph(BaseGraph):
                     print(f"Unexpected type for recommendation: {type(recommendation)}. Expected a dictionary.")
         dprint(f"Removed {removed_nodes}")
 
+    # TODO this generic graph update is not good enough
+
+    def generic_update_graph(self, company_name, dictionary, agent_type):
+        if agent_type == "competition_agent":
+            for competitor_full in dictionary:
+                competitor = competitor_full["competitor"]
+                dprint(f"competitor = {competitor['name']}")
+                dprint(f"data is {competitor['data']}")
+                competitor_data = competitor["data"]
+            #         create_company_with_data(companyName, competitor_data)
+            # # display competitor graph
+        elif agent_type == "capability_agent":
+            self.add_capability_and_evidence(company_name, dictionary)
+        elif agent_type == "recommender_agent":
+            self.prune_insights_from_recommendation(company_name, dictionary)
+        else:
+            dprint(f"generic graph update not yet implemented for {agent_type}")
+
     # def add_competition(self, company_name1, company_name2, product_service, market, competition_strength):
     #     with self.driver.session() as session:
     #         result = session.write_transaction(self._create_competition_relation, company_name1, company_name2,

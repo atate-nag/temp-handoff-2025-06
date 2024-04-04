@@ -78,33 +78,47 @@ def get_step_function(step_name):
     Returns the function mapped to the specified workflow step without executing it.
     """
     step_map = {
+
         "createCompanies": create_companies,
+
+        # graph manipulation and display routines
+
         "updateCompanyData": update_company_data,
-        "deleteInsights": delete_insights,
-        "extractInsights": extract_insights,
         "displayInsights" : display_insights,
         "deleteCompany" : delete_company,
         "dumpCompanyGraph" : dump_company_graph,
-        "evaluateCapabilities" : generic_agent_run,
         "deleteCapabilities" : delete_capabilities,
         "displayCapabilities" : display_capabilities,
         "cleanInsights" : clean_insights,
-        "pruneInsights" : prune_insights,
+        "deleteInsights": delete_insights,
+
+        # custom agent implementations
+
+        "extractInsights": extract_insights,
+
+        # generic Agent implementations
+
+        "evaluateCapabilities": generic_agent_run,
+        "recommendInsightPruning" : generic_agent_run,
         "buildCompetitiveEnvironment" : generic_agent_run,
     }
     return step_map.get(step_name, None)  # Return None if not found
 
-# Following are the workflow functionality functions - they are 1:1 mappings between
-# functions mentioned in the file wofkflow_config.json
-# note - camelCase naming denotes parameters directly inherited from the json config file
+
+"""Following are the workflow functionality functions - they are 1:1 mappings between
+ functions mentioned in the file wofkflow_config.json
+ Note: camelCase naming denotes parameters directly inherited from the json config file"""
+
 
 def create_companies(companyName):
     dprint(f"Creating company {companyName}")
     company_graph.create_company_only(companyName)
 
+
 def create_company_with_data(companyName, data):
     company_node_data = map_json_to_company_schema(json.loads(data))
     company_graph.add_company_info(companyName, company_node_data)
+
 
 def update_company_data(dataDir, companyName):
     company_data_dir = os.path.join(dataDir, companyName)
@@ -123,8 +137,8 @@ def update_company_data(dataDir, companyName):
         dprint(f"Graph updated with data for {companyName}.")
     else:
         dprint(f"No data directory found for {companyName}.")
-
     return
+
 
 def display_insights(companyName, relevanceFrom):
     dprint(
@@ -184,36 +198,10 @@ def clean_insights(companyName):
     return
 
 
-def prune_insights(companyName, debug):
-    # first get the insight graph state
-    if debug:
-        recommender_content = file_handler.local_json_read(f"debug_recommendations_{companyName}.json")
-    else:
-        json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-        dprint(json_graph)
-        filename_prefix = f"company_and_insight_graph_{companyName}"
-        file = file_handler.direct_upload(json_graph, filename_prefix, purpose="assistants")
-        dprint(f"Newly uploaded file ID for '{companyName}': {file}")
-        prompt = f"Make the recommendations based on the file {file}"
-        agent = Agent(client, file_handler, "recommender_agent", prompt=prompt)
-        dprint(agent.agent_id, agent.description)
-        run = agent.setup_run(file, qm=True)  # prepare for a run with QM enabled
-        # how much basic information do we have on each competitor? Dump the competition graph
-        recommended_insights_file = agent.run_agent()
-        dprint(recommended_insights_file)
-        str_recommender_content = client.files.retrieve_content(recommended_insights_file)
-        recommender_content = json.loads(str_recommender_content)
-    for insight in recommender_content:
-        dprint(insight)
-    # now remove the recommendations from graph
-    company_graph.prune_insights_from_recommendation(companyName, recommender_content)
-    return
-
-
 def condense_and_extract(file_id, companyName, json_graph_str, filename, output_queue):
     cond_prompt = f"Condense the file {file_id}"
     dprint(cond_prompt)
-    cond_agent = Agent(client, file_handler, "condense_agent", prompt=cond_prompt)
+    cond_agent = Agent(client, file_handler, "condense_agent")
     dprint(cond_agent.agent_id, cond_agent.description)
     cond_agent.setup_run(file_id, qm=False)  # not clear we can QM the condense process
     cond_agent_output = cond_agent.run_agent()
@@ -230,6 +218,7 @@ def condense_and_extract(file_id, companyName, json_graph_str, filename, output_
     insight_agent_output = insight_agent.run_agent()
     output_queue.put(insight_agent_output)
     return insight_agent_output
+
 
 def extract_insights(sourceDir, companyName, debug, updateGraph):
     # task 1: load company data from graph or from a debug file (if debug == True)
@@ -269,94 +258,34 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
     return
 
 
-def evaluate_capabilities(companyName, debug, updateGraph):
-    # dump the graph in a form suitable to send on to the AI agents
-    json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-    dprint(json_graph)
-    if debug:
-        # read the relevant files from debug directory instead of generating more capabilities
-        capabilities_file = f"debug_capabilities_{companyName}.json"
-        with open(capabilities_file, "rb") as local_file:
-            capabilities_content = json.loads(local_file.read())
-    else:
-        # upload the graph date to openAI and get file-ID
-        filename_prefix = f"company_and_insight_graph_{companyName}"
-        # file = file_handler.serialize_and_upload(json_graph, filename_prefix, companyName, purpose="assistants")
-        file = file_handler.direct_upload(
-            json_graph, filename_prefix, companyName, purpose="assistants"
-        )
-        dprint(f"Newly uploaded file ID for '{companyName}': {file}")
-        # now call the capabilities agent and it will define a set of core capabilities
-        capabilities_file = overseer_manage_assistant(
-            client, None, "capabilities", 0, run_capabilities_analysis, file
-        )
-        # download the file and dump
-        dprint(capabilities_file)
-        capabilities_content = json.loads(
-            client.files.retrieve_content(capabilities_file)
-        )
-    # now add the capabilities to the graph
-    if updateGraph:
-        company_graph.add_capability_and_evidence(companyName, capabilities_content)
-    return
-
-
 def generic_agent_run(agentType, companyName, updateGraph, debugRun):
     # TODO needs a generic intermediates write adding
+    # TODO can be made more generic by defining the graph input -> agent function -> graph output
     if debugRun:
         dict_content = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
     else:
+        # get the graph data to send to agent
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
         dprint(json_graph)
         filename_prefix = f"{agentType}_graph_{companyName}"
         agent_graph_file = file_handler.direct_upload(json_graph, filename_prefix, purpose="assistants")
+        # create appropriate agent type
         agent = Agent(client, file_handler, agentType)
         dprint(agent.agent_id, agent.description)
-        run = agent.setup_run(agent_graph_file, qm=True)  # prepare for a run with QM enabled
+        # setup the agent run with QM enabled
+        run = agent.setup_run(agent_graph_file, qm=True)
+        # run the agent, QM and collect output when done
         agent_file = agent.run_agent()
         dprint(agent_file)
         str_function_file = client.files.retrieve_content(agent_file)
         dict_content = json.loads(str_function_file)
         dprint(str_function_file)
+    # now call a generic graph updater also
     if updateGraph:
+        company_graph.generic_update_graph(companyName, dict_content, agentType)
         for item in dict_content:
             dprint(item)
-        # TODO needs a generic graph updater also
 
-def build_competitive_environment(companyName, debug):
-    # if debug, then just load from previous file
-    if debug:
-        competition_content = file_handler.local_json_read(f"debug_competitors_{companyName}.json")
-    else:
-        # first get the insight graph state
-        json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-        dprint(json_graph)
-        filename_prefix = f"company_and_insight_graph_{companyName}"
-        file = file_handler.direct_upload(json_graph, filename_prefix, purpose="assistants")
-        dprint(f"Newly uploaded file ID for '{companyName}': {file}")
-        # set up the agent
-        prompt = f"Define the competitive environment based on the file {file}"
-        agent = Agent(client, file_handler, "competition_agent", prompt=prompt)
-        dprint(agent.agent_id, agent.description)
-        run = agent.setup_run(file, qm=True)  # prepare for a run with QM enabled
-        # how much basic information do we have on each competitor? Dump the competition graph
-        competition_file = agent.run_agent()
-        dprint(competition_file)
-        str_competition_file = client.files.retrieve_content(competition_file)
-        competition_content = json.loads(str_competition_file)
-        dprint(str_competition_file)
-    # if UpdateGraph for every company in the competitors, we should create a new Company node
-    dprint(f"Creating company {companyName}")
-    # if updateGraph:
-    dprint(competition_content)
-    for competitor_full in competition_content:
-        competitor = competitor_full["competitor"]
-        dprint(f"competitor = {competitor['name']}")
-        dprint(f"data is {competitor['data']}")
-        competitor_data = competitor["data"]
-    #         create_company_with_data(companyName, competitor_data)
-    # # display competitor graph
-    return
 
 if __name__ == '__main__':
     main()

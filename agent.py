@@ -70,8 +70,10 @@ class Agent:
         dprint(f"input files: {input_files}")
         if input_files:
             thread = self.create_thread(self.prompt, input_files)
+            dprint(f"generated thread: {thread}")
         else:
             thread = self.create_thread(self.prompt)
+            dprint(f"generated thread: {thread}")
         dprint(f"Running agent with prompt {self.prompt}")
         dprint(f"Thread input files: {self.input_files}")
         # build a QM instance
@@ -82,7 +84,7 @@ class Agent:
             qm_output_agent = Agent(self.client, self.filehandler, "qm_output_agent", requirements=self.output_schema)
             self.qm = QualityManager(self, qm_run_agent, qm_output_agent )
             dprint(f"setup_run created a QM instance with run_agent{self.qm.qm_run_agent} and "
-                  f"{self.qm.qm_output_agent} ")
+                  f"{self.qm.qm_output_agent}")
         # create a real prompt from generic prompt that has unresolved parameters possibly in it
         return
 
@@ -92,22 +94,21 @@ class Agent:
         # 2) optionally run the QM if enabled
         if self.qm:
             # 2.1 Check for output
-            agent_output_file = self.retrieve_output()
+            # agent_output_file = self.retrieve_output()
+            # if agent_output_file:
+            #     # 2.2 Check the output file for quality and quantity
+            #     dprint("Check output consistency")
+            #     validated_output_file = self.qm.assess_output_quality(self, agent_output_file, self.active_thread())
+            #     if validated_output_file:
+            #         dprint("Output file is validated by QM-Output")
+            #         return validated_output_file
+            # else:
+            #     # 2.3 If no output then see what else was up with agent and repeat
+            agent_output_file = self.qm.assess_run_quality(self.active_thread())
             if agent_output_file:
-                # 2.2 Check the output file for quality and quantity
-                dprint("Check output consistency")
+                dprint("output_file ")
                 validated_output_file = self.qm.assess_output_quality(self, agent_output_file, self.active_thread())
-                if validated_output_file:
-                    dprint("Output file is validated by QM-Output")
-                    return validated_output_file
-            else:
-                # 2.3 If no output then see what else was up with agent and repeat
-                agent_output_file = self.qm.assess_run_quality(self.active_thread())
-                if agent_output_file:
-                    dprint("output_file ")
-
-                    validated_output_file = self.qm.assess_output_quality(self, agent_output_file, self.active_thread())
-                    return validated_output_file
+                return validated_output_file
         else:
             dprint("QM is not enabled")
             # agent_output_file = self.retrieve_output()
@@ -167,12 +168,21 @@ class Agent:
                 response += message.content[0].text.value
         return response
 
-    def add_message(self, thread_id, prompt):
-        self.client.beta.threads.messages.create(
-            thread_id=thread_id,
-            role="user",
-            content=prompt,
-        )
+    def add_message(self, thread_id, prompt, input_files=None):
+        if input_files:
+            self.append_input_files(input_files)
+            self.client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=prompt,
+                file_ids=self.input_files
+            )
+        else:
+            self.client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=prompt
+            )
 
     def retrieve_output_or_reissue(self, thread):
         client = self.client
@@ -215,17 +225,28 @@ class Agent:
         self.agent_id = assistant.id
         self.description = assistant.description
 
+
+    def append_input_files(self, input_files):
+        if isinstance(input_files, str):
+            if input_files not in self.input_files:
+                self.input_files.append(input_files)
+            elif isinstance(input_files, list):
+                for input_file in input_files:
+                    if input_file not in self.input_files:
+                        self.input_files.append(input_file)
+
     def create_thread(self, prompt, input_files=None):
 
         # input files should be fileIDs already uploaded but will need adding to local list
         if input_files:
-            if isinstance(input_files, str):
-                if input_files not in self.input_files:
-                    self.input_files.append(input_files)
-                elif isinstance(input_files, list):
-                    for input_file in input_files:
-                        if input_file not in self.input_files:
-                            self.input_files.append(input_file)
+            self.append_input_files(input_files)
+            # if isinstance(input_files, str):
+            #     if input_files not in self.input_files:
+            #         self.input_files.append(input_files)
+            #     elif isinstance(input_files, list):
+            #         for input_file in input_files:
+            #             if input_file not in self.input_files:
+            #                 self.input_files.append(input_file)
 
         # TODO safety check all input files already exist on the
         dprint(f"self.input_files = {self.input_files}")
