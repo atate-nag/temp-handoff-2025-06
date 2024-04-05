@@ -46,6 +46,20 @@ class Agent:
         for file in input_files:
             self.input_files.append(file)
 
+    def list_assistant_files(self):
+        assistant_files = self.client.beta.assistants.files.list(
+            assistant_id=self.agent_id
+        )
+        return assistant_files
+
+    def check_assistant_files(self,file):
+        assistant_files = self.list_assistant_files()
+        dprint(f"Assistant files for agent {self.agent_id} ", assistant_files)
+        if file in assistant_files:
+            dprint(f"Agent has {file} in file_ids already")
+        else:
+            dprint(f"Agent does not have {file} accessible in file_ids")
+
     def generate_runtime_prompt(self):
         placeholder_values = {
             "INPUT_FILES": self.input_files,
@@ -83,8 +97,8 @@ class Agent:
             qm_run_agent = Agent(self.client, self.filehandler, "qm_agent")
             qm_output_agent = Agent(self.client, self.filehandler, "qm_output_agent", requirements=self.output_schema)
             self.qm = QualityManager(self, qm_run_agent, qm_output_agent )
-            dprint(f"setup_run created a QM instance with run_agent{self.qm.qm_run_agent} and "
-                  f"{self.qm.qm_output_agent}")
+            dprint(f"setup_run created a QM instance with run_agent:{self.qm.qm_run_agent.agent_id} and "
+                  f"output_agent:{self.qm.qm_output_agent.agent_id}")
         # create a real prompt from generic prompt that has unresolved parameters possibly in it
         return
 
@@ -158,10 +172,13 @@ class Agent:
     def retrieve_file_content(self, file):
         content = json.loads(self.client.files.retrieve_content(file))
         return content
+
+
     def get_messages(self, thread):
         messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
         response = ""
         for message in messages:
+            dprint(f"Message: {message}")
             if message.role == "assistant" and message.content[0].type == "text":
                 dprint(message.content[0])
                 dprint(message.content[0].text.value)
@@ -169,7 +186,9 @@ class Agent:
         return response
 
     def add_message(self, thread_id, prompt, input_files=None):
+        dprint(f"Adding message [{prompt}] to thread {thread_id}")
         if input_files:
+            dprint(f"Adding input file(s): input_files")
             self.append_input_files(input_files)
             self.client.beta.threads.messages.create(
                 thread_id=thread_id,
@@ -203,8 +222,22 @@ class Agent:
             file = retrieve_from_file_or_text(self.client,thread)
             return file
 
-    def upload_text_to_file(self,text):
-        return self.filehandler.upload_text_to_file(self.client,text)
+    def upload_text_to_file(self, tag, text):
+        local_file_path = self.filehandler.write_local_file(tag, text)
+        dprint(local_file_path)
+        agent_file = self.filehandler.create_assistant_file_from_local(
+            self.client, self.agent_id, local_file_path)
+        self.append_input_files(agent_file)
+        dprint(f"uploading ")
+        # return self.filehandler.upload_text_to_file(self.client,text)
+        return agent_file
+
+    def create_assistant_file_from_id(self, file):
+        # file should be an already-uploaded file-ID that
+        # just needs to be added to the assistant
+        agent_file = self.filehandler.create_assistant_file_from_id(
+            self.client, self.agent_id, file)
+        return agent_file
 
     def retrieve_output(self):
         file = retrieve_from_file_or_text(self.client, self.active_thread())
@@ -236,17 +269,9 @@ class Agent:
                         self.input_files.append(input_file)
 
     def create_thread(self, prompt, input_files=None):
-
         # input files should be fileIDs already uploaded but will need adding to local list
         if input_files:
             self.append_input_files(input_files)
-            # if isinstance(input_files, str):
-            #     if input_files not in self.input_files:
-            #         self.input_files.append(input_files)
-            #     elif isinstance(input_files, list):
-            #         for input_file in input_files:
-            #             if input_file not in self.input_files:
-            #                 self.input_files.append(input_file)
 
         # TODO safety check all input files already exist on the
         dprint(f"self.input_files = {self.input_files}")

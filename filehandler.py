@@ -5,6 +5,7 @@ import re
 from dochandler import Rdoc
 from debug import dprint
 
+
 # TODO precent wasteful uploads by corelating local and remote file IDs
 
 class FileHandler:
@@ -25,7 +26,7 @@ class FileHandler:
             dprint(f"Wrote file {local_file_path} and uploaded to {openai_response.id}")
         return openai_response
 
-    def direct_upload(self, data, filename_prefix, purpose="assistants"):
+    def direct_upload_json(self, data, filename_prefix, purpose="assistants"):
         # Check if file already exists locally and has been uploaded
         local_file_path = f"{self.base_path}{filename_prefix}.json"
         # write to local file
@@ -38,6 +39,32 @@ class FileHandler:
             )
             dprint(f"Wrote file {local_file_path} and uploaded to {openai_response.id}")
         return openai_response.id
+
+    def direct_upload_txt(self, data, tag):
+        # Check if file already exists locally and has been uploaded
+        local_file_path = f"./Intermediates/{tag}.txt"
+        with open(
+                f"./Intermediates/local_{tag}_for_agent_upload.txt", "w", encoding="utf-8"
+        ) as file:
+            # write to local file
+            with open(local_file_path, "w", encoding="utf-8") as txt_file:
+                txt_file.write(data)
+        # Upload to OpenAI
+        with open(local_file_path, "rb") as local_file:
+            openai_file = self.client.files.create(
+                file=local_file, purpose="assistants"
+            )
+            dprint(f"Wrote file {local_file_path} and uploaded to {openai_file}")
+        return openai_file.id
+
+    def direct_upload_file(self, file_path):
+        with open(file_path, "rb") as file:
+            openai_file = self.client.files.create(
+                file=file,
+                purpose="assistants"
+            )
+        dprint(f"Uploaded {file_path} to {openai_file}")
+        return openai_file.id
 
     def upload_dir(self, path_to_dir, company_name, doctype):
         files = [
@@ -53,9 +80,17 @@ class FileHandler:
             doc = Rdoc.create(file_path, file_format, doctype)
             # step 2 : convert to structured format (json)
             json_doc = doc.build_structured_data()
-            uploaded_files.append((self.direct_upload(json_doc, f"{company_name}_insight_doc",
+            uploaded_files.append((self.direct_upload_json(json_doc, f"{company_name}_insight_doc",
                                                       purpose="assistants"), file_name))
         return uploaded_files
+
+    @staticmethod
+    def write_local_file(tag, text):
+        file_path = f"./Intermediates/local_{tag}_for_agent_upload.txt"
+        # Open the file in binary mode for writing; encode the text to bytes
+        with open(file_path, "wb") as file:
+            file.write(text.encode('utf-8'))
+        return file_path
 
     def upload_text_to_file(self, client, text):
         with open(
@@ -66,12 +101,42 @@ class FileHandler:
                 f"./Intermediates/response.json", "rb"
         ) as openai_file:
             openai_response = client.files.create(
-                file=openai_file, purpose="assistants"
+                file=openai_file,
+                purpose="assistants"
             )
         dprint(
             f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
         )
         return openai_response.id
+
+    def create_assistant_file_from_local(self, client, assistant, file):
+        # first upload the file
+        uploaded_file = self.direct_upload_file(file)
+        dprint("uploaded file", uploaded_file)
+        try:
+            assistant_file = client.beta.assistants.files.create(
+                assistant_id=assistant,
+                file_id=uploaded_file
+            )
+            dprint("assistant file", assistant_file)
+            return assistant_file.id
+        except Exception as e:
+            dprint(f"Failed to create assistant file due to {e}")
+            return None
+
+    def create_assistant_file_from_id(self, client, assistant, file):
+
+        dprint("pre-uploaded file: ", file)
+        try:
+            assistant_file = client.beta.assistants.files.create(
+                assistant_id=assistant,
+                file_id=file
+            )
+            dprint("assistant file", assistant_file)
+            return assistant_file.id
+        except Exception as e:
+            dprint(f"Failed to create assistant file due to {e}")
+            return None
 
     def import_data_files_and_upload(self, client, data_dir, document_type="data"):
         # import all the files in the given directory and optionally write intermediates
@@ -116,6 +181,7 @@ class FileHandler:
             json_content = json_file.read()
         # TODO store local files in class
         return json.loads(json_content)
+
 
 def retrieve_from_file_or_text(client, thread):
     file_direct = retrieve_file_annotation(client, thread)
@@ -174,6 +240,7 @@ def retrieve_file_path(client, thread):
                     return file
     dprint("No annotations for a file were found")
     return None
+
 
 def download_file_by_id(client, file_id):
     content = client.files.retrieve_content(file_id)

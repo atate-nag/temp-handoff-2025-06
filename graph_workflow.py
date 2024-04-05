@@ -252,7 +252,7 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
         dprint(json_graph)
         filename_prefix = f"{agentType}_graph_{companyName}"
-        agent_graph_file = file_handler.direct_upload(json_graph, filename_prefix, purpose="assistants")
+        agent_graph_file = file_handler.direct_upload_json(json_graph, filename_prefix, purpose="assistants")
         # create appropriate agent type
         agent = Agent(client, file_handler, agentType)
         dprint(agent.agent_id, agent.description)
