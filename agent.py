@@ -12,7 +12,7 @@ class Agent:
         self.known_agents = self.config['known_agents']
         self.client = client
         self.qm = None
-        self.max_retries = 3
+        self.max_retries = 4
         self.filehandler = filehandler
         if agent_key and agent_key in self.known_agents:
             self.agent_id = self.known_agents[agent_key]['id']
@@ -65,7 +65,7 @@ class Agent:
         dprint(f"End self-prompt is {self.prompt}")
         return
 
-    def setup_run(self, input_files=None, runtime_values=False, qm=True, max_retries=3):
+    def setup_run(self, input_files=None, runtime_values=False, qm=True, max_retries=4):
         self.max_retries = max_retries
         dprint(f"input files: {input_files}")
         if input_files:
@@ -265,13 +265,7 @@ class Agent:
                 }
             ]
         )
-        # Keep track of the thread along with its associated prompt and input file
         self.threads.append(thread)
-        self.thread_details[thread.id] = {
-            "prompt": prompt,
-            "input_file_id": self.input_files,
-            "thread": thread  # Store the whole thread object for easy access
-        }
         return thread
 
     # Setter for agent_name

@@ -2,7 +2,7 @@ import json
 import time
 from debug import dprint
 class QualityManager:
-    def __init__(self, agent, run_agent, output_agent, max_tries=3):
+    def __init__(self, agent, run_agent, output_agent, max_tries=4):
         self.qm_run_agent = run_agent
         self.qm_output_agent = output_agent
         self.agent = agent
@@ -19,9 +19,10 @@ class QualityManager:
             qm_file = self.qm_run_agent.run_agent()
             if not qm_file:
                 # agent did not produce output!
-                qm_prompt = (f"You did not produce your output in the required method. You should use code_interpreter"
-                             f"to generate a JSON file of your dictionary output, and provide the fileID in "
-                             f"the annotations")
+                qm_prompt = (f"You did not produce your output in the required method. You should write to an "
+                             f" external JSON file and provide the fileID in "
+                             f"the annotations or alternatively, write the JSON in triple-quoted text in your "
+                             f"response directly.")
                 self.qm_run_agent.add_message(self.qm_run_agent.active_thread().id, qm_prompt)
             else:
                 qm_content_dict = self.qm_run_agent.retrieve_file_content(qm_file)
@@ -43,9 +44,11 @@ class QualityManager:
                         dprint(f"Going back to {self.agent}")
                         retrieve = self.agent.run_and_retrieve_thread()
                         response = self.agent.get_messages(thread)
-                        agent_response_file = self.agent.upload_text_to_file(response)
-                        qm_prompt = (f"The agent has updated the response: {agent_response_file}. Please reassess "
-                                     f"if it completed the task satisfactorily")
+                        agent_response_file = self.qm_run_agent.upload_text_to_file(response)
+                        qm_prompt = (f"The agent has updated the response: {agent_response_file}. Read the full output,"
+                                     f" not just a sample of it. The part that has changed is the useful part to you. "
+                                     f"On the basis of the new information, please reassess if the agent completed the "
+                                     f"task satisfactorily")
                         self.qm_run_agent.add_message(self.qm_run_agent.active_thread().id, qm_prompt, agent_response_file)
                     else:
                         # Last attempt and not validated, attempt to handle or return whatever is possible
@@ -72,6 +75,7 @@ class QualityManager:
             elif try_count < self.max_tries - 1:
                 # If not validated and not the last try, inform the agent and retry
                 if qm_content_dict['run problems']:
+                    # if the output agent sees catastrophic errors then it will go back to run_problem QM (unlikely)
                     agent_output_file = self.assess_run_quality(agent_thread)
                 else:
                     if isinstance(qm_content_dict['agent instructions'], list):
@@ -84,7 +88,11 @@ class QualityManager:
                     retrieve = self.agent.run_and_retrieve_thread()
                     agent_output_file = self.agent.retrieve_output()
                     qm_prompt = (f"The agent has produced new output {agent_output_file} following your advice. "
-                                 "Please reassess.")
+                                 "Please reassess according to the same schema. Read the full output, not just a sample"
+                                 "of it. You must produce new agent instructions that are specifically related to the "
+                                 f"new generated output in file {agent_output_file}. Do not send the existing/previous "
+                                 f"agent instructions as they relate to previous analysis.")
+                    dprint(f"Going back to QM output agent with prompt {qm_prompt}")
                     self.qm_output_agent.add_message(self.qm_output_agent.active_thread().id, qm_prompt, agent_output_file)
             else:
                 # Last attempt and not validated, attempt to handle or return whatever is possible
