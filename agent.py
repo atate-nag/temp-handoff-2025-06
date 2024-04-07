@@ -12,6 +12,7 @@ class Agent:
         self.known_agents = self.config['known_agents']
         self.client = client
         self.qm = None
+        self.qm_agent = None
         self.max_retries = 4
         self.filehandler = filehandler
         if agent_key and agent_key in self.known_agents:
@@ -27,6 +28,8 @@ class Agent:
         self.thread_details = {}  # notused yet: A dictionary to map threads to their details
         self.input_files = []
         self.requirements = requirements
+        self.output_files = []
+        self.response_file = ""
     @staticmethod
     def load_config(file_path):
         with open(file_path, 'r') as file:
@@ -55,14 +58,18 @@ class Agent:
     def check_assistant_files(self,file):
         assistant_files = self.list_assistant_files()
         dprint(f"Assistant files for agent {self.agent_id} ", assistant_files)
-        if file in assistant_files:
-            dprint(f"Agent has {file} in file_ids already")
-        else:
-            dprint(f"Agent does not have {file} accessible in file_ids")
+        for ass_file in assistant_files.data:
+            if file == ass_file.id:
+                dprint(f"Agent has {file} in file_ids already")
+            return True
+        dprint(f"Agent does not have {file} accessible in file_ids")
+        return False
 
     def generate_runtime_prompt(self):
         placeholder_values = {
             "INPUT_FILES": self.input_files,
+            "AGENT_RESPONSE": self.response_file,
+            "AGENT_OUTPUT" : self.latest_output_file(),
             "AGENT_REQUIREMENTS": self.requirements,
         }
         # Prepare the prompt by replacing placeholders with actual runtime values
@@ -79,33 +86,48 @@ class Agent:
         dprint(f"End self-prompt is {self.prompt}")
         return
 
-    def setup_run(self, input_files=None, runtime_values=False, qm=True, max_retries=4):
+    def latest_output_file(self):
+        if self.output_files:
+            return self.output_files[-1]
+        else:
+            return None
+
+    def setup_run(self, input_files=None, qm=False, max_retries=4):
         self.max_retries = max_retries
         dprint(f"input files: {input_files}")
-        if input_files:
-            thread = self.create_thread(self.prompt, input_files)
-            dprint(f"generated thread: {thread}")
-        else:
-            thread = self.create_thread(self.prompt)
-            dprint(f"generated thread: {thread}")
+        thread = self.create_thread(self.prompt, input_files)
         dprint(f"Running agent with prompt {self.prompt}")
         dprint(f"Thread input files: {self.input_files}")
         # build a QM instance
         self.threads.append(thread)
         if qm:
-            # create two types of QM agent - run and output
-            qm_run_agent = Agent(self.client, self.filehandler, "qm_agent")
-            qm_output_agent = Agent(self.client, self.filehandler, "qm_output_agent", requirements=self.output_schema)
-            self.qm = QualityManager(self, qm_run_agent, qm_output_agent )
-            dprint(f"setup_run created a QM instance with run_agent:{self.qm.qm_run_agent.agent_id} and "
-                  f"output_agent:{self.qm.qm_output_agent.agent_id}")
-        # create a real prompt from generic prompt that has unresolved parameters possibly in it
+            self.qm_agent = Agent(self.client, self.filehandler, "qm_agent", requirements=self.output_schema)
+            self.qm = QualityManager(self, self.qm_agent)
         return
 
+    def setup_qm_run(self, agent_response_file, agent_output_file, max_retries=4):
+        self.max_retries = max_retries
+        dprint(f"Agent response file {agent_response_file} and output file {agent_output_file}")
+        thread = self.create_qm_thread(agent_response_file, agent_output_file)
+        # build a QM instance
+        self.threads.append(thread)
+        dprint(f"setup_run created a QM instance with run_agent:{self.qm_agent} ")
+
     def run_agent(self):
-        # 1) run the agent
+        # 1) run the agent and make both response and output available to other agents
         retrieve = self.run_and_retrieve_thread()
+        output = self.retrieve_output()
+        response = self.get_messages(self.active_thread())
+        # append the output file list and replace the response file
+        if output:
+            self.output_files.append(output)
+            dprint(f"Output file = {output} now in self.output_files and returned as {self.latest_output_file()}")
+        if response:
+            self.response_file = response
+            dprint(f"Response file = {response} now in self.response_file and returned as {self.response_file}")
+
         # 2) optionally run the QM if enabled
+        agent_output_file = output
         if self.qm:
             # 2.1 Check for output
             # agent_output_file = self.retrieve_output()
@@ -119,10 +141,12 @@ class Agent:
             # else:
             #     # 2.3 If no output then see what else was up with agent and repeat
             agent_output_file = self.qm.assess_run_quality(self.active_thread())
+            # if agent_output_file:
+            #     dprint("output_file ")
+            #     validated_output_file = self.qm.assess_output_quality(self, agent_output_file, self.active_thread())
+            #     return validated_output_file
             if agent_output_file:
-                dprint("output_file ")
-                validated_output_file = self.qm.assess_output_quality(self, agent_output_file, self.active_thread())
-                return validated_output_file
+                return agent_output_file
         else:
             dprint("QM is not enabled")
             # agent_output_file = self.retrieve_output()
@@ -203,6 +227,16 @@ class Agent:
                 content=prompt
             )
 
+    def qm_add_message(self, prompt, response, output ):
+        dprint(f"Adding message {prompt} to thread {self.active_thread()}")
+        dprint(f"Adding input file(s): input_files")
+        self.client.beta.threads.messages.create(
+            thread_id=self.active_thread().id,
+            role="user",
+            content=prompt,
+            file_ids=[response,output]
+        )
+
     def retrieve_output_or_reissue(self, thread):
         client = self.client
         dprint(f" thread {thread}")
@@ -263,14 +297,40 @@ class Agent:
         if isinstance(input_files, str):
             if input_files not in self.input_files:
                 self.input_files.append(input_files)
-            elif isinstance(input_files, list):
-                for input_file in input_files:
-                    if input_file not in self.input_files:
-                        self.input_files.append(input_file)
+        elif isinstance(input_files, list):
+            for input_file in input_files:
+                if input_file not in self.input_files and input_file:
+                    self.input_files.append(input_file)
+
+    def create_qm_thread(self, agent_response, agent_output):
+        if agent_response:
+            self.append_input_files(agent_response)
+            self.agent_response = agent_output
+        if agent_output:
+            self.append_input_files(agent_output)
+
+        dprint(f"input_files are noq {self.input_files}")
+
+        # now auto-generate the runtime prompt ready for uploading to thread
+        self.generate_runtime_prompt()
+
+        # Create the thread with the prompt and input file
+        thread = self.client.beta.threads.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Read the file(s) {self.input_files}. {self.prompt}",
+                    "file_ids": self.input_files,
+                }
+            ]
+        )
+        self.threads.append(thread)
+        return thread
 
     def create_thread(self, prompt, input_files=None):
         # input files should be fileIDs already uploaded but will need adding to local list
         if input_files:
+            dprint(f"Input files detected : {input_files}")
             self.append_input_files(input_files)
 
         # TODO safety check all input files already exist on the
@@ -285,7 +345,7 @@ class Agent:
             messages=[
                 {
                     "role": "user",
-                    "content": f"Read the file {self.input_files} using code_interpreter. {self.prompt}",
+                    "content": f"Read the file(s) {self.input_files}. {self.prompt}",
                     "file_ids": self.input_files,
                 }
             ]

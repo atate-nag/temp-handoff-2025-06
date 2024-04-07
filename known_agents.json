@@ -162,7 +162,7 @@
                   "maximum": 99
                 }
               },
-              "minItems" : 5,
+              "minItems" : 9,
               "required": [
                 "name",
                 "description of competitive threat",
@@ -216,7 +216,7 @@
     },
 
     "qm_agent": {
-      "id": "asst_9eE5PxZx9cs4WgDHvp7YquT3",
+      "id": "asst_49YnOtEIzaLI8scAJsiqLw8G",
       "description": "QM run problems Agent",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -243,7 +243,7 @@
         "additionalProperties": false,
         "description": "Schema for validating agent output."
       },
-      "prompt": "Check if the agent completed the task from the agent output file(s): {INPUT_FILES}"
+      "prompt": "Check if the agent completed the task. The agent response and output are in the file(s): {INPUT_FILES}. The output is output_requirements_schema={AGENT_REQUIREMENTS}"
     },
     "qm_output_agent": {
       "id": "asst_wdqQ2lOkFya5bUoPZMcBti3l",
