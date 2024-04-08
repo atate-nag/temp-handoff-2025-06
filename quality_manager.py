@@ -11,15 +11,16 @@ class QualityManager:
         """The thread passed is the result of agent run, QM will make sure that it has solved
         the task, has been exhaustive, is not awaiting further instruction and has generated output.
         """
+        # TODO might be able to access both of these in agent's own fields
         qm_agent_response_file = self.agent.upload_text_to_file("agent_response_0",self.agent.response_file)
-        qm_agent_output_file = self.qm_agent.create_assistant_file_from_id(self.agent.latest_output_file())
+        qm_agent_output_file = self.qm_agent.create_asst_file_from_id(self.agent.latest_output_file())
         qm_run = self.qm_agent.setup_qm_run(qm_agent_response_file, qm_agent_output_file)
 
         for try_count in range(self.max_tries):
             dprint(f"Checking that QM assistant has the input file {qm_agent_response_file} accessible")
-            self.qm_agent.check_assistant_files(qm_agent_response_file)
+            self.qm_agent.check_asst_files(qm_agent_response_file)
             dprint(f"Checking that QM assistant has the agent output file {qm_agent_output_file} accessible")
-            self.qm_agent.check_assistant_files(qm_agent_response_file)
+            self.qm_agent.check_asst_files(qm_agent_response_file)
             qm_file = self.qm_agent.run_agent()
             dprint(f"Returned file from QM agent run is {qm_file} ")
             if not qm_file:
@@ -36,10 +37,9 @@ class QualityManager:
                        f"{type(qm_content_dict['completed'])}")
                 if qm_content_dict['completed']:
                     # this means the agent did complete the task as far as QM can see
-                    file = self.agent.retrieve_output()
+                    file = self.agent.latest_output_file()
                     dprint(f"returned output file is is {file}")
-                    if file:
-                        return file
+                    return file
                 else:
                     # this means the agent did not complete the task, set instructions and reissue
                     prompt = qm_content_dict['agent instructions']
@@ -51,22 +51,24 @@ class QualityManager:
                         response = self.agent.response_file
                         qm_agent_response_file = self.qm_agent.upload_text_to_file(f"agent_response_{try_count + 1}"
                                                                                 , response)
-
+                        qm_prompt_intro = f"The agent has followed your advice and an updated response is in {qm_agent_response_file}"
                         agent_output_file = self.agent.latest_output_file()
                         dprint(f"Agent response file is {qm_agent_response_file}")
-                        qm_agent_output_file = self.qm_agent.create_assistant_file_from_id(agent_output_file)
-                        qm_prompt = (f"The agent has updated the response in {qm_agent_response_file} and output in following your advice"
-                                     f" {qm_agent_output_file}. Read the full response, not just a sample of it. The changed part is"
-                                     f"the useful part to you. On the basis of the new information, please reassess "
-                                     f"whether the agent completed the task satisfactorily and produce new agent instructions")
+                        qm_prompt_output = ""
+                        if agent_output_file:
+                            qm_agent_output_file = self.qm_agent.create_asst_file_from_id(agent_output_file)
+                            qm_prompt_output = (f"and produced a new external output file at {qm_agent_output_file}")
+                        qm_prompt_tail = (f". Read the full response and new output file if it is present. "
+                                          f"On the basis of the new information, please reassess "
+                                            f"whether the agent completed the task satisfactorily and "
+                                          f"produce new agent instructions")
+                        qm_prompt = qm_prompt_intro + qm_prompt_output + qm_prompt_tail
+                        dprint(f"QM reissue prompt = {qm_prompt}")
                         self.qm_agent.qm_add_message(qm_prompt, qm_agent_response_file, qm_agent_output_file)
                     else:
                         # Last attempt and not validated, attempt to handle or return whatever is possible
                         dprint("Last attempt was not validated. Attempting to proceed with available data.")
-                        file = self.agent.retrieve_output()
-                        if file:
-                            return file
-
+                        return self.agent.latest_output_file()
 
     # def assess_output_quality(self, agent, agent_output_file, agent_thread):
     #     """The output passed is the external output of an agent run. The QM will assess if
@@ -104,7 +106,7 @@ class QualityManager:
     #                              f"new generated output in file {agent_output_file}. Do not send the existing/previous "
     #                              f"agent instructions as they relate to previous analysis.")
     #                 dprint(f"Going back to QM output agent with prompt {qm_prompt}")
-    #                 qm_agent_output_file = self.qm_output_agent.create_assistant_file_from_id(agent_output_file)
+    #                 qm_agent_output_file = self.qm_output_agent.create_asst_file_from_id(agent_output_file)
     #                 self.qm_output_agent.add_message(self.qm_output_agent.active_thread().id, qm_prompt,
     #                                                  agent_output_file)
     #

@@ -8,7 +8,6 @@ from multiprocessing import Process, Queue
 from debug import dprint
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
-from dochandler import import_data_files
 import json
 import sys
 
@@ -24,7 +23,7 @@ with open("workflow_config.json", "r") as file:
     config = json.load(file)
 workflow_config = config["workflow"]
 
-global company_graph, insight_graph, file_handler
+# global company_graph, insight_graph, file_handler
 
 file_handler = FileHandler(client)
 company_graph = CompanyGraph(uri, user, password)
@@ -196,6 +195,7 @@ def condense_and_extract(file_id, companyName, json_graph_str, filename, output_
                       f" is '{filename}' and today's date is {datetime.today().date()} (these will be recorded in the "
                       f"output data)")
     dprint(f"Extract_Insights: insight_prompt = {insight_prompt}")
+    # TODO Agent instance needs updating
     insight_agent = Agent(client, file_handler, "insight_agent", prompt=insight_prompt)
     dprint(insight_agent.agent_id, insight_agent.description)
     insight_agent.setup_run(cond_agent_output, qm=True)  # not clear we can QM the condense process
@@ -260,10 +260,13 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         run = agent.setup_run(agent_graph_file, qm=True)
         # run the agent, QM and collect output when done
         agent_file = agent.run_agent()
-        dprint(agent_file)
-        str_function_file = client.files.retrieve_content(agent_file)
-        dict_content = json.loads(str_function_file)
-        dprint(str_function_file)
+        dprint(f"Agent file has returned {agent_file}")
+        if agent_file:
+            str_function_file = client.files.retrieve_content(agent_file)
+            dict_content = json.loads(str_function_file)
+            dprint(str_function_file)
+        else:
+            dprint("Agent file was empty, likely issues with the Agent execution")
     # now call a generic graph updater also
     if updateGraph:
         company_graph.generic_update_graph(companyName, dict_content, agentType)
