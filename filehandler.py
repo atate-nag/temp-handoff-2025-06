@@ -4,10 +4,6 @@ import openai
 import re
 from dochandler import Rdoc
 from debug import dprint
-
-
-# TODO precent wasteful uploads by corelating local and remote file IDs
-
 class FileHandler:
     def __init__(self, client, base_path="./Intermediates/"):
         self.client = client
@@ -42,9 +38,18 @@ class FileHandler:
 
     def json_to_asst_file(self, client, data, tag, assistant ):
         local_json = self.write_local_json(tag, data)
+        dprint(f"local json file is {local_json}")
         # Upload to Assistant file
-        ass_file = self.create_asst_file_from_local(client, assistant, local_json)
-        return ass_file
+        asst_file = self.create_asst_file_from_local(client, assistant, local_json)
+        dprint(f"asst_file is {asst_file}")
+        return asst_file
+
+    def txt_to_asst_file(self,client, text, tag, assistant):
+        # Check if file already exists locally and has been uploaded
+        # nuance - openAI needs an asssistant file if the agent is already active
+        local_file = self.write_local_file(tag, text)
+        asst_file = self.create_asst_file_from_local(client, assistant, local_file)
+        return asst_file
 
     def direct_upload_txt(self, data, tag):
         # Check if file already exists locally and has been uploaded
@@ -107,6 +112,7 @@ class FileHandler:
         # Open the file in binary mode for writing; encode the text to bytes
         with open(file_path, "w") as file:
             json.dump(data, file)
+        dprint(f"local json written to {file_path}")
         return file_path
 
     def upload_text_to_file(self, client, text):
@@ -199,7 +205,8 @@ class FileHandler:
         # TODO store local files in class
         return json.loads(json_content)
 
-    def retrieve_and_create_asst_file(self, client, assistant, thread, tag=None):
+    def retrieve_and_create_asst_file(self, client, assistant, thread, tag=""):
+        dprint(f"retrieving on thread {thread} of assistant {assistant} with passed tag {tag}")
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
             asst_file = self.create_asst_file_from_id(client, assistant, file_id)
@@ -214,6 +221,28 @@ class FileHandler:
         dprint(f"No annotations or json content were found, returning None")
         return None
 
+    def retrieve_direct_agent_content(self, client, thread, tag=""):
+        dprint(f"retrieving on thread {thread} with passed tag {tag}")
+        file_id = retrieve_file_annotation(client, thread)
+        if file_id:
+            return json.loads(self.client.files.retrieve_content(file_id))
+        json_data = self.extract_json_from_response(client, thread)
+        if json_data:
+            return json_data
+        return None
+
+    def clean_json_string(self,s):
+        # Fix unquoted keys
+        s = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', s)
+        # Fix booleans
+        s = re.sub(r'\b(True|False)\b', lambda m: m.group(0).lower(), s)
+        # Fix escaping issues
+        s = re.sub(r"\\'", "'", s)  # Single quotes should not be escaped in JSON
+        s = s.replace("\\\\", "\\")  # Unescape escaped backslashes
+        s = s.replace("\\/", "/")  # Unescape escaped slashes
+        # More cleaning rules can be added here
+        return s
+
     def extract_json_from_response(self, client, thread):
         # Sometimes naughty little AIs still send via response, so must extract it via regular expressions
         messages = client.beta.threads.messages.list(thread_id=thread.id).data
@@ -224,15 +253,7 @@ class FileHandler:
                         match = re.search(r"\{.*\}", content.text.value, re.DOTALL)
                         if match:
                             json_string = match.group()
-                            # Remove or replace invalid control characters
-                            cleaned_json_string = re.sub(
-                                r"[\x00-\x1f\x7f]", "", json_string
-                            )
-                            cleaned_json_string = re.sub(
-                                r":\s*([0-9]+),([0-9]+)", r': "\1,\2"', cleaned_json_string
-                            )
-                            cleaned_json_string = re.sub(
-                                r'\b(False|True)\b', lambda match: match.group(0).lower(), cleaned_json_string)
+                            cleaned_json_string = self.clean_json_string(json_string)
                             try:
                                 full_info = json.loads(cleaned_json_string)
                                 dprint(
@@ -242,7 +263,15 @@ class FileHandler:
                             except json.JSONDecodeError as e:
                                 dprint(f"Failed to decode JSON: {e}")
                                 dprint(f"Faulty JSON string: {repr(cleaned_json_string)}")
-
+                                repaired_json = '[' + re.sub(r'\}\s*,\s*\{', '}, {', cleaned_json_string.strip()) + ']'
+                                try:
+                                    # Load the repaired JSON string
+                                    full_info = json.loads(repaired_json)
+                                    dprint("Repaired JSON loaded successfully")
+                                    return full_info
+                                except json.JSONDecodeError as e:
+                                    print(f"Failed to decode JSON: {e}")
+                                    print(f"Faulty JSON string: {repr(repaired_json)}")
                         else:
                             dprint("No JSON found in the message, returning None")
                             return None

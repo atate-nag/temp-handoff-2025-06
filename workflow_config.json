@@ -94,7 +94,7 @@
       }
     },
     "displayCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag"
       }

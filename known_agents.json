@@ -243,7 +243,7 @@
         "additionalProperties": false,
         "description": "Schema for validating agent output."
       },
-      "prompt": "Check if the agent completed the task. The agent response and output are in the file : {RESPONSE_FILE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT} and the output_requirements_schema={AGENT_REQUIREMENTS}"
+      "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}"
     },
     "qm_output_agent": {
       "id": "asst_wdqQ2lOkFya5bUoPZMcBti3l",

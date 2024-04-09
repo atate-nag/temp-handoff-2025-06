@@ -188,7 +188,7 @@ def condense_and_extract(file_id, companyName, json_graph_str, filename, output_
     dprint(cond_agent.agent_id, cond_agent.description)
     cond_agent.setup_run(file_id, qm=False)  # not clear we can QM the condense process
     cond_agent_output = cond_agent.run_agent()
-    dprint(f"condensed agent output = {cond_agent_output}")
+    # dprint(f"condensed agent output = {cond_agent_output}")
     # setup and execute the insight agent with QM in place
     insight_prompt = (f"Extract the insights about the company {companyName} with info={json_graph_str} "
                       f"from the file {cond_agent_output}. You will need to know the name of the original sourcedocument"
@@ -235,6 +235,7 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
     dprint(f"company insights are {company_insights}")
     for id in company_insights:
         dprint(f"company insight is {id}")
+        # TODO don't need this json.loads anymore
         insight_content = json.loads(client.files.retrieve_content(id))
         dprint(f"Main: Company insights extracted: content = {insight_content}")
         if updateGraph:
@@ -246,32 +247,28 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
     # TODO needs a generic intermediates write adding
     # TODO can be made more generic by defining the graph input -> agent function -> graph output
     if debugRun:
-        dict_content = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
+        # TODO debugRun needs to be incremental not wholesale
+        dictionary_return = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
     else:
         # get the graph data to send to agent
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-        dprint(json_graph)
+        # dprint(json_graph)
         filename_prefix = f"{agentType}_graph_{companyName}"
         agent_graph_file = file_handler.direct_upload_json(json_graph, filename_prefix, purpose="assistants")
+        dprint(f"agent graph file: {agent_graph_file}")
         # create appropriate agent type
+        dprint(f"creating an agent of type {agentType}")
         agent = Agent(client, file_handler, agentType)
         dprint(agent.agent_id, agent.description)
         # setup the agent run with QM enabled
         run = agent.setup_run(agent_graph_file, qm=True)
-        # run the agent, QM and collect output when done
-        agent_file = agent.run_agent()
-        dprint(f"Agent file has returned {agent_file}")
-        if agent_file:
-            str_function_file = client.files.retrieve_content(agent_file)
-            dict_content = json.loads(str_function_file)
-            dprint(str_function_file)
-        else:
-            dprint("Agent file was empty, likely issues with the Agent execution")
+        dictionary_return = agent.run_agent()
+        dprint(f"Agent file has returned {dictionary_return}")
     # now call a generic graph updater also
     if updateGraph:
-        company_graph.generic_update_graph(companyName, dict_content, agentType)
-        for item in dict_content:
-            dprint(item)
+        company_graph.generic_update_graph(companyName, dictionary_return, agentType)
+    for item in dictionary_return:
+        dprint(item)
 
 
 if __name__ == '__main__':

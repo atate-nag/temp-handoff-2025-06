@@ -2,6 +2,7 @@
 import json
 import time
 import sys
+import openai
 
 #from filehandler import retrieve_from_file_or_text
 from quality_manager import QualityManager
@@ -16,6 +17,7 @@ class Agent:
         self.max_retries = 4
         self.filehandler = filehandler
         self.last_timestamp = 0
+        self.input_response = None
         if agent_key and agent_key in self.known_agents:
             self.agent_id = self.known_agents[agent_key]['id']
             self.description = self.known_agents[agent_key]['description']
@@ -32,6 +34,9 @@ class Agent:
         self.requirements = requirements
         self.output_files = []
         self.response_file = ""
+        # TODO where is the best place to delete asst_files?
+        dprint("deleting all the existing assistant files")
+        self.delete_asst_files()
     @staticmethod
     def load_config(file_path):
         with open(file_path, 'r') as file:
@@ -53,25 +58,34 @@ class Agent:
 
     def list_asst_files(self):
         asst_files = self.client.beta.assistants.files.list(
-            assistant_id=self.agent_id
+            assistant_id=self.agent_id,
+            order="asc"
         )
         return asst_files
 
+    def len_asst_files(self):
+        return len(self.list_asst_files())
+
+
+
     def check_asst_files(self,file):
-        asst_files = self.list_asst_files()
+        asst_files = self.list_asst_files().data
         dprint(f"Assistant files for agent {self.agent_id} ", asst_files)
-        for asst_file in asst_files.data:
+        for asst_file in asst_files:
+            dprint(f"asst_file = {asst_file}")
             if file == asst_file.id:
-                dprint(f"Agent has {file} in file_ids already")
-            return True
+                dprint(f"Agent has {file} in file_ids")
+                return True
+            else:
+                dprint(f"{file} != {asst_file.id}")
         dprint(f"Agent does not have {file} accessible in file_ids")
         return False
 
     def generate_runtime_prompt(self):
         placeholder_values = {
             "INPUT_FILES": self.input_files,
-            "AGENT_RESPONSE": self.response_file,
-            "AGENT_OUTPUT" : self.latest_output_file(),
+            "AGENT_RESPONSE": self.input_response,
+            "AGENT_OUTPUT" : self.latest_input_file(),
             "AGENT_REQUIREMENTS": self.requirements,
         }
         # Prepare the prompt by replacing placeholders with actual runtime values
@@ -94,6 +108,13 @@ class Agent:
         else:
             return None
 
+    def latest_input_file(self):
+        if self.input_files:
+            return self.input_files[-1]
+        else:
+            return None
+
+
     def setup_run(self, input_files=None, qm=False, max_retries=4):
         self.max_retries = max_retries
         dprint(f"input files: {input_files}")
@@ -105,9 +126,6 @@ class Agent:
         if qm:
             self.qm_agent = Agent(self.client, self.filehandler, "qm_agent", requirements=self.output_schema)
             self.qm = QualityManager(self, self.qm_agent)
-            # remove any assistant files already on the Agent. These are uploaded during execution and will
-            # persist between runs
-            self.qm_agent.delete_asst_files()
         return
 
     def setup_qm_run(self, agent_response_file, agent_output_file, max_retries=4):
@@ -121,33 +139,42 @@ class Agent:
     def run_agent(self):
         # 1) run the agent and make both response and output available to other agents
         retrieve = self.run_and_retrieve_thread()
-        output = self.retrieve_output()
+        dprint(f"retrieve from Agent run = {retrieve}")
+        # output = self.retrieve_output()
+        # dprint(f"output from Agent run = {output}")
         # TODO some duplication of effort - retrieve_and_create_asst_file is extracting a response
-        asst_file = self.filehandler.retrieve_and_create_asst_file(
+        asst_file_agent_output = self.filehandler.retrieve_and_create_asst_file(
             self.client,
             self.agent_id,
             self.active_thread(),
             "agent_retrieval_for_asst_file",
         )
-        if asst_file:
-            self.output_files.append(asst_file)
-            dprint(f"Output file = {output} now in self.output_files and returned as {self.latest_output_file()}")
+        dprint(f"generated asst_file_agent_output = {asst_file_agent_output}")
+        if asst_file_agent_output:
+            self.output_files.append(asst_file_agent_output)
+            dprint(f"Output file = {asst_file_agent_output} now in self.output_files and returned as {self.latest_output_file()}")
         response = self.get_new_messages(self.active_thread())
+        response_asst_file = self.filehandler.txt_to_asst_file(self.client, response, "latest_respose", self.agent_id)
+        dprint(f"response from Agent = {response}")
         # append the output file list and replace the response file
-        if response:
-            self.response_file = response
-            dprint(f"Response file = {response} now in self.response_file and returned as {self.response_file}")
+        if response_asst_file:
+            self.response_file = response_asst_file
+            dprint(f"Response file = {response_asst_file} now in self.response_file and returned as {self.response_file}")
         # 2) optionally run the QM if enabled
-        agent_output_file = asst_file
+        agent_output_file = asst_file_agent_output
         if self.qm:
             agent_output_file = self.qm.assess_run_quality(self.active_thread())
             if agent_output_file:
-                return agent_output_file
+                content_dict = self.retrieve_direct_agent_content(
+                    f"agent_output_retrieval")
+                return content_dict
         else:
             dprint("QM is not enabled")
-            file = self.retrieve_output_or_reissue(self.active_thread())
-            if file:
-                return file
+            # file = self.retrieve_output_or_reissue(self.active_thread())
+            content_dict = self.retrieve_direct_agent_content(
+                f"agent_output_retrieval")
+            if content_dict:
+                return content_dict
         dprint("No good file came from any agent interaction")
         return None
 
@@ -189,8 +216,17 @@ class Agent:
         return None
 
     def retrieve_file_content(self, file):
-        content = json.loads(self.client.files.retrieve_content(file))
+        # content = json.loads(self.client.files.retrieve_content(file))
+        asst_file = self.client.beta.assistants.files.retrieve(
+            assistant_id=self.agent_id,
+            file_id=file
+        )
+        content = json.loads(self.client.files.retrieve_content(asst_file.id))
         return content
+
+    def retrieve_direct_agent_content(self, tag=""):
+        return self.filehandler.retrieve_direct_agent_content( self.client, self.active_thread(), tag)
+
 
     def get_messages(self, thread):
         messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
@@ -290,16 +326,26 @@ class Agent:
 
     def delete_asst_files(self):
         asst_files = self.list_asst_files()
-        dprint(f"assistant files: {asst_files}")
+        print(f"Assistant files: {asst_files}")
         for asst_file in asst_files:
-            dprint(f"Assistant file-id: {asst_file.id} ")
-            try:
-                self.client.beta.assistants.files.delete(
-                    assistant_id=self.agent_id,
-                    file_id=asst_file.id
-                )
-            except Exception as e:
-                dprint(f"Assistant error deleting file-id: {asst_file}")
+            retries = 3
+            while retries > 0:
+                try:
+                    print(f"Attempting to delete Assistant file-id: {asst_file.id}")
+                    self.client.beta.assistants.files.delete(
+                        assistant_id=self.agent_id,
+                        file_id=asst_file.id
+                    )
+                    print(f"Successfully deleted Assistant file-id: {asst_file.id}")
+                    break  # Exit the retry loop on success
+                except openai.OpenAIError as e:
+                    print(f"Error deleting file-id {asst_file.id}: {str(e)}")
+                    if retries > 1:
+                        print("Retrying...")
+                        time.sleep(5)  # Wait a bit before retrying
+                    else:
+                        print("Final attempt failed.")
+                retries -= 1
 
     def retrieve_output(self):
         afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, self.active_thread())
@@ -331,17 +377,12 @@ class Agent:
                     self.input_files.append(input_file)
 
     def create_qm_thread(self, agent_response, agent_output):
-        if agent_response:
-            self.append_input_files(agent_response)
-            self.response_file = agent_response
-        if agent_output:
-            self.append_input_files(agent_output)
-
+        # response file does not need to be classed as an input file
+        self.append_input_files(self.create_asst_file_from_id(agent_output))
+        self.input_response = self.create_asst_file_from_id(agent_response)
         dprint(f"input_files are now {self.input_files}")
-
         # now auto-generate the runtime prompt ready for uploading to thread
         self.generate_runtime_prompt()
-
         # Create the thread with the prompt and input file
         thread = self.client.beta.threads.create(
             messages=[
