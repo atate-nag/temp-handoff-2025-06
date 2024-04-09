@@ -34,7 +34,6 @@ class Agent:
         self.requirements = requirements
         self.output_files = []
         self.response_file = ""
-        # TODO where is the best place to delete asst_files?
         dprint("deleting all the existing assistant files")
         self.delete_asst_files()
     @staticmethod
@@ -114,7 +113,6 @@ class Agent:
         else:
             return None
 
-
     def setup_run(self, input_files=None, qm=False, max_retries=4):
         self.max_retries = max_retries
         dprint(f"input files: {input_files}")
@@ -137,46 +135,31 @@ class Agent:
         dprint(f"setup_run created a QM instance with run_agent:{self.qm_agent} ")
 
     def run_agent(self):
-        # 1) run the agent and make both response and output available to other agents
-        retrieve = self.run_and_retrieve_thread()
-        dprint(f"retrieve from Agent run = {retrieve}")
-        # output = self.retrieve_output()
-        # dprint(f"output from Agent run = {output}")
-        # TODO some duplication of effort - retrieve_and_create_asst_file is extracting a response
-        asst_file_agent_output = self.filehandler.retrieve_and_create_asst_file(
-            self.client,
-            self.agent_id,
-            self.active_thread(),
-            "agent_retrieval_for_asst_file",
-        )
-        dprint(f"generated asst_file_agent_output = {asst_file_agent_output}")
-        if asst_file_agent_output:
-            self.output_files.append(asst_file_agent_output)
-            dprint(f"Output file = {asst_file_agent_output} now in self.output_files and returned as {self.latest_output_file()}")
-        response = self.get_new_messages(self.active_thread())
-        response_asst_file = self.filehandler.txt_to_asst_file(self.client, response, "latest_respose", self.agent_id)
-        dprint(f"response from Agent = {response}")
-        # append the output file list and replace the response file
-        if response_asst_file:
-            self.response_file = response_asst_file
-            dprint(f"Response file = {response_asst_file} now in self.response_file and returned as {self.response_file}")
-        # 2) optionally run the QM if enabled
-        agent_output_file = asst_file_agent_output
+        '''run the agent and make both response and output available to other agents'''
+        response_asst_file, asst_file_agent_output = self.run_and_retrieve_response_and_output()
         if self.qm:
-            agent_output_file = self.qm.assess_run_quality(self.active_thread())
+            agent_output_file = self.qm.quality_manage_agent(self.active_thread())
             if agent_output_file:
                 content_dict = self.retrieve_direct_agent_content(
                     f"agent_output_retrieval")
                 return content_dict
         else:
-            dprint("QM is not enabled")
-            # file = self.retrieve_output_or_reissue(self.active_thread())
+            dprint("QM is not enabled (usually means it is a QM agent itself)")
             content_dict = self.retrieve_direct_agent_content(
                 f"agent_output_retrieval")
             if content_dict:
                 return content_dict
-        dprint("No good file came from any agent interaction")
-        return None
+            else:
+                # did not get output, so reissue
+                prompt = "Please generate JSON data with your output"
+                dprint(f"Agent did not complete and will be informed: {prompt}")
+                self.add_message(self.active_thread(), prompt)
+                asst_file_agent_output = self.run_and_retrieve_output_file()
+                if asst_file_agent_output:
+                    return asst_file_agent_output
+                else:
+                    dprint("Error - QM agent didn't generate its own output")
+                    return None
 
     def run_and_retrieve_thread(self):
         client = self.client
@@ -192,7 +175,39 @@ class Agent:
         dprint("Retrieve time: " + str(end_time - start_time))
         return retrieve
 
+    def run_and_retrieve_output_file(self):
+        retrieve = self.run_and_retrieve_thread()
+        dprint(f"retrieve from Agent run = {retrieve}")
+        asst_file_agent_output = self.filehandler.retrieve_and_create_asst_file(
+            self.client,
+            self.agent_id,
+            self.active_thread(),
+            "agent_retrieval_for_asst_file",
+        )
+        dprint(f"generated asst_file_agent_output = {asst_file_agent_output}")
+        if asst_file_agent_output:
+            self.output_files.append(asst_file_agent_output)
+            dprint(
+                f"Output file = {asst_file_agent_output} now in self.output_files and returned as "
+                f"{self.latest_output_file()}")
+            return asst_file_agent_output
+
+    def run_and_retrieve_response_and_output(self):
+        asst_file_output = self.run_and_retrieve_output_file()
+        response = self.get_new_messages(self.active_thread())
+        response_asst_file = self.filehandler.txt_to_asst_file(self.client, response, "latest_respose", self.agent_id)
+        dprint(f"response from Agent = {response}")
+        # append the output file list and replace the response file
+        if response_asst_file:
+            self.response_file = response_asst_file
+            dprint(
+                f"Response file = {response_asst_file} now in self.response_file and returned as {self.response_file}")
+        return response_asst_file, asst_file_output
+
     def retrieve_run(self, run_id ):
+        """
+            from a run_id, retrieve a run and report status
+        """
         retries = 0
         client = self.client
         thread_id = self.active_thread().id
@@ -216,7 +231,9 @@ class Agent:
         return None
 
     def retrieve_file_content(self, file):
-        # content = json.loads(self.client.files.retrieve_content(file))
+        """
+            given an asst-file-id, return the file content
+        """
         asst_file = self.client.beta.assistants.files.retrieve(
             assistant_id=self.agent_id,
             file_id=file
@@ -225,10 +242,16 @@ class Agent:
         return content
 
     def retrieve_direct_agent_content(self, tag=""):
+        """
+            given an asst-file-id, return the file content
+        """
         return self.filehandler.retrieve_direct_agent_content( self.client, self.active_thread(), tag)
 
 
     def get_messages(self, thread):
+        """
+            extract and return all the messages on a thread
+        """
         messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
         response = ""
         for message in messages:
@@ -240,6 +263,9 @@ class Agent:
         return response
 
     def get_new_messages(self, thread):
+        """
+            just return the latest messages, i.e the last response
+        """
         # Fetch all messages from the thread
         messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
         # Sort the messages by the created_at timestamp just in case they are not in order
@@ -256,6 +282,9 @@ class Agent:
         return response
 
     def add_message(self, thread_id, prompt, input_files=None):
+        """
+            add a message {prompt} to the thread
+        """
         dprint(f"Adding message [{prompt}] to thread {thread_id}")
         if input_files:
             dprint(f"Adding input file(s): input_files")
@@ -274,6 +303,10 @@ class Agent:
             )
 
     def qm_add_message(self, prompt, response, output ):
+        """
+            add a message {prompt} to the thread
+            TODO this may be defunct
+        """
         dprint(f"Adding message {prompt} to thread {self.active_thread()}")
         dprint(f"Adding input file(s): input_files")
         file_ids = []
@@ -288,43 +321,48 @@ class Agent:
             file_ids=file_ids
         )
 
-    def retrieve_output_or_reissue(self, thread):
-        client = self.client
-        dprint(f" thread {thread}")
-        afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, thread)
-        dprint(f"file is {afile}")
-        if afile:
-            dprint(f"good file retrieved")
-            return afile
-        else:
-            client.beta.threads.messages.create(
-                thread_id=thread.id,
-                role="user",
-                content="Please generate JSON data for processing by the agent team"
-            )
-            dprint("updated message to ask for output")
-            response = self.run_and_retrieve_thread()
-            afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, thread)
-            return afile
+    # def retrieve_output_or_reissue(self, thread):
+    #     client = self.client
+    #     dprint(f" thread {thread}")
+    #     afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, thread)
+    #     dprint(f"file is {afile}")
+    #     if afile:
+    #         dprint(f"good file retrieved")
+    #         return afile
+    #     else:
+    #         client.beta.threads.messages.create(
+    #             thread_id=thread.id,
+    #             role="user",
+    #             content="Please generate JSON data for processing by the agent team"
+    #         )
+    #         dprint("updated message to ask for output")
+    #         response = self.run_and_retrieve_thread()
+    #         afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, thread)
+    #         return afile
 
-    def upload_text_to_file(self, tag, text):
-        local_file_path = self.filehandler.write_local_file(tag, text)
-        dprint(local_file_path)
-        agent_file = self.filehandler.create_asst_file_from_local(
-            self.client, self.agent_id, local_file_path)
-        self.append_input_files(agent_file)
-        dprint(f"uploading ")
-        # return self.filehandler.upload_text_to_file(self.client,text)
-        return agent_file
+    # def upload_text_to_file(self, tag, text):
+    #     local_file_path = self.filehandler.write_local_file(tag, text)
+    #     dprint(local_file_path)
+    #     agent_file = self.filehandler.create_asst_file_from_local(
+    #         self.client, self.agent_id, local_file_path)
+    #     self.append_input_files(agent_file)
+    #     dprint(f"uploading ")
+    #     # return self.filehandler.upload_text_to_file(self.client,text)
+    #     return agent_file
 
     def create_asst_file_from_id(self, file):
-        # file should be an already-uploaded file-ID that
-        # just needs to be added to the assistant
+        """
+            when a file-id is already existing, attach it to an assistant
+        """
         agent_file = self.filehandler.create_asst_file_from_id(
             self.client, self.agent_id, file)
         return agent_file
 
     def delete_asst_files(self):
+        """
+        delete all assistant files on this assistant
+        TODO: a bug means that this will always throw an error
+        """
         asst_files = self.list_asst_files()
         print(f"Assistant files: {asst_files}")
         for asst_file in asst_files:
@@ -347,12 +385,12 @@ class Agent:
                         print("Final attempt failed.")
                 retries -= 1
 
-    def retrieve_output(self):
-        afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, self.active_thread())
-        if afile:
-            dprint(f"good file retrieved")
-            return afile
-        return None
+    # def retrieve_output(self):
+    #     afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, self.active_thread())
+    #     if afile:
+    #         dprint(f"good file retrieved")
+    #         return afile
+    #     return None
 
     def create_new_assistant(self, name, description, instructions):
         assistant = self.client.beta.assistants.create(
@@ -368,6 +406,9 @@ class Agent:
 
 
     def append_input_files(self, input_files):
+        """
+            Appends input_files to self.input_files
+        """
         if isinstance(input_files, str):
             if input_files not in self.input_files:
                 self.input_files.append(input_files)
@@ -377,9 +418,14 @@ class Agent:
                     self.input_files.append(input_file)
 
     def create_qm_thread(self, agent_response, agent_output):
-        # response file does not need to be classed as an input file
-        self.append_input_files(self.create_asst_file_from_id(agent_output))
-        self.input_response = self.create_asst_file_from_id(agent_response)
+        """
+           adds a QM thread to the QM agent.
+           TODO could be combined with the create_thread, it is just the inputs that differ really
+        """
+        if agent_response:
+            self.append_input_files(self.create_asst_file_from_id(agent_output))
+        if agent_output:
+            self.input_response = self.create_asst_file_from_id(agent_response)
         dprint(f"input_files are now {self.input_files}")
         # now auto-generate the runtime prompt ready for uploading to thread
         self.generate_runtime_prompt()
@@ -397,6 +443,9 @@ class Agent:
         return thread
 
     def create_thread(self, prompt, input_files=None):
+        """
+            adds a new thread + message to an agent
+        """
         # input files should be fileIDs already uploaded but will need adding to local list
         if input_files:
             dprint(f"Input files detected : {input_files}")
@@ -406,9 +455,7 @@ class Agent:
         dprint(f"self.input_files = {self.input_files}")
 
         # now auto-generate the runtime prompt ready for uploading to thread
-
         self.generate_runtime_prompt()
-
         # Create the thread with the prompt and input file
         thread = self.client.beta.threads.create(
             messages=[
@@ -423,23 +470,23 @@ class Agent:
         return thread
 
     # Setter for agent_name
-    def set_agent_name(self, new_name):
-        self.agent_name = new_name
+    # def set_agent_name(self, new_name):
+    #     self.agent_name = new_name
 
-    def set_input_file_id(self, file_id):
-        if file_id not in self.input_files:
-            self.input_files.append(file_id)
+    # def set_input_file_id(self, file_id):
+    #     if file_id not in self.input_files:
+    #         self.input_files.append(file_id)
 
     # Setter for role
-    def set_role(self, new_role):
-        self.role = new_role
+    # def set_role(self, new_role):
+    #     self.role = new_role
 
     # Setter for json_schema
-    def set_json_schema(self, new_json_schema):
-        self.json_schema = new_json_schema
+    # def set_json_schema(self, new_json_schema):
+    #     self.json_schema = new_json_schema
 
     # Setter for quality_criteria
-    def set_quality_criteria(self, new_quality_criteria):
-        self.quality_criteria = new_quality_criteria
+    # def set_quality_criteria(self, new_quality_criteria):
+    #     self.quality_criteria = new_quality_criteria
 
 

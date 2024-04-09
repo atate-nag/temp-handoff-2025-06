@@ -222,16 +222,27 @@ class FileHandler:
         return None
 
     def retrieve_direct_agent_content(self, client, thread, tag=""):
+        """
+        Retrieves the content from a file, annotations or set of messages
+        TODO the annotations content does not seem to be getting later
+            files
+        """
         dprint(f"retrieving on thread {thread} with passed tag {tag}")
-        file_id = retrieve_file_annotation(client, thread)
-        if file_id:
-            return json.loads(self.client.files.retrieve_content(file_id))
         json_data = self.extract_json_from_response(client, thread)
         if json_data:
             return json_data
+        file_id = retrieve_file_annotation(client, thread)
+        if file_id:
+            return file_id
         return None
 
+
+    @staticmethod
     def clean_json_string(self,s):
+        """
+        Cleans a json string in common ways that JSON is often invalid
+        TODO this needs extending to be exhaustive
+        """
         # Fix unquoted keys
         s = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', s)
         # Fix booleans
@@ -240,11 +251,12 @@ class FileHandler:
         s = re.sub(r"\\'", "'", s)  # Single quotes should not be escaped in JSON
         s = s.replace("\\\\", "\\")  # Unescape escaped backslashes
         s = s.replace("\\/", "/")  # Unescape escaped slashes
-        # More cleaning rules can be added here
         return s
 
     def extract_json_from_response(self, client, thread):
-        # Sometimes naughty little AIs still send via response, so must extract it via regular expressions
+        """
+            Get JSON data directly from agent response
+        """
         messages = client.beta.threads.messages.list(thread_id=thread.id).data
         for message in messages:
             if message.role == "assistant":  # Identify the assistant's message
@@ -279,17 +291,22 @@ class FileHandler:
         dprint("No JSON content was found")
         return None
 
-def retrieve_from_id_or_path(client, thread, file_str):
-    # the problem is that the file is either in
-    file_direct = retrieve_file_annotation(client, thread)
-    if file_direct == file_str:
-        return file_direct
-    file_from_path = retrieve_file_path(thread)
-    return None
+# def retrieve_from_id_or_path(client, thread, file_str):
+#     # the problem is that the file is either in
+#     file_direct = retrieve_file_annotation(client, thread)
+#     if file_direct == file_str:
+#         return file_direct
+#     file_from_path = retrieve_file_path(thread)
+#     return None
 
 
 def retrieve_file_annotation(client, thread):
-    # Retrieve file from "annotations" which is where it (mostly) resides
+    """
+    Retrieves the file-id from "annotations" which is where the agents should store it
+    However, they  are not reliable hence this method cannot be relied upon to get a file
+    TODO only search in the later messages (like in agent.get_new_messages)
+    TODO some code redundancy between this and other uses of messages.list
+    """
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
     for message in messages:
         dprint(message)
@@ -306,32 +323,32 @@ def retrieve_file_annotation(client, thread):
     return None
 
 
-def retrieve_file_path(client, thread):
-    # Retrieve file from "annotations" but when it is a path
-    messages = client.beta.threads.messages.list(thread_id=thread.id).data
-    for message in messages:
-        dprint(message)
-        if message.role == "assistant" and message.content[0].type == "text":
-            annotations = message.content[0].text.annotations
-            dprint(annotations)
-            for index, annotation in enumerate(annotations):
-                dprint(annotation)
-                dprint(f"annotation.file_path = {annotation.file_path}")
-                if annotation.file_path.file_id:
-                    dprint(annotation.file_path)
-                    file = annotation.file_path.file_id
-                    return file
-    dprint("No annotations for a file were found")
-    return None
+# def retrieve_file_path(client, thread):
+#     # Retrieve file from "annotations" but when it is a path
+#     messages = client.beta.threads.messages.list(thread_id=thread.id).data
+#     for message in messages:
+#         dprint(message)
+#         if message.role == "assistant" and message.content[0].type == "text":
+#             annotations = message.content[0].text.annotations
+#             dprint(annotations)
+#             for index, annotation in enumerate(annotations):
+#                 dprint(annotation)
+#                 dprint(f"annotation.file_path = {annotation.file_path}")
+#                 if annotation.file_path.file_id:
+#                     dprint(annotation.file_path)
+#                     file = annotation.file_path.file_id
+#                     return file
+#     dprint("No annotations for a file were found")
+#     return None
 
-def download_file_by_id(client, file_id):
-    content = client.files.retrieve_content(file_id)
-    return content
-
-def download_content_and_write(client, agent_file, local_filename):
-    json_content = download_file_by_id(client, agent_file)
-    with open(
-            f"./Intermediates/{local_filename}.json", "w", encoding="utf-8"
-    ) as json_file:
-        json_file.write(json_content)
-    return json_file
+# def download_file_by_id(client, file_id):
+#     content = client.files.retrieve_content(file_id)
+#     return content
+#
+# def download_content_and_write(client, agent_file, local_filename):
+#     json_content = download_file_by_id(client, agent_file)
+#     with open(
+#             f"./Intermediates/{local_filename}.json", "w", encoding="utf-8"
+#     ) as json_file:
+#         json_file.write(json_content)
+#     return json_file

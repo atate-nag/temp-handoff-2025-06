@@ -78,6 +78,7 @@
           "properties": {
             "competitor": {
               "type": "object",
+              "minItems": 9,
               "properties": {
                 "name": {
                   "type": "string"
@@ -162,7 +163,6 @@
                   "maximum": 99
                 }
               },
-              "minItems" : 9,
               "required": [
                 "name",
                 "description of competitive threat",

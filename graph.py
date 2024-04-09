@@ -5,10 +5,8 @@ from debug import dprint
 import uuid
 import json
 import logging
-
 import neo4j
 from neo4j import GraphDatabase
-
 
 def run_query_and_summarize(session, query, parameters=None):
     try:
