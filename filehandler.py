@@ -206,6 +206,10 @@ class FileHandler:
         return json.loads(json_content)
 
     def retrieve_and_create_asst_file(self, client, assistant, thread, tag=""):
+        """
+            From an assistant thread, extract the file id or direct JSON and store in
+            an assistant-file for accessing by agent
+        """
         dprint(f"retrieving on thread {thread} of assistant {assistant} with passed tag {tag}")
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
@@ -225,15 +229,15 @@ class FileHandler:
         """
         Retrieves the content from a file, annotations or set of messages
         TODO the annotations content does not seem to be getting later
-            files
+            files - needs to be searchable by timestamp also
         """
         dprint(f"retrieving on thread {thread} with passed tag {tag}")
         json_data = self.extract_json_from_response(client, thread)
         if json_data:
             return json_data
-        file_id = retrieve_file_annotation(client, thread)
-        if file_id:
-            return file_id
+        # file_id = retrieve_file_annotation(client, thread)
+        # if file_id:
+        #     return file_id
         return None
 
 

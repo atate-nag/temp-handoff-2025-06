@@ -41,19 +41,19 @@ class Agent:
         with open(file_path, 'r') as file:
             return json.load(file)
 
-    def get_thread_details(self, thread_id):
-        # Retrieve details for a specific thread by ID
-        return self.thread_details.get(thread_id)
+    # def get_thread_details(self, thread_id):
+    #     # Retrieve details for a specific thread by ID
+    #     return self.thread_details.get(thread_id)
 
-    def set_prompt(self, prompt):
-        self.prompt = prompt
+    # def set_prompt(self, prompt):
+    #     self.prompt = prompt
 
     def active_thread(self):
         return self.threads[-1]
 
-    def set_input_files(self, input_files):
-        for file in input_files:
-            self.input_files.append(file)
+    # def set_input_files(self, input_files):
+    #     for file in input_files:
+    #         self.input_files.append(file)
 
     def list_asst_files(self):
         asst_files = self.client.beta.assistants.files.list(
@@ -65,9 +65,10 @@ class Agent:
     def len_asst_files(self):
         return len(self.list_asst_files())
 
-
-
     def check_asst_files(self,file):
+        """
+        Checks if the assistant-file {file} exists
+        """
         asst_files = self.list_asst_files().data
         dprint(f"Assistant files for agent {self.agent_id} ", asst_files)
         for asst_file in asst_files:
@@ -81,6 +82,10 @@ class Agent:
         return False
 
     def generate_runtime_prompt(self):
+        """
+            Generate a prompt using runtime information. Note placeholder values
+            appear in the prompt in known_agents.json in the "prompt" field.
+        """
         placeholder_values = {
             "INPUT_FILES": self.input_files,
             "AGENT_RESPONSE": self.input_response,
@@ -102,18 +107,28 @@ class Agent:
         return
 
     def latest_output_file(self):
+        """
+        Returns the latest stored output file in this agent
+        """
         if self.output_files:
             return self.output_files[-1]
         else:
             return None
 
     def latest_input_file(self):
+        """
+        Returns the latest input file in this agent
+        """
         if self.input_files:
             return self.input_files[-1]
         else:
             return None
 
     def setup_run(self, input_files=None, qm=False, max_retries=4):
+        """
+            Set up an agent - creates a thread on the agent, uploads files,
+            and if QM is enabled, starts the QM agent
+        """
         self.max_retries = max_retries
         dprint(f"input files: {input_files}")
         thread = self.create_thread(self.prompt, input_files)
@@ -127,6 +142,9 @@ class Agent:
         return
 
     def setup_qm_run(self, agent_response_file, agent_output_file, max_retries=4):
+        """
+            Set up a QM agent
+        """
         self.max_retries = max_retries
         dprint(f"Agent response file {agent_response_file} and output file {agent_output_file}")
         thread = self.create_qm_thread(agent_response_file, agent_output_file)
@@ -135,7 +153,9 @@ class Agent:
         dprint(f"setup_run created a QM instance with run_agent:{self.qm_agent} ")
 
     def run_agent(self):
-        '''run the agent and make both response and output available to other agents'''
+        """
+            run the agent and make both response and output available to other agents
+        """
         response_asst_file, asst_file_agent_output = self.run_and_retrieve_response_and_output()
         if self.qm:
             agent_output_file = self.qm.quality_manage_agent(self.active_thread())
@@ -153,7 +173,7 @@ class Agent:
                 # did not get output, so reissue
                 prompt = "Please generate JSON data with your output"
                 dprint(f"Agent did not complete and will be informed: {prompt}")
-                self.add_message(self.active_thread(), prompt)
+                self.add_message(self.active_thread().id, prompt)
                 asst_file_agent_output = self.run_and_retrieve_output_file()
                 if asst_file_agent_output:
                     return asst_file_agent_output
@@ -422,11 +442,11 @@ class Agent:
            adds a QM thread to the QM agent.
            TODO could be combined with the create_thread, it is just the inputs that differ really
         """
-        if agent_response:
-            self.append_input_files(self.create_asst_file_from_id(agent_output))
         if agent_output:
+            self.append_input_files(self.create_asst_file_from_id(agent_output))
+        if agent_response:
             self.input_response = self.create_asst_file_from_id(agent_response)
-        dprint(f"input_files are now {self.input_files}")
+        dprint(f"input_files are now {self.input_files} and stored response is {self.input_response}")
         # now auto-generate the runtime prompt ready for uploading to thread
         self.generate_runtime_prompt()
         # Create the thread with the prompt and input file
