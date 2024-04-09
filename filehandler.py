@@ -238,7 +238,7 @@ class FileHandler:
 
 
     @staticmethod
-    def clean_json_string(self,s):
+    def clean_json_string(s):
         """
         Cleans a json string in common ways that JSON is often invalid
         TODO this needs extending to be exhaustive
