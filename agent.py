@@ -72,12 +72,9 @@ class Agent:
         asst_files = self.list_asst_files().data
         dprint(f"Assistant files for agent {self.agent_id} ", asst_files)
         for asst_file in asst_files:
-            dprint(f"asst_file = {asst_file}")
             if file == asst_file.id:
                 dprint(f"Agent has {file} in file_ids")
                 return True
-            else:
-                dprint(f"{file} != {asst_file.id}")
         dprint(f"Agent does not have {file} accessible in file_ids")
         return False
 
