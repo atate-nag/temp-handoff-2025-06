@@ -2,13 +2,13 @@ import json
 import time
 import sys
 import openai
+from transitions import Machine, MachineError, EventData
 from quality_manager import QualityManager
 from debug import dprint
-from agent_state_manager import AgentStateManager, AgentInitModel
 from agent_context import *
 
 class Agent:
-    states = ['ZeroState', 'InitialisedState', 'LoadedState', 'RunState']
+    states = ['ZeroState', 'InitialisedState', 'LoadedState', 'RunningState']
     def __init__(self, client, file_handler, agent_type, qm=False, requirements=None):
         # set all class variables to None until validated
         self.client = self.file_handler = self.type = self.qm = self.qm_agent = self.thread = None
@@ -16,18 +16,19 @@ class Agent:
         self.machine = Machine(model=self, states=Agent.states, initial='ZeroState')
         self.machine.add_transition(trigger='initialise',
                                     source='ZeroState',
-                                    dest='LoadedState',
-                                    conditions=['load_and_validate_agent_details']
+                                    dest='InitialisedState',
+                                    conditions=['validate_agent_details'],
+                                    after='load_context'
                                     )
         self.machine.add_transition(trigger='load',
                                     source='InitialisedState',
-                                    dest='LOADED',
+                                    dest='LoadedState',
                                     conditions=['validate_input_files'],
-                                    after='generate_thread')
+                                    after='setup_qm')
         self.machine.add_transition(trigger='run',
-                                    source='LOADED',
-                                    dest='RUNNING',
-                                    conditions=[],
+                                    source='LoadedState',
+                                    dest='RunningState',
+                                    conditions=['validate_run_object'],
                                     after='')
         self.max_retries = 4
         self.last_timestamp = 0
@@ -36,32 +37,32 @@ class Agent:
         self.runs = []
         self.thread_details = {}  # notused yet: A dictionary to map threads to their details
         self.input_files = {}
-        self.requirements = requirements
         self.output_files = {}
         self.response_file = ""
         dprint("deleting all the existing assistant files")
-        self.initialise(client, file_handler, True, agent_type)
+        self.initialise(client, file_handler, qm, agent_type, requirements)
 
+        dprint(f"Agent in state {self.state}")
+        # now it is safe to add some supporting date to the agent class
+        self.id = self.context.id
+        self.client = self.context.client
+        self.file_handler = self.context.file_handler
         # self.delete_asst_files()
-
-    def execute(self):
-        # Example method to move from one state to another
-        if self.state == 'InitializeState':
-            self.load()
-        elif self.state == 'LoadState':
-            self.run()
 
     def update_context(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self.context, key, value)
 
-    def load_and_validate_agent_details(self, client, file_handler, qm, agent_key):
+    ''' ZeroState Methods (inputs=client, file_handler, qm, agent_key) '''
+
+    def validate_agent_details(self, client, file_handler, qm, agent_key, requirements):
         """
-            Load and validate agent configuration details.
+            Load and validate agent configuration details. Validation so no
+            side-effects.
         """
         try:
             agent_config = AgentConfigs().get_agent_details(agent_key)
-            self.context = AgentContext(
+            context = AgentContext(
                 client=client,
                 file_handler=file_handler,
                 agent_type=agent_key,
@@ -69,15 +70,60 @@ class Agent:
                 id=agent_config['id'],
                 description=agent_config['description'],
                 prompt=agent_config['prompt'],
-                reqs_schema=agent_config.get('output_schema', None)
+                reqs_schema=agent_config.get('output_schema', None),
+                qm_reqs_schema=requirements
             )
-            dprint(f"context is {self.context}")
-            print("Agent details loaded and validated")
+            return True
+        except ValueError as e:
+            print(f"Failed to validate agent details: {e}")
+            return False
+
+    def load_context(self, client, file_handler, qm, agent_key, requirements):
+        """
+            Load agent configuration details. Update self.context
+        """
+        try:
+            agent_config = AgentConfigs().get_agent_details(agent_key)
+            context = AgentContext(
+                client=client,
+                file_handler=file_handler,
+                agent_type=agent_key,
+                qm=qm,
+                id=agent_config['id'],
+                description=agent_config['description'],
+                prompt=agent_config['prompt'],
+                reqs_schema=agent_config.get('output_schema', None),
+                qm_reqs_schema=requirements
+            )
+            self.context = context
+            dprint("Successfully loaded agent context")
         except ValueError as e:
             print(f"Failed to load agent details: {e}")
 
-    def state(self):
-        return self.state_manager.state
+    ''' InitialisedState Methods (inputs=input_files) '''
+
+    def validate_input_files(self, input_files ):
+        dprint(f"Validating input files {input_files} with agent_id {self.context.id} "
+               f"and client = {self.context.client}")
+        try:
+            validated_input = AgentInputFilesModel(client=self.context.client, input_files=input_files,
+                                                   agent_id=self.context.id,
+                                                   prompt=self.context.prompt)
+            print("Input validated successfully.")
+            return True
+        except ValidationError as e:
+            print(f"Validation error: {e}")
+            return False
+
+    def setup_qm(self, input_files):
+        if self.context.qm:
+            self.qm_agent = Agent(self.client,
+                                  self.file_handler,
+                                  "qm_agent",
+                                  qm=False,
+                                  requirements=self.context.reqs_schema)
+            self.qm = QualityManager(self, self.qm_agent)
+        dprint(f"Agent {self.id} setup with schema: {self.context.reqs_schema} QM_agent={self.qm_agent}")
 
     def setup_agent(self, client, file_handler, qm, agent_type, agent_id, description, prompt, output_schema):
         """ not a user function, instantiate class variables
@@ -93,29 +139,14 @@ class Agent:
             self.qm = QualityManager(self, self.qm_agent)
         dprint(f"Agent {self.agent_id} setup with schema: {self.output_schema} QM_agent={self.qm_agent}")
 
-    def load(self, input_files):
-        """
-            attempts to move agent into LOAD state, where all input
-            data has been generated, copied and validated
-        """
-        dprint(f"input files: {input_files}")
-
-        # self.state_manager.trigger('load',
-        #                            input_files=input_files,
-        #                            prompt=self.generate_runtime_prompt(input_files=input_files),
-        #                            agent_id=self.agent_id
-        #                            )
-        dprint(f"Agent {self} state is {self.state}")
-        dprint(f"Agent thread is {self.thread}")
-        return
-
     def run(self):
         """
             Attempting to change the state of the agent to Running
         """
 
 
-    def generate_thread(self, prompt):
+    def generate_thread(self, data):
+        prompt = self.context.prompt
         self.thread = self.client.beta.threads.create(
             messages=[
                 {

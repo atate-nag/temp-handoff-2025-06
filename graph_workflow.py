@@ -254,7 +254,6 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
         # dprint(json_graph)
         filename_prefix = f"{agentType}_graph_{companyName}"
-        agent_graph_file = file_handler.direct_upload_json(json_graph, filename_prefix, purpose="assistants")
         # create appropriate agent type
         dprint(f"creating an agent of type {agentType}")
         agent = Agent(client=client,
@@ -262,8 +261,11 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
                       agent_type=agentType,
                       qm=True,
                       )
+        agent_graph_file = file_handler.json_to_asst_file(client, json_graph, filename_prefix, agent.id)
+
         # agent.initialise(client, file_handler, True, agentType)
-        # agent.load(agent_graph_file)
+        agent.load([agent_graph_file])
+        dprint(f"Agent is now in state {agent.state}")
         sys.exit()
         # agent_graph_asst_file = file_handler.json_to_asst_file(
         #     client,
@@ -272,8 +274,7 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         #     agent.agent_id
         # )
         dprint(f"Agent ={agent} and Validated context is {agent.context}")
-        dprint(f"An Agent of type {agent.type} id={agent.agent_id} and file_handler={agent.file_handler} is in state "
-               f"{agent.state}")
+        dprint(f"An Agent of type {agent.type} and context {agent.context} ")
         # setup the agent run with QM enabled
 #        agent.load(input_files=[agent_graph_asst_file])
 #        agent.run()  # Triggers validation and potential state transition to READY

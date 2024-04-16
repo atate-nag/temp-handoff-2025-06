@@ -24,6 +24,7 @@ class FileHandler:
 
     def direct_upload_json(self, data, filename_prefix, purpose="assistants"):
         # Check if file already exists locally and has been uploaded
+        #
         local_file_path = f"{self.base_path}{filename_prefix}.json"
         # write to local file
         with open(local_file_path, "w", encoding="utf-8") as json_file:
