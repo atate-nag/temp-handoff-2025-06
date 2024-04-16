@@ -87,11 +87,11 @@ def get_step_function(step_name):
     }
     return step_map.get(step_name, None)  # Return None if not found
 
-
-"""Following are the workflow functionality functions - they are 1:1 mappings between
- functions mentioned in the file wofkflow_config.json
- Note: camelCase naming denotes parameters directly inherited from the json config file"""
-
+    #
+    #    Following are the workflow functionality functions - they are 1:1 mappings between
+    #    functions mentioned in the file wofkflow_config.json
+    #    Note: camelCase naming denotes parameters directly inherited from the json config file
+    #
 
 def create_companies(companyName):
     dprint(f"Creating company {companyName}")
@@ -203,9 +203,9 @@ def condense_and_extract(file_id, companyName, json_graph_str, filename, output_
     output_queue.put(insight_agent_output)
     return insight_agent_output
 
-
 def extract_insights(sourceDir, companyName, debug, updateGraph):
     # task 1: load company data from graph or from a debug file (if debug == True)
+    # TODO code needs to be brought into line with latest changes
     llm_company_data_graph = company_graph.get_company_info(companyName)
     json_graph_str = json.dumps(llm_company_data_graph)
     if debug:
@@ -255,13 +255,32 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         # dprint(json_graph)
         filename_prefix = f"{agentType}_graph_{companyName}"
         agent_graph_file = file_handler.direct_upload_json(json_graph, filename_prefix, purpose="assistants")
-        dprint(f"agent graph file: {agent_graph_file}")
         # create appropriate agent type
         dprint(f"creating an agent of type {agentType}")
-        agent = Agent(client, file_handler, agentType)
-        dprint(agent.agent_id, agent.description)
+        agent = Agent(client=client,
+                      file_handler=file_handler,
+                      agent_type=agentType,
+                      qm=True,
+                      )
+        # agent.initialise(client, file_handler, True, agentType)
+        # agent.load(agent_graph_file)
+        sys.exit()
+        # agent_graph_asst_file = file_handler.json_to_asst_file(
+        #     client,
+        #     json_graph,
+        #     f"{agentType}_graph_{companyName}",
+        #     agent.agent_id
+        # )
+        dprint(f"Agent ={agent} and Validated context is {agent.context}")
+        dprint(f"An Agent of type {agent.type} id={agent.agent_id} and file_handler={agent.file_handler} is in state "
+               f"{agent.state}")
         # setup the agent run with QM enabled
+#        agent.load(input_files=[agent_graph_asst_file])
+#        agent.run()  # Triggers validation and potential state transition to READY
+        sys.exit()
+
         run = agent.setup_run(agent_graph_file, qm=True)
+
         dictionary_return = agent.run_agent()
         dprint(f"Agent file has returned {dictionary_return}")
     # now call a generic graph updater also

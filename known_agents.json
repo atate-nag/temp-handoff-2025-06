@@ -72,7 +72,7 @@
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "array",
-        "minItems": 1,
+        "minItems": 7,
         "items": {
           "type": "object",
           "properties": {
@@ -217,7 +217,7 @@
 
     "qm_agent": {
       "id": "asst_49YnOtEIzaLI8scAJsiqLw8G",
-      "description": "QM run problems Agent",
+      "description": "QM Agent",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
@@ -229,10 +229,6 @@
           "agent instructions": {
             "type": "string",
             "description": "Instructions for the agent."
-          },
-          "file id": {
-            "type": "string",
-            "description": "The identifier for the file."
           }
         },
         "required": [
@@ -245,37 +241,6 @@
       },
       "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}"
     },
-    "qm_output_agent": {
-      "id": "asst_wdqQ2lOkFya5bUoPZMcBti3l",
-      "description": "QM output Agent",
-      "output_schema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "object",
-        "properties": {
-          "completed": {
-            "type": "boolean",
-            "description": "Indicates whether the task is completed."
-          },
-          "agent instructions": {
-            "type": "string",
-            "description": "Instructions for the agent."
-          },
-          "file id": {
-            "type": "string",
-            "description": "The identifier for the file."
-          }
-        },
-        "required": [
-          "completed",
-          "agent instructions",
-          "file id"
-        ],
-        "additionalProperties": false,
-        "description": "Schema for validating agent output."
-      },
-      "prompt": "Check if the agent's output file {INPUT_FILES} adheres to the agent's output_requirements_schema={AGENT_REQUIREMENTS}"
-    },
-
     "trends_agent": {
       "id": "asst_ripeR7nhZq822ek0PwDM31Fs",
       "description": "Trends Agent"

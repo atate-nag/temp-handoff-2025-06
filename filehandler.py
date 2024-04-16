@@ -76,6 +76,11 @@ class FileHandler:
                 purpose="assistants"
             )
         dprint(f"Uploaded {file_path} to {openai_file}")
+
+        # check that we can also download this file, if not why not?
+
+
+
         return openai_file.id
 
     def upload_dir(self, path_to_dir, company_name, doctype):
@@ -210,6 +215,7 @@ class FileHandler:
             From an assistant thread, extract the file id or direct JSON and store in
             an assistant-file for accessing by agent
         """
+
         dprint(f"retrieving on thread {thread} of assistant {assistant} with passed tag {tag}")
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
@@ -225,27 +231,35 @@ class FileHandler:
         dprint(f"No annotations or json content were found, returning None")
         return None
 
-    def retrieve_direct_agent_content(self, client, thread, tag=""):
+    def retrieve_direct_agent_content(self, client, agent_id, thread, response, output_file, tag=""):
         """
         Retrieves the content from a file, annotations or set of messages
-        TODO the annotations content does not seem to be getting later
-            files - needs to be searchable by timestamp also
+        After an agent completes, there should be useful JSON data in either the
+        response file or the latest output file. Must be careful of whether one of
+        them did not product JSON, and we pick up old JSON from an old output.
         """
-        dprint(f"retrieving on thread {thread} with passed tag {tag}")
-        json_data = self.extract_json_from_response(client, thread)
+
+        # dprint(f"retrieving Agent content from response {response} and output {output_file}")
+        # response_str = self.retrieve_file_content_str(client, agent_id, response_file)
+        json_data = self.extract_json_from_response_text(response)
+
+        dprint(f"dict extracted from response {json_data}")
         if json_data:
             return json_data
-        # file_id = retrieve_file_annotation(client, thread)
-        # if file_id:
-        #     return file_id
+        # if nothing there, then extract contents of the output file
+        dprint(f"as no direct JSON, looking at output file {output_file} on agent {agent_id}")
+        json_data = self.retrieve_file_content_dict(client, agent_id, output_file)
+        if json_data:
+            return json_data
+        dprint("No json data found in either response or latest output file, returning None")
         return None
 
 
     @staticmethod
     def clean_json_string(s):
         """
-        Cleans a json string in common ways that JSON is often invalid
-        TODO this needs extending to be exhaustive
+            Cleans a json string in common ways that JSON is often invalid
+            TODO this needs extending to be exhaustive
         """
         # Fix unquoted keys
         s = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', s)
@@ -259,7 +273,7 @@ class FileHandler:
 
     def extract_json_from_response(self, client, thread):
         """
-            Get JSON data directly from agent response
+            Get JSON data directly from agent thread via messages
         """
         messages = client.beta.threads.messages.list(thread_id=thread.id).data
         for message in messages:
@@ -295,6 +309,77 @@ class FileHandler:
         dprint("No JSON content was found")
         return None
 
+    def extract_json_from_response_text(self, response):
+        """
+            Get JSON data directly from provided agent response text and return as a dictionary or list
+        """
+        # Adjusting regex to capture JSON data enclosed within markdown code blocks
+        # and be resilient to the absence of newlines
+
+        dprint(f"Extracting from response")
+        match = re.search(r"```json\s*(.+?)\s*```", response, re.DOTALL)
+        if match:
+            json_string = match.group(1)
+            cleaned_json_string = self.clean_json_string(json_string)
+            try:
+                full_info = json.loads(cleaned_json_string)
+                dprint("JSON found in the message, returning it")
+                return full_info
+            except json.JSONDecodeError as e:
+                dprint(f"Failed to decode JSON: {e}")
+                dprint(f"Faulty JSON string: {repr(cleaned_json_string)}")
+                repaired_json = self.attempt_to_repair_json(cleaned_json_string)
+                try:
+                    full_info = json.loads(repaired_json)
+                    dprint("Repaired JSON loaded successfully")
+                    return full_info
+                except json.JSONDecodeError as e:
+                    dprint(f"Failed to decode JSON after repair: {e}")
+                    dprint(f"Faulty JSON string: {repr(repaired_json)}")
+        else:
+            dprint("No JSON found in the message, returning None")
+            return None
+        dprint("No JSON content was found")
+        return None
+
+    def attempt_to_repair_json(self, json_string):
+        """
+            Attempt to repair common issues in JSON strings that prevent parsing
+        """
+        # Example: Fixes for missing commas between objects, extra trailing commas, etc.
+        repaired = re.sub(r'\}\s*,\s*\{', '}, {', json_string.strip().rstrip(','))
+        return '[' + repaired + ']'
+
+    def retrieve_file_content_str(self, client, agent_id, file):
+        """
+            given an asst-file-id, return the JSON file content
+            TODO should be in filehandler?
+        """
+        dprint(f"Retrieving file {file} for agent {agent_id}")
+        asst_file = client.beta.assistants.files.retrieve(
+            assistant_id=agent_id,
+            file_id=file
+        )
+        dprint(f"asst_file {asst_file}")
+        content = client.files.retrieve_content(file)
+        dprint(f"content = {content}")
+        return content
+
+    def retrieve_file_content_dict(self, client, agent_id, file):
+        """
+            given an asst-file-id, return the JSON file content
+            TODO should be in filehandler?
+        """
+        dprint(f"Retrieving file {file} for agent {agent_id}")
+        asst_file = client.beta.assistants.files.retrieve(
+            assistant_id=agent_id,
+            file_id=file
+        )
+        dprint(f"asst_file {asst_file}")
+        content = client.files.retrieve_content(asst_file.id)
+        dprint(f"content = {content}")
+        return json.loads(content)
+
 # def retrieve_from_id_or_path(client, thread, file_str):
 #     # the problem is that the file is either in
 #     file_direct = retrieve_file_annotation(client, thread)
@@ -325,6 +410,7 @@ def retrieve_file_annotation(client, thread):
                     return file
     dprint("No annotations for a file were found")
     return None
+
 
 
 # def retrieve_file_path(client, thread):
