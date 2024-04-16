@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from agent import Agent
 from datetime import datetime
 from multiprocessing import Process, Queue
+
+from agent_workflow import AgentWorkFlow
 from debug import dprint
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
@@ -256,16 +258,21 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         filename_prefix = f"{agentType}_graph_{companyName}"
         # create appropriate agent type
         dprint(f"creating an agent of type {agentType}")
-        agent = Agent(client=client,
+        # agent = Agent(client=client,
+        #               file_handler=file_handler,
+        #               agent_type=agentType,
+        #               qm=True,
+        #               )
+
+        agent_work_flow = AgentWorkFlow(client=client,
                       file_handler=file_handler,
                       agent_type=agentType,
-                      qm=True,
-                      )
-        agent_graph_file = file_handler.json_to_asst_file(client, json_graph, filename_prefix, agent.id)
+                      qm=True)
 
+        agent_graph_file = file_handler.json_to_asst_file(client, json_graph, filename_prefix, agent_work_flow.id)
         # agent.initialise(client, file_handler, True, agentType)
-        agent.load([agent_graph_file])
-        dprint(f"Agent is now in state {agent.state}")
+        # agent.load([agent_graph_file])
+        dprint(f"Agent is now in state {agent_work_flow.state}")
         sys.exit()
         # agent_graph_asst_file = file_handler.json_to_asst_file(
         #     client,
