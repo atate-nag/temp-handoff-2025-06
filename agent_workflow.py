@@ -1,8 +1,9 @@
 from transitions import Machine
 import logging
+from pydantic import ValidationError
 from state_transitions import (ZerotoInitialTransition, InitialtoLoadedTransition,
                                LoadedtoRunningTransition, RunningtoReturnedTransition, ReturnedtoCompleteTransition)
-from validations import (ZerotoInitialValidationModel, ZerotoInitialConfigModel, ZerotoInitialContextModel,
+from validations import (WorkFlowContextModel, AgentConfigs, AgentContextModel, InputFilesModel,
                          InitialtoLoadedValidation, LoadedtoRunningValidation, RunningtoReturnedValidation, ReturnedtoCompleteValidation)
 from transition_data import TransitionData
 # Set up logging
@@ -17,8 +18,9 @@ class AgentWorkFlow:
         # passed data is unvalidated so stored only as "user_data" until validation
         self.user_data = kwargs
 
-        self.qm_agent = self.thread = None
+        self.qm_agent = self.thread = self.agent_details = self.input_files = None
         self.agent_id = self.prompt = self.description = self.output_schema = self.context = None
+        self.workflow_context = self.agent_config = self.agent_context = self.uploaded_assistant_files = None
 
         self.machine = Machine(model=self, states=AgentWorkFlow.states, initial='Zero')
         self.machine.add_transition('initialise', 'Zero', 'Initialised',
@@ -42,9 +44,16 @@ class AgentWorkFlow:
         transition_data = self.transition_data.get_data_for_state(current_state)
         dprint(f"transition data for {self.state} = {transition_data}")
         if current_state == 'Zero':
+            for file in transition_data['input_files']:
+                self.uploaded_assistant_files = []
+                asst_file = self.workflow_context.file_handler.create_asst_file_from_local(
+                    self.workflow_context.client,
+                    self.agent_context.id,
+                    file)
+                self.uploaded_assistant_files.append(asst_file)
             transition = ZerotoInitialTransition(self, **transition_data)
             dprint(f"created the {transition}")
-            self.transition_data.set_data_for_state('Initialised', client="")
+            self.transition_data.set_data_for_state('Loaded', assistant_input_files=self.uploaded_assistant_files)
         elif current_state == 'Initialised':
             transition = InitialtoLoadedTransition(self, **transition_data)
             self.transition_data.set_data_for_state('Loaded', client="")
@@ -75,9 +84,8 @@ class AgentWorkFlow:
         current_state = self.state
         if current_state == 'Zero':
             self.transition_data.set_data_for_state(current_state, **self.user_data)
-        if current_state == 'Loaded':
-
-            self.transition_data.set_data_for_state(current_state, **self.user_data)
+        if current_state == 'Initialised':
+            self.transition_data.set_data_for_state(current_state, uploaded_assistant_files=self.uploaded_assistant_files)
         return
 
     def run_validation(self, transition_data):
@@ -88,21 +96,25 @@ class AgentWorkFlow:
         transition_data = self.transition_data.get_data_for_state(current_state)
         dprint(f"validation data for {self.state} = {transition_data}")
         if current_state == 'Zero':
-            validated_one = ZerotoInitialValidationModel(client=transition_data['client'],
-                                                     file_handler=transition_data['file_handler'],
-                                                     agent_type=transition_data['agent_type'],
-                                                     qm=transition_data['qm']
-                                                     )
-            if validated_one:
-                agent_config = ZerotoInitialConfigModel(agent_type=transition_data['agent_type'])
-                agent_details = agent_config.get_agent_details()
-                dprint("Agent details: ", agent_details)
-                context_validation = ZerotoInitialContextModel(id=agent_details['id'],
-                                                       description=agent_details['description'],
-                                                       prompt=agent_details['prompt'],
-                                                       reqs_schema=agent_details['output_schema'])
-                if context_validation:
-                    validated = True
+            try:
+                # Validate initial data
+                validated_workflow_context = WorkFlowContextModel(**transition_data)
+                # Retrieve and validate agent details
+                agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
+                agent_context_valid = AgentContextModel(**agent_configs_valid)
+                input_files_valid = InputFilesModel(
+                    client=validated_workflow_context.client,
+                    agent_id=agent_context_valid.id,
+                    input_files=self.user_data['input_files'])
+                print("Transition successful, context and files validated")
+                self.workflow_context = validated_workflow_context
+                self.agent_config = agent_configs_valid
+                self.agent_context = agent_context_valid
+                self.input_files = input_files_valid
+                return True
+            except ValidationError as e:
+                print(f"Validation failed: {e}")
+                return False
         elif current_state == 'Initialised':
             validated = InitialtoLoadedValidation(self, **transition_data)
         elif current_state == 'Loaded':

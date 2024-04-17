@@ -260,11 +260,12 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         filename_prefix = f"{agentType}_graph_{companyName}"
         # create appropriate agent type
         dprint(f"creating an agent of type {agentType}")
+        local_json = file_handler.write_local_json("full_graph",json_graph)
         agent_work_flow = AgentWorkFlow(client=client,
                                         file_handler=file_handler,
                                         agent_type=agentType,
                                         qm=True,
-                                        input_files=[json_graph])
+                                        input_files=[local_json])
         # agent_graph_file = file_handler.json_to_asst_file(client, json_graph, filename_prefix, agent_work_flow)
         # agent_graph_file.start_workflow(agent_graph_file)
         # agent.initialise(client, file_handler, True, agentType)
