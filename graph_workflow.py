@@ -1,4 +1,3 @@
-
 import os
 import openai
 from dotenv import load_dotenv
@@ -30,6 +29,7 @@ workflow_config = config["workflow"]
 file_handler = FileHandler(client)
 company_graph = CompanyGraph(uri, user, password)
 insight_graph = InsightGraph(uri, user, password)
+
 
 def execute_workflow():
     dprint("Enabled workflow steps:")
@@ -69,12 +69,12 @@ def get_step_function(step_name):
         # graph manipulation and display routines
 
         "updateCompanyData": update_company_data,
-        "displayInsights" : display_insights,
-        "deleteCompany" : delete_company,
-        "dumpCompanyGraph" : dump_company_graph,
-        "deleteCapabilities" : delete_capabilities,
-        "displayCapabilities" : display_capabilities,
-        "cleanInsights" : clean_insights,
+        "displayInsights": display_insights,
+        "deleteCompany": delete_company,
+        "dumpCompanyGraph": dump_company_graph,
+        "deleteCapabilities": delete_capabilities,
+        "displayCapabilities": display_capabilities,
+        "cleanInsights": clean_insights,
         "deleteInsights": delete_insights,
 
         # custom agent implementations
@@ -84,8 +84,8 @@ def get_step_function(step_name):
         # generic Agent implementations
 
         "evaluateCapabilities": generic_agent_run,
-        "recommendInsightPruning" : generic_agent_run,
-        "buildCompetitiveEnvironment" : generic_agent_run,
+        "recommendInsightPruning": generic_agent_run,
+        "buildCompetitiveEnvironment": generic_agent_run,
     }
     return step_map.get(step_name, None)  # Return None if not found
 
@@ -94,6 +94,7 @@ def get_step_function(step_name):
     #    functions mentioned in the file wofkflow_config.json
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
     #
+
 
 def create_companies(companyName):
     dprint(f"Creating company {companyName}")
@@ -205,6 +206,7 @@ def condense_and_extract(file_id, companyName, json_graph_str, filename, output_
     output_queue.put(insight_agent_output)
     return insight_agent_output
 
+
 def extract_insights(sourceDir, companyName, debug, updateGraph):
     # task 1: load company data from graph or from a debug file (if debug == True)
     # TODO code needs to be brought into line with latest changes
@@ -258,18 +260,13 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         filename_prefix = f"{agentType}_graph_{companyName}"
         # create appropriate agent type
         dprint(f"creating an agent of type {agentType}")
-        # agent = Agent(client=client,
-        #               file_handler=file_handler,
-        #               agent_type=agentType,
-        #               qm=True,
-        #               )
-
         agent_work_flow = AgentWorkFlow(client=client,
-                      file_handler=file_handler,
-                      agent_type=agentType,
-                      qm=True)
-
-        agent_graph_file = file_handler.json_to_asst_file(client, json_graph, filename_prefix, agent_work_flow.id)
+                                        file_handler=file_handler,
+                                        agent_type=agentType,
+                                        qm=True,
+                                        input_files=[json_graph])
+        # agent_graph_file = file_handler.json_to_asst_file(client, json_graph, filename_prefix, agent_work_flow)
+        # agent_graph_file.start_workflow(agent_graph_file)
         # agent.initialise(client, file_handler, True, agentType)
         # agent.load([agent_graph_file])
         dprint(f"Agent is now in state {agent_work_flow.state}")
@@ -283,8 +280,8 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         dprint(f"Agent ={agent} and Validated context is {agent.context}")
         dprint(f"An Agent of type {agent.type} and context {agent.context} ")
         # setup the agent run with QM enabled
-#        agent.load(input_files=[agent_graph_asst_file])
-#        agent.run()  # Triggers validation and potential state transition to READY
+        #        agent.load(input_files=[agent_graph_asst_file])
+        #        agent.run()  # Triggers validation and potential state transition to READY
         sys.exit()
 
         run = agent.setup_run(agent_graph_file, qm=True)
