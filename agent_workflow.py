@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from state_transitions import (ZerotoInitialTransition, InitialtoLoadedTransition,
                                LoadedtoRunningTransition, RunningtoReturnedTransition, ReturnedtoCompleteTransition)
 from validations import (WorkFlowContextModel, AgentConfigs, AgentContextModel, InputFilesModel,
-                         AsstFilesModel,
+                         AsstFilesModel, OpenAIAsstModel,
                          InitialtoLoadedValidation, LoadedtoRunningValidation, RunningtoReturnedValidation,
                          ReturnedtoCompleteValidation)
 from transition_data import TransitionData, ValidatedData
@@ -13,6 +13,7 @@ from debug import dprint
 from quality_manager import QualityManager
 from collections import defaultdict
 from openai_asst import OpenAIAsst
+
 
 class AgentWorkFlow:
     states = ['Zero', 'Initialised', 'Loaded', 'Running', 'Returned', 'Completed']
@@ -27,7 +28,8 @@ class AgentWorkFlow:
         self.qm_agent = self.thread = self.agent_details = self.input_files = None
         self.agent_id = self.prompt = self.description = self.output_schema = self.context = None
 
-        self.validated = ValidatedData()  # container for validated data
+        self.validated = ValidatedData(self)  # container for validated data
+        self.permissions = {}
 
         """
             Generation  ->  Validation ->  Transition ->  Trigger 
@@ -39,15 +41,21 @@ class AgentWorkFlow:
         self.machine.add_transition('initialise', 'Zero', 'Initialised',
                                     prepare='generate_state_data',
                                     conditions=['run_validation'], before='run_transition', after='load')
+        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files']
         self.machine.add_transition('load', 'Initialised', 'Loaded',
                                     prepare='generate_state_data',
                                     conditions=['run_validation'], before='run_transition', after='run')
+        self.permissions['Initialised'] = ['asst_input_files']
         self.machine.add_transition('run', 'Loaded', 'Running',
                                     conditions=['run_validation'], before='run_transition', after='return')
+        self.permissions['Loaded'] = ['agent_thread']
         self.machine.add_transition('return', 'Running', 'Returned',
                                     conditions=['run_validation'], before='run_transition', after='complete')
+        self.permissions['Running'] = []
         self.machine.add_transition('complete', 'Returned', 'Completed',
                                     conditions=['run_validation'], after='run_transition')
+        self.permissions['Returned'] = []
+
         self.initialise(self.transition_data)
 
     def run_transition(self, transition_data):
@@ -70,8 +78,8 @@ class AgentWorkFlow:
             )
             uploaded_assistant_files = None
             if self.user_data['input_files']:
+                uploaded_assistant_files = []
                 for file in transition_data['input_files']:
-                    uploaded_assistant_files = []
                     asst_file = file_handler.create_asst_file_from_local(
                         client,
                         agent_id,
@@ -79,11 +87,7 @@ class AgentWorkFlow:
                     uploaded_assistant_files.append(asst_file)
             transition = ZerotoInitialTransition(self, **transition_data)
             dprint(f"created the {transition}")
-            self.transition_data.set_data_for_state('Initialised',
-                                                    assistant_input_files=uploaded_assistant_files)
-        elif current_state == 'Initialised':
-            qm_agent = None
-            qm_class = None
+            qm_agent = qm_class = qm_agent_thread = None
             if workflow_context.qm:
                 qm_agent = AgentWorkFlow(client=client,
                                          file_handler=file_handler,
@@ -91,23 +95,46 @@ class AgentWorkFlow:
                                          qm=False,
                                          requirements=self.validated.agent_context.output_schema)
                 qm_class = QualityManager(self, qm_agent)
+                qm_agent_thread = OpenAIAsst(client, agent_id, self.validated.agent_context.prompt)
+            self.transition_data.set_data_for_state(
+                    'Initialised',
+                    qm_agent=qm_agent,
+                    qm_class=qm_class,
+                    qm_agent_thread=qm_agent_thread,
+                    asst_input_files=uploaded_assistant_files)
+        elif current_state == 'Initialised':
+            agent_thread = OpenAIAsst(client, agent_id, self.validated.agent_context.prompt)
+            self.transition_data.set_data_for_state(
+                'Loaded',
+                agent_thread=agent_thread)
             transition = InitialtoLoadedTransition(self, **transition_data)
-            openai_asst = OpenAIAsst(client, agent_id, self.validated.agent_context.prompt)
-            prompt = openai_asst.generate_runtime_prompt(input_files=self.validated.asst_files,
-                                                         requirements=self.validated.agent_context.requirements)
-            self.transition_data.set_data_for_state('Loaded',
-                                                    qm_agent=qm_agent,
-                                                    qm_class=qm_class,
-                                                    openai_asst=openai_asst,
-                                                    prompt=prompt)
         elif current_state == 'Loaded':
+            agent_thread = self.validated.agent_thread
+            prompt = agent_thread.generate_runtime_prompt(
+                input_files=self.validated.asst_input_files,
+                requirements=self.validated.agent_context.requirements)
             transition = LoadedtoRunningTransition(self, **transition_data)
             self.transition_data.set_data_for_state('Running', client="")
         elif current_state == 'Running':
             transition = RunningtoReturnedTransition(self, **transition_data)
             self.transition_data.set_data_for_state('Loaded', client="")
         elif current_state == 'Returned':
-            transition = ReturnedtoCompleteTransition(self, **transition_data)
+
+            # qm_agent = None
+            # qm_class = None
+            # if workflow_context.qm:
+            #     qm_agent = AgentWorkFlow(client=client,
+            #                              file_handler=file_handler,
+            #                              agent_type="qm_agent",
+            #                              qm=False,
+            #                              requirements=self.validated.agent_context.output_schema)
+            #     qm_class = QualityManager(self, qm_agent)
+            #     qm_agent_thread = OpenAIAsst(client, agent_id, self.validated.agent_context.prompt)
+            #     self.transition_data.set_data_for_state('Loaded',
+            #                                             qm_agent=qm_agent,
+            #                                             qm_class=qm_class,
+            #                                             qm_agent_thread=qm_agent_thread)
+            # transition = ReturnedtoCompleteTransition(self, **transition_data)
             self.transition_data.set_data_for_state('Running', client="")
         else:
             dprint(f"Completed state: {current_state}")
@@ -127,9 +154,9 @@ class AgentWorkFlow:
         current_state = self.state
         if current_state == 'Zero':
             self.transition_data.set_data_for_state(current_state, **self.user_data)
-        #if current_state == 'Initialised':
-                #self.transition_data.set_data_for_state(current_state,
-            #                                        uploaded_assistant_files=uploaded_assistant_files)
+        # if current_state == 'Initialised':
+        # self.transition_data.set_data_for_state(current_state,
+        #                                        uploaded_assistant_files=uploaded_assistant_files)
         return
 
     def run_validation(self, transition_data):
@@ -146,32 +173,46 @@ class AgentWorkFlow:
                 # Retrieve and validate agent details
                 agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
                 agent_context_valid = AgentContextModel(**agent_configs_valid)
+                input_files_valid = None
                 if self.user_data['input_files']:
                     input_files_valid = InputFilesModel(
                         client=validated_workflow_context.client,
                         agent_id=agent_context_valid.id,
                         input_files=self.user_data['input_files'])
-                    self.validated.input_files = input_files_valid
+                self.validated.set_data('input_files', input_files_valid)
                 print("Transition successful, context and files validated")
-                self.validated.workflow_context = validated_workflow_context
-                self.validated.gent_config = agent_configs_valid
-                self.validated.agent_context = agent_context_valid
+                self.validated.set_data('workflow_context', validated_workflow_context)
+                #self.validated.set_data('agent_config', agent_configs_valid)
+                self.validated.set_data('agent_context', agent_context_valid)
+                dprint(f"Validation successful, context and files validated context = {agent_context_valid}")
                 return True
             except ValidationError as e:
                 print(f"Validation failed: {e}")
                 return False
         elif current_state == 'Initialised':
             try:
-                asst_files_valid = AsstFilesModel(
-                    client=self.validated.workflow_context.client,
-                    agent_id=self.validated.agent_context.id,
-                    input_files=self.validated.input_files)
-                self.validated.asst_files = asst_files_valid
+                asst_input_files = None
+                if transition_data['asst_input_files']:
+                    asst_files_valid = AsstFilesModel(
+                        client=self.validated.workflow_context.client,
+                        agent_id=self.validated.agent_context.id,
+                        input_files=transition_data['asst_input_files'])
+                    dprint(f"Validation successful, asst_files{asst_files_valid}")
+                    asst_input_files = transition_data['asst_input_files']
+                self.validated.set_data('asst_input_files', asst_input_files)
                 return True
             except ValidationError as e:
                 print(f"Validation failed: {e}")
             return False
         elif current_state == 'Loaded':
+            agent_thread = transition_data['agent_thread']
+            dprint(f"transition data is {transition_data}")
+            try:
+                agent_thread_valid = OpenAIAsstModel(**transition_data)
+            except ValidationError as e:
+                print(f"Validation failed: {e}")
+                return False
+            self.validated.set_data('agent_thread', agent_thread)
             validated = LoadedtoRunningValidation(self, **transition_data)
         elif current_state == 'Running':
             validated = RunningtoReturnedValidation(self, **transition_data)
@@ -190,3 +231,16 @@ class AgentWorkFlow:
     def to_error(self):
         logging.error("An error occurred during the state transitions.")
         self.machine.set_state('error')
+
+    def define_permissions(self):
+        self.permissions = {
+            'Initialised': ['input_files', 'client'],
+            'Processed': ['processed_data'],
+            'Completed': []
+        }
+
+    def set_validated_data(self, key, value):
+        if key in self.permissions.get(self.state, []):
+            self.validated[key] = value
+        else:
+            raise PermissionError(f"Setting {key} is not allowed in the {self.state} state.")

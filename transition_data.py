@@ -1,3 +1,5 @@
+from debug import dprint
+
 class TransitionData:
     def __init__(self, **kwargs):
         self.data = kwargs
@@ -16,3 +18,22 @@ class TransitionData:
 
     def get_data_for_state(self, state):
         return self.data.get(state, {})
+
+class ValidatedData:
+    def __init__(self, parent):
+        self._data = {}
+        self.parent = parent  # Reference to the Agent object
+
+    def __getattr__(self, item):
+        if item in self._data:
+            return self._data[item]
+        else:
+            raise AttributeError(f"'ValidatedData' object has no attribute '{item}'")
+
+    def set_data(self, key, value):
+        if key in self.parent.permissions.get(self.parent.state, []):
+            dprint(f"Permissions allow the update of {key} in state {self.parent.state}")
+            self._data[key] = value
+        else:
+            raise PermissionError(f"Setting {key} is not allowed in the {self.parent.state} state.")
+

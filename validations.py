@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from openai import OpenAI
 from filehandler import FileHandler
 from typing import Any,Optional,List, Dict
+from openai_asst import OpenAIAsst
 import json
 import re
 import os
@@ -165,6 +166,19 @@ class AsstFilesModel(BaseModel):
         class Config:
             validate_assignment = True
 
+
+""" Loaded State Validations """
+class OpenAIAsstModel(BaseModel):
+    agent_thread: Any
+    @field_validator('agent_thread')
+    def check_asst(cls, v):
+        dprint(f"Validating asst class")
+        if not isinstance(v, OpenAIAsst):
+            raise ValueError("Asst must be an instance of OpenAIAsst")
+        if not v.client or not v.agent_id or not v.prompt:
+            raise ValueError("Asst class values not present")
+            # TODSO add check for self.thread = None
+        return v
 
 class BaseValidation(ABC):
     def __init__(self, agent, **kwargs):
