@@ -4,6 +4,8 @@ import openai
 import re
 from dochandler import Rdoc
 from debug import dprint
+import time
+
 class FileHandler:
     def __init__(self, client, base_path="./Intermediates/"):
         self.client = client
@@ -381,15 +383,38 @@ class FileHandler:
         dprint(f"content = {content}")
         return json.loads(content)
 
-# def retrieve_from_id_or_path(client, thread, file_str):
-#     # the problem is that the file is either in
-#     file_direct = retrieve_file_annotation(client, thread)
-#     if file_direct == file_str:
-#         return file_direct
-#     file_from_path = retrieve_file_path(thread)
-#     return None
-
-
+    def list_asst_files(self, client, agent_id):
+        asst_files = client.beta.assistants.files.list(
+            assistant_id=agent_id,
+            order="asc"
+        )
+        return asst_files
+    def delete_asst_files(self, client, agent_id):
+        """
+        delete all assistant files on this assistant
+        TODO: a bug means that this will always throw an error
+        """
+        asst_files = self.list_asst_files(client, agent_id)
+        print(f"Assistant files: {asst_files}")
+        for asst_file in asst_files:
+            retries = 3
+            while retries > 0:
+                try:
+                    print(f"Attempting to delete Assistant file-id: {asst_file.id}")
+                    client.beta.assistants.files.delete(
+                        assistant_id=agent_id,
+                        file_id=asst_file.id
+                    )
+                    print(f"Successfully deleted Assistant file-id: {asst_file.id}")
+                    break
+                except openai.OpenAIError as e:
+                    print(f"Error deleting file-id {asst_file.id}: {str(e)}")
+                    if retries > 1:
+                        print("Retrying...")
+                        time.sleep(5)  # Wait a bit before retrying
+                    else:
+                        print("Final attempt failed.")
+                retries -= 1
 def retrieve_file_annotation(client, thread):
     """
     Retrieves the file-id from "annotations" which is where the agents should store it
