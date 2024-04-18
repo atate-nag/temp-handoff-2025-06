@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from state_transitions import (ZerotoInitialTransition, InitialtoLoadedTransition,
                                LoadedtoRunningTransition, RunningtoReturnedTransition, ReturnedtoCompleteTransition)
 from validations import (WorkFlowContextModel, AgentConfigs, AgentContextModel, InputFilesModel,
-                         AsstFilesModel, OpenAIAsstModel,
+                         AsstFilesModel, AgentThreadModel,
                          InitialtoLoadedValidation, LoadedtoRunningValidation, RunningtoReturnedValidation,
                          ReturnedtoCompleteValidation)
 from transition_data import TransitionData, ValidatedData
@@ -12,7 +12,7 @@ from transition_data import TransitionData, ValidatedData
 from debug import dprint
 from quality_manager import QualityManager
 from collections import defaultdict
-from openai_asst import OpenAIAsst
+from openai_asst import AgentThread
 
 
 class AgentWorkFlow:
@@ -45,10 +45,10 @@ class AgentWorkFlow:
         self.machine.add_transition('load', 'Initialised', 'Loaded',
                                     prepare='generate_state_data',
                                     conditions=['run_validation'], before='run_transition', after='run')
-        self.permissions['Initialised'] = ['asst_input_files']
+        self.permissions['Initialised'] = ['asst_input_files','agent_thread']
         self.machine.add_transition('run', 'Loaded', 'Running',
                                     conditions=['run_validation'], before='run_transition', after='return')
-        self.permissions['Loaded'] = ['agent_thread']
+        self.permissions['Loaded'] = []
         self.machine.add_transition('return', 'Running', 'Returned',
                                     conditions=['run_validation'], before='run_transition', after='complete')
         self.permissions['Running'] = []
@@ -95,24 +95,31 @@ class AgentWorkFlow:
                                          qm=False,
                                          requirements=self.validated.agent_context.output_schema)
                 qm_class = QualityManager(self, qm_agent)
-                qm_agent_thread = OpenAIAsst(client, agent_id, self.validated.agent_context.prompt)
+                qm_agent_thread = AgentThread(client, agent_id, self.validated.agent_context.prompt)
+            agent_thread = AgentThread(client, agent_id, self.validated.agent_context.prompt)
+            agent_thread.generate_runtime_prompt(
+                input_files=uploaded_assistant_files,
+                requirements=agent_context.requirements
+            )
             self.transition_data.set_data_for_state(
-                    'Initialised',
-                    qm_agent=qm_agent,
-                    qm_class=qm_class,
-                    qm_agent_thread=qm_agent_thread,
-                    asst_input_files=uploaded_assistant_files)
+                'Initialised',
+                qm_agent=qm_agent,
+                qm_class=qm_class,
+                qm_agent_thread=qm_agent_thread,
+                agent_thread=agent_thread,
+                asst_input_files=uploaded_assistant_files)
         elif current_state == 'Initialised':
-            agent_thread = OpenAIAsst(client, agent_id, self.validated.agent_context.prompt)
-            self.transition_data.set_data_for_state(
-                'Loaded',
-                agent_thread=agent_thread)
+            # agent_thread = AgentThread(client, agent_id, self.validated.agent_context.prompt)
+            # agent_thread.generate_runtime_prompt(
+            #     input_files=self.validated.asst_input_files,
+            #     requirements=self.validated.agent_context.requirements
+            # )
             transition = InitialtoLoadedTransition(self, **transition_data)
+            # self.transition_data.set_data_for_state(
+            #     'Initialised',
+            #      agent_threaed=agent_thread)
         elif current_state == 'Loaded':
             agent_thread = self.validated.agent_thread
-            prompt = agent_thread.generate_runtime_prompt(
-                input_files=self.validated.asst_input_files,
-                requirements=self.validated.agent_context.requirements)
             transition = LoadedtoRunningTransition(self, **transition_data)
             self.transition_data.set_data_for_state('Running', client="")
         elif current_state == 'Running':
@@ -129,7 +136,7 @@ class AgentWorkFlow:
             #                              qm=False,
             #                              requirements=self.validated.agent_context.output_schema)
             #     qm_class = QualityManager(self, qm_agent)
-            #     qm_agent_thread = OpenAIAsst(client, agent_id, self.validated.agent_context.prompt)
+            #     qm_agent_thread = AgentThread(client, agent_id, self.validated.agent_context.prompt)
             #     self.transition_data.set_data_for_state('Loaded',
             #                                             qm_agent=qm_agent,
             #                                             qm_class=qm_class,
@@ -166,6 +173,7 @@ class AgentWorkFlow:
         current_state = self.state
         transition_data = self.transition_data.get_data_for_state(current_state)
         dprint(f"validation data for {self.state} = {transition_data}")
+
         if current_state == 'Zero':
             try:
                 # Validate initial data
@@ -182,7 +190,7 @@ class AgentWorkFlow:
                 self.validated.set_data('input_files', input_files_valid)
                 print("Transition successful, context and files validated")
                 self.validated.set_data('workflow_context', validated_workflow_context)
-                #self.validated.set_data('agent_config', agent_configs_valid)
+                # self.validated.set_data('agent_config', agent_configs_valid)
                 self.validated.set_data('agent_context', agent_context_valid)
                 dprint(f"Validation successful, context and files validated context = {agent_context_valid}")
                 return True
@@ -193,26 +201,29 @@ class AgentWorkFlow:
             try:
                 asst_input_files = None
                 if transition_data['asst_input_files']:
+                    dprint(f"Transition contains Asst files, validating...")
                     asst_files_valid = AsstFilesModel(
                         client=self.validated.workflow_context.client,
                         agent_id=self.validated.agent_context.id,
                         input_files=transition_data['asst_input_files'])
                     dprint(f"Validation successful, asst_files{asst_files_valid}")
                     asst_input_files = transition_data['asst_input_files']
+                agent_thread = transition_data['agent_thread']
+                dprint(f"picked agent_thread = {agent_thread} ")
+                try:
+                    agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
+                except ValidationError as e:
+                    print(f"Validation failed: {e}")
+                    return False
+                self.validated.set_data('agent_thread', agent_thread)
                 self.validated.set_data('asst_input_files', asst_input_files)
                 return True
             except ValidationError as e:
-                print(f"Validation failed: {e}")
+                print(f"Validation of StateZero data failed: {e}")
             return False
         elif current_state == 'Loaded':
-            agent_thread = transition_data['agent_thread']
-            dprint(f"transition data is {transition_data}")
-            try:
-                agent_thread_valid = OpenAIAsstModel(**transition_data)
-            except ValidationError as e:
-                print(f"Validation failed: {e}")
-                return False
-            self.validated.set_data('agent_thread', agent_thread)
+            agent_thread = self.validated.agent_thread
+            """create a RunObj instance for a new run"""
             validated = LoadedtoRunningValidation(self, **transition_data)
         elif current_state == 'Running':
             validated = RunningtoReturnedValidation(self, **transition_data)
