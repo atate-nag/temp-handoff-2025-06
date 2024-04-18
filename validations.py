@@ -78,20 +78,6 @@ class AgentConfigs:
             raise ValueError(f"Agent type {agent_type} is not valid. Must be one of {list(known_agents.keys())}.")
         return known_agents[agent_type]
 
-# class ZerotoInitialConfigModel(BaseModel):
-#     agent_type: str
-#
-#     @field_validator('agent_type')
-#     def validate_agent_type(cls, v):
-#         known_agents = AgentConfigs.get_known_agents()
-#         if v not in known_agents:
-#             raise ValueError(f"Agent type {v} is not valid. Must be one of {list(known_agents.keys())}")
-#         return v
-#
-#     def get_agent_details(self):
-#         """Return detailed configuration for a validated agent type."""
-#         return AgentConfigs.get_known_agents()[self.agent_type]
-
 class AgentContextModel(BaseModel):
     id: str = Field()
     description: str = Field()
@@ -141,10 +127,7 @@ class AgentContextModel(BaseModel):
         extra = 'allow'
 
 class InputFilesModel(BaseModel):
-    client: Any  # Assuming this has a specific class that you have defined.
-    agent_id: str = Field()
     input_files: list = Field(default=[])
-
     @validator('input_files', each_item=True)
     def check_input_files(cls, v, values):
         if not isinstance(v, str):
@@ -158,6 +141,31 @@ class InputFilesModel(BaseModel):
 
         class Config:
             validate_assignment = True
+
+
+"""Initialised State Validations """
+
+class AsstFilesModel(BaseModel):
+    client: Any  # Assuming this has a specific class that you have defined.
+    agent_id: str = Field()
+    asst_files: list = Field(default=[])
+
+    @validator('asst_files', each_item=True)
+    def check_asst_files(cls, v, values):
+        if not isinstance(v, str):
+            raise ValueError(f"v={v}: Each item in input_files must be a string representing a file path.")
+        dprint(f"filepath OK")
+        client = values['client']
+        agent_id = values['agent_id']
+        # Optional: Check if the file path exists in the filesystem
+        if assistant_file_accessible(client,agent_id,v):
+            dprint(f"asst_file exists and is accessible")
+        return v
+
+        class Config:
+            validate_assignment = True
+
+
 class BaseValidation(ABC):
     def __init__(self, agent, **kwargs):
         self.agent = agent

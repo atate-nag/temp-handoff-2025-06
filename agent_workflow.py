@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from state_transitions import (ZerotoInitialTransition, InitialtoLoadedTransition,
                                LoadedtoRunningTransition, RunningtoReturnedTransition, ReturnedtoCompleteTransition)
 from validations import (WorkFlowContextModel, AgentConfigs, AgentContextModel, InputFilesModel,
+                        AsstFilesModel,
                          InitialtoLoadedValidation, LoadedtoRunningValidation, RunningtoReturnedValidation, ReturnedtoCompleteValidation)
 from transition_data import TransitionData
 # Set up logging
@@ -116,6 +117,10 @@ class AgentWorkFlow:
                 print(f"Validation failed: {e}")
                 return False
         elif current_state == 'Initialised':
+            asstt_files_valid = AsstFilesModel(
+                client=self.workflow_context.client,
+                agent_id=self.agent_context.id,
+                input_files=self.input_files)
             validated = InitialtoLoadedValidation(self, **transition_data)
         elif current_state == 'Loaded':
             validated = LoadedtoRunningValidation(self, **transition_data)
