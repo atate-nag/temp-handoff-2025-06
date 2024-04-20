@@ -1,6 +1,6 @@
 from debug import dprint
 
-class TransitionData:
+class UnvalidatedData:
     def __init__(self, **kwargs):
         self.data = kwargs
 
