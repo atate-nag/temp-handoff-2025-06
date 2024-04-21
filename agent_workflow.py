@@ -7,10 +7,13 @@ from validations import (WorkFlowContextModel, AgentConfigs, AgentContextModel, 
                          AsstFilesModel, AgentThreadModel,
                          InitialtoLoadedValidation, LoadedtoRunningValidation, RunningtoReturnedValidation,
                          ReturnedtoCompleteValidation)
+from import_files import InputFilesModel, AsstFilesModel
+
 from data_validation import UnvalidatedData, ValidatedData
 from debug import dprint
 from collections import defaultdict
 from openai_asst import AgentThread
+from agent_state_machine_config import AgentStateMachineConfig
 import time
 
 class Agent:
@@ -27,7 +30,6 @@ class Agent:
         self.agent_id = self.prompt = self.description = self.output_schema = self.context = None
 
         self.validated = ValidatedData(self)  # container for validated data
-        self.permissions = {}
 
         """
             Generation  ->  Validation ->  Transition ->  Trigger 
@@ -35,42 +37,9 @@ class Agent:
             validation)      False   )     State Data)    next state)
         """
 
-        self.machine = Machine(model=self, states=Agent.states, initial='Zero')
-        # ZeroState confgis
-        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files']
-        self.machine.add_transition('initial_trigger',
-                                    'Zero',
-                                    'Initialised',
-                                    prepare='before_validation',
-                                    conditions=['validation'],
-                                    before='after_validation')
-        # Initialised State Configs
-        self.permissions['Initialised'] = ['asst_input_files', 'agent_thread']
-        self.machine.add_transition('load_trigger',
-                                    'Initialised',
-                                    'Loaded',
-                                    prepare='before_validation',
-                                    conditions=['validation'],
-                                    before='after_validation'
-                                    )
-        # Loadedstate configs
-        self.permissions['Loaded'] = ['run_object']
-        self.machine.add_transition('run_trigger',
-                                    'Loaded',
-                                    'Running',
-                                    prepare='before_validation',
-                                    conditions=['validation'],
-                                    before='after_validation')
-        self.machine.add_transition('retrieve_trigger',
-                                    'Running',
-                                    'Retrieved',
-                                    prepare='before_validation',
-                                    conditions=['validation'],
-                                    before='after_validation')
-        self.permissions['Running'] = []
-        self.machine.add_transition('complete', 'Returned', 'Completed',
-                                    conditions=['validation'])
-        self.permissions['Retrieved'] = []
+        self.state_machine = AgentStateMachineConfig().setup(self)
+        dprint(f"State machine = {self.state_machine}")
+        self.permissions = AgentStateMachineConfig().permissions
 
     def initialise(self):
         self.initial_trigger(self.unvalidated_data)
@@ -95,25 +64,10 @@ class Agent:
             file_handler = self.validated.workflow_context.file_handler
             client = self.validated.workflow_context.client
             agent_id = self.validated.agent_context.id
-            if self.user_data['input_files']:
-                uploaded_assistant_files = []
-                for file in self.user_data['input_files']:
-                    asst_file = file_handler.create_asst_file_from_local(
-                        client,
-                        agent_id,
-                        file)
-                    uploaded_assistant_files.append(asst_file)
             asst_files = client.beta.assistants.files.list(
                 assistant_id=agent_id,
             )
             dprint(f"Assistant files: {asst_files}")
-            # first_asst_file= asst_files.data[0].id
-            # dprint(f"First Assistant file: {first_asst_file}")
-            # asst_files = client.beta.assistants.files.list(
-            #     assistant_id=agent_id,
-            #     after=first_asst_file
-            # )
-            # dprint(f"New assistant files: {asst_files}")
             for asst_file in asst_files.data:
                 dprint(f"Assistant file: {asst_file}")
                 try:
@@ -125,7 +79,19 @@ class Agent:
                     dprint(f"Deleted Assistant file")
                 except Exception as e:
                     dprint(f"Error deleting Assistant file {e}")
-            agent_thread = AgentThread(client, agent_id, self.validated.agent_context.prompt)
+            if self.user_data['input_files']:
+                uploaded_assistant_files = []
+                for file in self.user_data['input_files']:
+                    asst_file = file_handler.create_asst_file_from_local(
+                        client,
+                        agent_id,
+                        file)
+                    uploaded_assistant_files.append(asst_file)
+            agent_thread = AgentThread(
+                client,
+                agent_id,
+                self.validated.agent_context.prompt,
+                self.validated.workflow_context.file_handler)
             self.unvalidated_data.set_data_for_state(
                 'Initialised',
                 agent_thread=agent_thread,
@@ -136,13 +102,7 @@ class Agent:
             dprint("In Running state, waiting for thread")
             #
             #
-            self.validated.run_object.retrieve()
-
-            # asst_file_output = self.validated.run_object.run_and_retrieve_output_file()
-            #response = self.get_new_messages(self.active_thread())
-            #response_asst_file = self.filehandler.txt_to_asst_file(self.client, response, "latest_response",
-            #                                                       self.agent_id)
-            #dprint(f"response from Agent = {response}")
+            self.validated.agent_thread.retrieve()
         return
 
     def validation(self, unvalidated_data):
@@ -225,39 +185,13 @@ class Agent:
         agent_id = self.validated.agent_context.id
         file_handler = self.validated.workflow_context.file_handler
         if current_state == "Initialised":
-            # delete all the assistant files on the agent
-            # asst_files = client.beta.assistants.files.list(
-            #     assistant_id=agent_id,
-            # )
-            # dprint(f"Assistant files: {asst_files}")
-            # # first_asst_file= asst_files.data[0].id
-            # # dprint(f"First Assistant file: {first_asst_file}")
-            # # asst_files = client.beta.assistants.files.list(
-            # #     assistant_id=agent_id,
-            # #     after=first_asst_file
-            # # )
-            # # dprint(f"New assistant files: {asst_files}")
-            # for asst_file in asst_files.data:
-            #     dprint(f"Assistant file: {asst_file}")
-            #     try:
-            #         dprint(f"Attempting to delete Assistant file-id: {asst_file.id}")
-            #         client.beta.assistants.files.delete(
-            #             assistant_id=agent_id,
-            #             file_id=asst_file.id
-            #         )
-            #         dprint(f"Deleted Assistant file")
-            #     except Exception as e:
-            #         dprint(f"Error deleting Assistant file {e}")
             dprint(f"Initialised: Loading state Loaded")
         if current_state == 'Loaded':
             dprint(f"Exiting Loaded state 'Running'")
-            # dprint(f"About to retreive run from state 'Running'")
-            # self.validated.run_object.retrieve()
         elif current_state == 'Running':
             dprint(f"State '{current_state}'")
-            # self.validated.run_object.retrieve()
-        elif current_state == 'Returned':
-            self.unvalidated_data.set_data_for_state('Running', client="")
+        elif current_state == 'Retrieved':
+            dprint(f"State '{current_state}'")
         else:
             dprint(f"Completed state: {current_state}")
             return
@@ -269,7 +203,7 @@ class Agent:
 
     def to_error(self):
         logging.error("An error occurred during the state transitions.")
-        self.machine.set_state('error')
+        self.state_machine.set_state('error')
 
     def define_permissions(self):
         self.permissions = {

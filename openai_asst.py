@@ -3,23 +3,25 @@ import time
 from pydantic import BaseModel, Field, validator
 import time
 from typing import Optional, List, Any
-
+from import_files import InputFilesModel, AsstFilesModel
 
 class AgentThread():
 
     """ A thread of execution and management of one Agent """
-    def __init__(self, client, agent_id, initial_prompt):
+    def __init__(self, client, agent_id, initial_prompt, file_handler):
         self.client = client
         self.agent_id = agent_id
         self.initial_prompt = initial_prompt
         self.state = 'inactive'
         self.run_prompt = None
-        self.rubobj = None
         self.runobjs = []
+        self.returnobjs = []
+        self.file_handler = file_handler
         self.thread = self.client.beta.threads.create()
         dprint(f"created initial thread {self.thread.id}")
 
     def new_runobj(self,parent,input_files,retrieval_limit,requirements,output_schema):
+        dprint(f"Creating new runobj with inputs {input_files}")
         run = RunObj(
             parent=parent,
             input_files=input_files,
@@ -39,9 +41,19 @@ class AgentThread():
         dprint(f"appended the runobjs list so that the end item is {self.runobjs[-1]}")
         return run
 
-    # def retrieve(self):
-    #     dprint(f"The end runobjs item is {self.runobjs[-1]}")
-    #     self.runobjs[-1].run()
+    def retrieve(self):
+        dprint(f"The end runobjs item is {self.runobjs[-1]}")
+        self.runobjs[-1].retrieve()
+        # switch the runobj to ran state, can't be modified or reran
+        self.runobjs[-1].ran = True
+        asst_file_agent_output = self.file_handler.retrieve_and_create_asst_file(
+            self.client,
+            self.agent_id,
+            self.thread,
+            "agent_retrieval_for_asst_file",
+        )
+
+
 
     def generate_thread(self):
         if self.run_prompt is None:
@@ -79,11 +91,10 @@ class RunObj(BaseModel):
     run_prompt: Optional[str] = None
     ran: bool = Field(default=False)
 
-    @validator('input_files', each_item=True, pre=True)
-    def validate_file_ids(cls, v):
-        if v is not None and not isinstance(v, str):
-            raise ValueError("Each input file must be a string representing the file ID.")
-        return v
+    # @validator('input_files', pre=True)
+    # def check_input_files(cls, v):
+    #     t = AsstFilesModel(input_files=v)
+    #     return v
 
     @validator('openai_run', always=True)
     def validate_openai_run(cls, v):
@@ -155,7 +166,7 @@ class RunObj(BaseModel):
                 print(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
                 retries += 1
                 time.sleep(5)
-        print(f"Run {run_id} did not complete after {self.retrieval_limit} retries.")
+        print(f"Run {run_id} did not complete after {self.retrieval_limit} queries.")
         return None
 
     def generate_runtime_prompt(self,prompt,input_files=None,input_response=None,agent_output=None, requirements=None):

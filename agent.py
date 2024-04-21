@@ -317,8 +317,6 @@ class Agent:
         """
             Runs the agent, creates an assistant file from the provided output file,
             Or from the json in the response.
-            TODO needs the recent response passed through - currently all the annotations
-                will be used in filehandler
         """
         retrieve = self.run_and_retrieve_thread()
         dprint(f"retrieve from Agent run = {retrieve}")
