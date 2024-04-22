@@ -21,6 +21,7 @@ class WorkFlowContextModel(BaseModel):
         dprint(f"Validating client")
         if not isinstance(v, OpenAI):
             raise ValueError("client must be an instance of OpenAI")
+        dprint(f"Validated client")
         return v
 
     @field_validator('file_handler')
@@ -28,14 +29,17 @@ class WorkFlowContextModel(BaseModel):
         dprint(f"Validating file handler")
         if not isinstance(v, FileHandler):
             raise ValueError("filehandler must be an instance of FileHandler")
+        dprint(f"Validated filehander {v}")
         return v
 
     @field_validator('agent_type')
     def check_agent_type(cls, v):
         dprint(f"Validating agent type and known_agents")
         known_agents = AgentConfigs().get_known_agents()
+        dprint(f"Known agents: {known_agents}")
         if v not in known_agents:
             raise ValueError(f"agent_type {v} is not valid. Must be one of {list(known_agents.keys())}")
+        dprint(f" {v} is in known_agents")
         return v
 
 class AgentConfigs:

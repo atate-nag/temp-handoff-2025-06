@@ -56,7 +56,6 @@ def main():
     company_graph.close()
     insight_graph.close()
 
-
 def get_step_function(step_name):
     """
     Returns the function mapped to the specified workflow step without executing it.
@@ -259,13 +258,15 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         # create appropriate agent type
         dprint(f"creating an agent of type {agentType}")
         local_json = file_handler.write_local_json("full_graph", json_graph)
-        agent_workflow_manager = AgentManager(
-            client=client,
-            file_handler=file_handler,
-            agent_type=agentType,
-            qm=True,
-            input_files=[local_json]
-        )
+        agent_manager = AgentManager(client=client, file_handler=file_handler, agent_types=[agentType, 'qm_agent'],
+                                     input_files=local_json)
+        # agent_workflow_manager = AgentManager(
+        #     client=client,
+        #     file_handler=file_handler,
+        #     agent_type=agentType,
+        #     qm=True,
+        #     input_files=[local_json]
+        # )
         sys.exit()
         # agent_work_flow = Agent(client=client,
         #                         file_handler=file_handler,

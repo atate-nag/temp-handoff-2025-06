@@ -15,6 +15,7 @@ from collections import defaultdict
 from openai_asst import AgentThread
 from agent_state_machine_config import AgentStateMachineConfig
 import time
+from pubsub import pub
 
 class Agent:
     states = ['Zero', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
@@ -40,6 +41,7 @@ class Agent:
         self.state_machine = AgentStateMachineConfig().setup(self)
         dprint(f"State machine = {self.state_machine}")
         self.permissions = AgentStateMachineConfig().permissions
+        receive_input = None
 
     def initialise(self):
         self.initial_trigger(self.unvalidated_data)
@@ -115,23 +117,32 @@ class Agent:
         if current_state == 'Zero':
             try:
                 # Validate initial data
+                dprint(f"Doing Validations for Zero state with {unvalidated_data}")
                 validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
+                dprint("Validated Workflow context")
                 agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
+                dprint("Validated AgentConfigs details")
                 agent_context_valid = AgentContextModel(**agent_configs_valid)
-                print("Transition successful, context and files validated")
+                dprint("Validated AgentContextModel")
                 self.validated.set_data('workflow_context', validated_workflow_context)
                 self.validated.set_data('agent_config', agent_configs_valid)
                 self.validated.set_data('agent_context', agent_context_valid)
+                dprint("Set Validated data")
                 input_files_valid = None
                 if self.user_data['input_files']:
                     input_files_valid = InputFilesModel(
                         client=self.validated.workflow_context.client,
                         agent_id=self.validated.agent_context.id,
                         input_files=self.user_data['input_files'])
+                dprint("Validated input files")
                 self.validated.set_data('input_files', input_files_valid)
                 return True
+            except ValidationError as e:
+                dprint("Validation error:", e.json())
+            except ValueError as e:
+                dprint(f"Value error: {e}")
             except Exception as e:
-                print("Error while validating ZeroState data")
+                dprint(f"Unexpected error while validating ZeroState data: {e}")
         elif current_state == "Initialised":
             input_files_valid = None
             try:
@@ -184,6 +195,9 @@ class Agent:
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.id
         file_handler = self.validated.workflow_context.file_handler
+        if current_state == 'Zero':
+            dprint("After Validation of Zero")
+            #pub.subscribe(self.receive_input, f'{self.validated.agent_context.agent_type}_input')
         if current_state == "Initialised":
             dprint(f"Initialised: Loading state Loaded")
         if current_state == 'Loaded':
