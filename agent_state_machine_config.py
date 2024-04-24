@@ -4,10 +4,10 @@ from transitions import Machine
 class AgentStateMachineConfig:
     def __init__(self):
         self.permissions = {}
-        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files']
-        self.permissions['Initialised'] = ['asst_input_files', 'agent_thread']
+        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files', 'agent_thread']
+        self.permissions['Initialised'] = ['asst_input_files']
         self.permissions['Loaded'] = ['run_object']
-        self.permissions['Running'] = []
+        self.permissions['Running'] = ['output_dict']
         self.permissions['Retrieved'] = []
 
     def setup(self, agent):
@@ -20,6 +20,10 @@ class AgentStateMachineConfig:
                                     conditions=['validation'],
                                     before='after_validation')
         # Initialised State Configs
+        # self.machine.add_transition(
+        #     trigger='wait_trigger',
+        #     source='Initialised',
+        #     dest='Waiting')
         self.machine.add_transition('load_trigger',
                                     'Initialised',
                                     'Loaded',
@@ -28,6 +32,7 @@ class AgentStateMachineConfig:
                                     before='after_validation'
                                     )
         # Loadedstate configs
+
         self.machine.add_transition('run_trigger',
                                     'Loaded',
                                     'Running',

@@ -10,6 +10,23 @@ import json
 import re
 import os
 
+class AgentResponseModel(BaseModel):
+    # Example fields expected in the JSON response
+    completed: bool
+    results: dict
+    message: str
+
+    @validator('results', pre=True)
+    def validate_results(cls, v):
+        if 'expected_field' not in v:
+            raise ValueError("Results must include 'expected_field'")
+        return v
+
+# Model for validating file content
+class AgentFileContentModel(BaseModel):
+    data: list
+    summary: str
+
 class WorkFlowContextModel(BaseModel):
     client: Any
     file_handler: Any
@@ -130,11 +147,11 @@ class AgentThreadModel(BaseModel):
     agent_thread: Any
     @field_validator('agent_thread')
     def check_asst(cls, v):
-        dprint(f"Validating asst class")
+        dprint(f"Validating AgentThread class")
         if not isinstance(v, AgentThread):
-            raise ValueError("Asst must be an instance of AgentThread")
+            raise ValueError("AgentThread must be an instance of AgentThread")
         if not v.client or not v.agent_id or not v.initial_prompt:
-            raise ValueError("Asst class values not present")
+            raise ValueError("AgentThread class values not present")
             # TODSO add check for self.thread = None
         return v
 

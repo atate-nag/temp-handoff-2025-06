@@ -18,7 +18,7 @@ import time
 from pubsub import pub
 
 class Agent:
-    states = ['Zero', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
+    states = ['Zero', 'Waiting', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
 
     def __init__(self, **kwargs):
         # set all class variables to None until validated
@@ -27,8 +27,8 @@ class Agent:
         # defaultdict will add optional arguments to None so they can still be queried without key error
         self.user_data = defaultdict(lambda: None, **kwargs)
 
-        self.qm_agent = self.thread = self.agent_details = self.input_files = None
-        self.agent_id = self.prompt = self.description = self.output_schema = self.context = None
+        # self.qm_agent = self.thread = self.agent_details = self.input_files = None
+        # self.agent_id = self.prompt = self.description = self.output_schema = self.context = None
 
         self.validated = ValidatedData(self)  # container for validated data
 
@@ -42,6 +42,8 @@ class Agent:
         dprint(f"State machine = {self.state_machine}")
         self.permissions = AgentStateMachineConfig().permissions
         receive_input = None
+        # TODO - the subscription should only happen when agentType is
+        # validated
 
     def initialise(self):
         self.initial_trigger(self.unvalidated_data)
@@ -49,11 +51,19 @@ class Agent:
     def load(self):
         self.load_trigger(self.unvalidated_data)
 
+    def wait(self):
+        self.wait_trigger(self.unvalidated_data)
+
     def run(self):
         self.run_trigger(self.unvalidated_data)
 
     def retrieve(self):
         self.retrieve_trigger(self.unvalidated_data)
+
+    def receive_input(self, input):
+        # Process the input and possibly generate new output
+        self.process_input(input)
+        pub.sendMessage(f'{self.agent_type}_output', sender=self.agent_type, output="Processed")
 
     def before_validation(self, unvalidated_data):
         """ Execute Before validation and transition """
@@ -61,26 +71,25 @@ class Agent:
         current_state = self.state
         if current_state == 'Zero':
             self.unvalidated_data.set_data_for_state(current_state, **self.user_data)
+            client = self.user_data['client']
+            agent_id = self.user_data['agent_id']
+            file_handler = self.user_data['file_handler']
+            self.unvalidated_data.set_data_for_state(
+                'Initialised')
         elif current_state == 'Initialised':
-            uploaded_assistant_files = None
-            file_handler = self.validated.workflow_context.file_handler
+            # Handle both direct user inputs and outputs from other agents
+            # Determine input sources: direct user files or outputs from other agents
+
             client = self.validated.workflow_context.client
             agent_id = self.validated.agent_context.id
-            asst_files = client.beta.assistants.files.list(
-                assistant_id=agent_id,
-            )
-            dprint(f"Assistant files: {asst_files}")
-            for asst_file in asst_files.data:
-                dprint(f"Assistant file: {asst_file}")
-                try:
-                    dprint(f"Attempting to delete Assistant file-id: {asst_file.id}")
-                    client.beta.assistants.files.delete(
-                        assistant_id=agent_id,
-                        file_id=asst_file.id
-                    )
-                    dprint(f"Deleted Assistant file")
-                except Exception as e:
-                    dprint(f"Error deleting Assistant file {e}")
+            file_handler = self.validated.workflow_context.file_handler
+
+            # input_sources = self.determine_input_sources()
+            # Load inputs and create agent thread
+            # uploaded_assistant_files = self.upload_and_prepare_files(client, agent_id, file_handler, input_sources)
+            # agent_thread = self.create_agent_thread(client, agent_id, file_handler)
+
+            # Set unvalidated data for the state
             if self.user_data['input_files']:
                 uploaded_assistant_files = []
                 for file in self.user_data['input_files']:
@@ -89,22 +98,39 @@ class Agent:
                         agent_id,
                         file)
                     uploaded_assistant_files.append(asst_file)
-            agent_thread = AgentThread(
-                client,
-                agent_id,
-                self.validated.agent_context.prompt,
-                self.validated.workflow_context.file_handler)
             self.unvalidated_data.set_data_for_state(
                 'Initialised',
-                agent_thread=agent_thread,
                 asst_input_files=uploaded_assistant_files)
+            # uploaded_assistant_files = None
+            # file_handler = self.validated.workflow_context.file_handler
+            # client = self.validated.workflow_context.client
+            # agent_id = self.validated.agent_context.id
+            #
+            # if self.user_data['input_files']:
+            #     uploaded_assistant_files = []
+            #     for file in self.user_data['input_files']:
+            #         asst_file = file_handler.create_asst_file_from_local(
+            #             client,
+            #             agent_id,
+            #             file)
+            #         uploaded_assistant_files.append(asst_file)
+            # agent_thread = AgentThread(
+            #     client,
+            #     agent_id,
+            #     self.validated.agent_context.prompt,
+            #     self.validated.workflow_context.file_handler)
+            # self.unvalidated_data.set_data_for_state(
+            #     'Initialised',
+            #     agent_thread=agent_thread,
+            #     asst_input_files=uploaded_assistant_files)
         elif current_state == 'Loaded':
             agent_thread = self.validated.agent_thread
         elif current_state == 'Running':
             dprint("In Running state, waiting for thread")
             #
-            #
-            self.validated.agent_thread.retrieve()
+            self.validated.agent_thread.retrieve(
+                debug=False
+            )
         return
 
     def validation(self, unvalidated_data):
@@ -136,6 +162,14 @@ class Agent:
                         input_files=self.user_data['input_files'])
                 dprint("Validated input files")
                 self.validated.set_data('input_files', input_files_valid)
+                agent_thread = AgentThread(
+                    self.validated.workflow_context.client,
+                    self.validated.agent_context.id,
+                    self.validated.agent_context.prompt,
+                    self.validated.workflow_context.file_handler)
+                dprint(f"New agent_thread = {agent_thread} ")
+                agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
+                self.validated.set_data('agent_thread', agent_thread)
                 return True
             except ValidationError as e:
                 dprint("Validation error:", e.json())
@@ -156,10 +190,10 @@ class Agent:
                         input_files=unvalidated_data['asst_input_files'])
                     dprint(f"Validation successful, asst_files{asst_files_valid}")
                     asst_input_files = unvalidated_data['asst_input_files']
-                agent_thread = unvalidated_data['agent_thread']
-                dprint(f"picked agent_thread = {agent_thread} ")
-                agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
-                self.validated.set_data('agent_thread', agent_thread)
+                # agent_thread = unvalidated_data['agent_thread']
+                # dprint(f"picked agent_thread = {agent_thread} ")
+                # agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
+                # self.validated.set_data('agent_thread', agent_thread)
                 self.validated.set_data('asst_input_files', asst_input_files)
                 agent_thread = self.validated.agent_thread
                 return True
@@ -167,8 +201,6 @@ class Agent:
                 print(f"Validation failed: {e}")
                 return False
         elif current_state == 'Loaded':
-            # TODO add validation logic for entering Run State
-            # imporant check - is the run object
             # Validate and create a RunObjModel instance
 
             run_object = self.validated.agent_thread.new_runobj(
@@ -181,10 +213,26 @@ class Agent:
             self.validated.set_data('run_object',run_object)
             return True
         elif current_state == 'Running':
-            dprint(f"Validating the run {current_state}")
-            return True
-
-
+            # did the run produce the right outputs and response?
+            dprint(f"Validating the run in state {current_state}")
+            # checks 1) is there a valid response and output file?
+            output_dict = self.validated.agent_thread.get_output()
+            # if not, it will get reissued
+            # TODO validate output_dict
+            self.validated.set_data('output_dict', output_dict)
+            if output_dict['structured_output']:
+               dprint("Good JSON output - validating state")
+               return True
+            else:
+                instructions = ("No valid structured JSON was detected in your response or"
+                                "in an output file that you have indicated was present. Please"
+                                "regenerate your response and try again.")
+                # reissue logic will go here
+                dprint("Reissuing with an updated message")
+                dprint(f"Agent did not complete and will be informed: {instructions}")
+                # TODO cannot act on agent_thread state
+                self.validated.agent_thread.add_message(instructions)
+                self.trigger('run_trigger')
 
     def after_validation(self, unvalidated_data):
         """ Execute AFTER validation but before state transition"""
@@ -197,18 +245,81 @@ class Agent:
         file_handler = self.validated.workflow_context.file_handler
         if current_state == 'Zero':
             dprint("After Validation of Zero")
-            #pub.subscribe(self.receive_input, f'{self.validated.agent_context.agent_type}_input')
+            pub.subscribe(self.receive_input, f'{self.validated.workflow_context.agent_type}_input')
+            # Process existing assistant files (if any)
+            self.delete_existing_assistant_files(client, agent_id, file_handler)
         if current_state == "Initialised":
+            # pub.sendMessage(f'{self.validated.workflow_context.agent_type}_output', sender=self.validated.workflow_context.agent_type, output="Initialised")
             dprint(f"Initialised: Loading state Loaded")
         if current_state == 'Loaded':
             dprint(f"Exiting Loaded state 'Running'")
         elif current_state == 'Running':
-            dprint(f"State '{current_state}'")
+            dprint(f"State '{current_state}' and output is {self.validated.output_dict}")
+            pub.sendMessage(f"{self.validated.workflow_context.agent_type}.output", output=self.validated.output_dict)
         elif current_state == 'Retrieved':
             dprint(f"State '{current_state}'")
         else:
             dprint(f"Completed state: {current_state}")
             return
+
+    def determine_input_sources(self):
+        """ Decide whether to use user_data or outputs from previous agents
+            Multiple situations
+            1) Initial run and has inputs
+            2) Initial run with inputs from another agent (e.g. QM)
+            3) Repeated run - incorporated user feedback
+        """
+        if self.validated.agent_thread is None:
+            # this means has not yet been through an execution
+            if self.user_data['input_files'] is None:
+                # For QM agents, inputs are typically outputs from other agents
+                dprint("No user inputs")
+            else:
+                # For other agents, use provided input_files if available
+                dprint(f"User inputs")
+            return self.user_data.get('input_files', [])
+        else:
+            # this is the state that the
+            dprint("User XXX inputs")
+
+    def handle_input(self, agent_output_object):
+        """Triggered when AI output is published"""
+        dprint(f"Received output from another agent {agent_output_object}")
+        dprint(f"Can now invoke recieving agent into")
+        return agent_output_object
+
+    def delete_existing_assistant_files(self, client, agent_id, file_handler):
+        """ Manage existing assistant files in OpenAI """
+        asst_files = client.beta.assistants.files.list(
+            assistant_id=agent_id,
+        )
+        dprint(f"Assistant files: {asst_files}")
+        for asst_file in asst_files.data:
+            dprint(f"Assistant file: {asst_file}")
+            try:
+                dprint(f"Attempting to delete Assistant file-id: {asst_file.id}")
+                client.beta.assistants.files.delete(
+                    assistant_id=agent_id,
+                    file_id=asst_file.id
+                )
+                dprint(f"Deleted Assistant file")
+            except Exception as e:
+                dprint(f"Error deleting Assistant file {e}")
+
+
+
+    def upload_and_prepare_files(self, client, agent_id, file_handler, input_sources):
+        """ Upload files to assistant and prepare them for processing """
+        uploaded_files = []
+        for file in input_sources:
+            uploaded_file = file_handler.create_asst_file_from_local(client, agent_id, file)
+            uploaded_files.append(uploaded_file)
+        return uploaded_files
+
+    def create_agent_thread(self, client, agent_id, file_handler):
+        """ Create an AgentThread instance """
+        agent_thread = AgentThread(client, agent_id, self.validated.agent_context.prompt, file_handler)
+        return agent_thread
 
     def after_transition(self, unvalidated_data):
         """ Execute AFTER  transition"""
@@ -218,13 +329,6 @@ class Agent:
     def to_error(self):
         logging.error("An error occurred during the state transitions.")
         self.state_machine.set_state('error')
-
-    def define_permissions(self):
-        self.permissions = {
-            'Initialised': ['input_files', 'client'],
-            'Processed': ['processed_data'],
-            'Completed': []
-        }
 
     def set_validated_data(self, key, value):
         if key in self.permissions.get(self.state, []):

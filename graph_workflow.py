@@ -123,7 +123,6 @@ def update_company_data(dataDir, companyName):
         dprint(f"No data directory found for {companyName}.")
     return
 
-
 def display_insights(companyName, relevanceFrom):
     dprint(
         f"display insights, Company: {companyName}, relevanceFrom={relevanceFrom} and type is {type(relevanceFrom)}"
@@ -243,7 +242,6 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
             insight_graph.add_insight(insight_content, companyName)
     return
 
-
 def generic_agent_run(agentType, companyName, updateGraph, debugRun):
     # TODO needs a generic intermediates write adding
     # TODO can be made more generic by defining the graph input -> agent function -> graph output
@@ -254,46 +252,22 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         # get the graph data to send to agent
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
         # dprint(json_graph)
-        filename_prefix = f"{agentType}_graph_{companyName}"
-        # create appropriate agent type
-        dprint(f"creating an agent of type {agentType}")
-        local_json = file_handler.write_local_json("full_graph", json_graph)
-        agent_manager = AgentManager(client=client, file_handler=file_handler, agent_types=[agentType, 'qm_agent'],
-                                     input_files=local_json)
-        # agent_workflow_manager = AgentManager(
-        #     client=client,
-        #     file_handler=file_handler,
-        #     agent_type=agentType,
-        #     qm=True,
-        #     input_files=[local_json]
-        # )
+        file_path = f"graph.json"
+        with open(file_path, "w") as file:
+            file.write(json_graph)
+        with open(file_path, "rb") as local_file:
+            filename_prefix = f"{agentType}_graph_{companyName}"
+            # create appropriate agent type
+            dprint(f"creating an agent of type {agentType}")
+            # local_json = file_handler.write_local_json("full_graph", json_graph)
+            agent_manager = AgentManager(client=client, file_handler=file_handler, agent_types=[agentType, 'qm_agent'],
+                                         input_files=[file_path])
         sys.exit()
-        # agent_work_flow = Agent(client=client,
-        #                         file_handler=file_handler,
-        #                         agent_type=agentType,
-        #                         qm=True,
-        #                         input_files=[local_json])
-        # agent_graph_file = file_handler.json_to_asst_file(client, json_graph, filename_prefix, agent_work_flow)
-        # agent_graph_file.start_workflow(agent_graph_file)
-        # agent.initialise(client, file_handler, True, agentType)
-        # agent.load([agent_graph_file])
         dprint(f"Agent is now in state {agent_work_flow.state}")
         sys.exit()
-        # agent_graph_asst_file = file_handler.json_to_asst_file(
-        #     client,
-        #     json_graph,
-        #     f"{agentType}_graph_{companyName}",
-        #     agent.agent_id
-        # )
         dprint(f"Agent ={agent} and Validated context is {agent.context}")
         dprint(f"An Agent of type {agent.type} and context {agent.context} ")
-        # setup the agent run with QM enabled
-        #        agent.load(input_files=[agent_graph_asst_file])
-        #        agent.run()  # Triggers validation and potential state transition to READY
-        sys.exit()
-
         run = agent.setup_run(agent_graph_file, qm=True)
-
         dictionary_return = agent.run_agent()
         dprint(f"Agent file has returned {dictionary_return}")
     # now call a generic graph updater also
@@ -301,7 +275,6 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         company_graph.generic_update_graph(companyName, dictionary_return, agentType)
     for item in dictionary_return:
         dprint(item)
-
 
 if __name__ == '__main__':
     main()

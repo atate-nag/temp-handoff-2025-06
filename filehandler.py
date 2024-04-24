@@ -50,9 +50,21 @@ class FileHandler:
     def txt_to_asst_file(self,client, text, tag, assistant):
         # Check if file already exists locally and has been uploaded
         # nuance - openAI needs an asssistant file if the agent is already active
-        local_file = self.write_local_file(tag, text)
-        asst_file = self.create_asst_file_from_local(client, assistant, local_file)
-        return asst_file
+        # local_file = self.write_local_file(tag, text)
+        # asst_file = self.create_asst_file_from_local(client, assistant, local_file)
+        # return asst_file
+        with open(f"debug_{tag}.json", "w") as file:
+            file.write(text)
+        with open(f"debug_{tag}.json", "rb") as local_file:
+            uploaded_file = client.files.create(
+                file=local_file,
+                purpose="assistants"
+            )
+            asst_file = client.beta.assistants.files.create(
+                assistant_id=assistant,
+                file_id=uploaded_file.id
+            )
+            return asst_file
 
     def direct_upload_txt(self, data, tag):
         # Check if file already exists locally and has been uploaded
@@ -107,9 +119,9 @@ class FileHandler:
 
     @staticmethod
     def write_local_file(tag, text):
-        file_path = f"./Intermediates/local_{tag}_for_agent_upload.txt"
+        file_path = f"./Intermediates/upload{tag}.jsonl"
         # Open the file in binary mode for writing; encode the text to bytes
-        with open(file_path, "wb") as file:
+        with open(file_path, "w") as file:
             file.write(text.encode('utf-8'))
         return file_path
 
@@ -234,18 +246,17 @@ class FileHandler:
         dprint(f"No annotations or json content were found, returning None")
         return None
 
-    def retrieve_direct_agent_content(self, client, agent_id, thread, response, output_file, tag=""):
+    def retrieve_direct_agent_content(self, client, agent_id, thread, response_str, output_file, tag=""):
         """
         Retrieves the content from a file, annotations or set of messages
         After an agent completes, there should be useful JSON data in either the
         response file or the latest output file. Must be careful of whether one of
         them did not product JSON, and we pick up old JSON from an old output.
+        TODO - extract both and if they differ choose largest
         """
-
         # dprint(f"retrieving Agent content from response {response} and output {output_file}")
         # response_str = self.retrieve_file_content_str(client, agent_id, response_file)
-        json_data = self.extract_json_from_response_text(response)
-
+        json_data = self.extract_json_from_response_text(response_str)
         dprint(f"dict extracted from response {json_data}")
         if json_data:
             return json_data
@@ -364,7 +375,7 @@ class FileHandler:
             file_id=file
         )
         dprint(f"asst_file {asst_file}")
-        content = client.files.retrieve_content(file)
+        content = client.files.retrieve_content(asst_file)
         dprint(f"content = {content}")
         return content
 

@@ -28,12 +28,23 @@ class AgentManager:
             pub.subscribe(self.handle_output, f'{name}_output')
 
         # Initialize agents (assuming this triggers their internal setup and state transitions)
-        for agent in self.agents.values():
-            agent.initialise()
+        # for agent in self.agents.values():
+        #     agent.initialise()
+
+        self.agents['competition_agent'].initialise()
+        #self.agents['qm_agent'].initialise()
+        #pub.subscribe(self.agents['qm_agent'].retrieve, 'competition_agent.agent_output_object')
+        dprint(f"agent states = {self.agents['competition_agent'].state} ")
+        self.agents['competition_agent'].load()
+        dprint(f"agent states = {self.agents['competition_agent'].state} ")
+        self.agents['competition_agent'].run()
+        dprint(f"agent states = {self.agents['competition_agent'].state} ")
+        self.agents['competition_agent'].retrieve()
+        dprint(f"agent states = {self.agents['competition_agent'].state} ")
 
     def handle_output(self, sender, output):
         # Output handling logic based on the sender
-        if sender == 'AI':
+        if sender == 'competition_agent':
             # AI agent has produced output, pass it to the QM agent
             pub.sendMessage('QM_input', input=output)
         elif sender == 'QM':
