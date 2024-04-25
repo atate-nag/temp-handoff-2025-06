@@ -262,9 +262,10 @@ class FileHandler:
             return json_data
         # if nothing there, then extract contents of the output file
         dprint(f"as no direct JSON, looking at output file {output_file} on agent {agent_id}")
-        json_data = self.retrieve_file_content_dict(client, agent_id, output_file)
-        if json_data:
-            return json_data
+        if output_file:
+            json_data = self.retrieve_file_content_dict(client, agent_id, output_file)
+            if json_data:
+                return json_data
         dprint("No json data found in either response or latest output file, returning None")
         return None
 
@@ -322,6 +323,8 @@ class FileHandler:
         # Extremely naughty AI did not produce anything! Hopefully next round will be better
         dprint("No JSON content was found")
         return None
+    def extract_json_from_response_asst_file(self, client, file_id, agent_id):
+        str = self.retrieve_file_content_str(client, agent_id, file_id)
 
     def extract_json_from_response_text(self, response):
         """
@@ -372,10 +375,10 @@ class FileHandler:
         dprint(f"Retrieving file {file} for agent {agent_id}")
         asst_file = client.beta.assistants.files.retrieve(
             assistant_id=agent_id,
-            file_id=file
+            file_id=file.id
         )
         dprint(f"asst_file {asst_file}")
-        content = client.files.retrieve_content(asst_file)
+        content = client.files.retrieve_content(asst_file.id)
         dprint(f"content = {content}")
         return content
 

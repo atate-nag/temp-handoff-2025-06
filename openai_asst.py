@@ -24,7 +24,7 @@ class AgentThread():
         self.last_timestamp = 0
 
 
-    def new_runobj(self,parent,input_files,retrieval_limit,requirements,output_schema):
+    def new_runobj(self,parent,input_files,retrieval_limit,requirements,agent_response, output_schema):
         dprint(f"Creating new runobj with inputs {input_files}")
         run = RunObj(
             parent=parent,
@@ -34,7 +34,7 @@ class AgentThread():
         prompt = run.generate_runtime_prompt(
             self.initial_prompt,
             input_files=input_files,
-            input_response=None,
+            input_response=agent_response,
             agent_output=output_schema,
             requirements=requirements)
         dprint(f"Generated new runtime information for {run}")
@@ -56,8 +56,6 @@ class AgentThread():
             dprint("Error: The runobj did not run yet")
         return
 
-
-
     def retrieve(self, debug=False):
         if debug:
             debug_string = '{"debug": "This is a debug entry"}\n'  # JSONL format requires new lines
@@ -74,7 +72,7 @@ class AgentThread():
                 )
             self.output_dict = {
                 'run_obj': self.runobjs[-1],
-                'response_file': asst_file,
+                'response': asst_file,
                 'output_file': asst_file
             }
             return self.output_dict
@@ -89,25 +87,25 @@ class AgentThread():
                 self.thread,
                 f"output_file_Run{self.runobjs[-1].id}",
             )
-            response = self.get_new_messages()
-            # response_asst_file = self.file_handler.txt_to_asst_file(
-            #     self.client,
-            #     response,
-            #     f"response_runobj{self.runobjs[-1].id}",
-            #     self.agent_id)
-            # dprint(f"response from Agent = {response}")
+            agent_response = self.get_new_messages()
+
             structured_output = self.file_handler.retrieve_direct_agent_content(
                 self.client,
                 self.agent_id,
                 self.thread.id,
-                response,
+                agent_response,
                 asst_file_agent_output,
                 f"_runobj{self.runobjs[-1].id}")
+            if structured_output is None:
+                dprint(f"No JSOn in responses, need to reissue")
+                self.output_dict = None
+                self.returnobjs.append(None)
+                return None
             dprint(f"structured output from Agent = {structured_output}")
-            dprint(f"Updating returnobjs with {response, asst_file_agent_output}")
+            dprint(f"Updating returnobjs with {agent_response, asst_file_agent_output}")
             self.output_dict = {
                 'run_obj': self.runobjs[-1],
-                'response_file': response,
+                'agent_response': agent_response,
                 'output_file': asst_file_agent_output,
                 'structured_output': structured_output
             }

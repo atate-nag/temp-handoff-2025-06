@@ -48,7 +48,9 @@ class Agent:
     def initialise(self):
         self.initial_trigger(self.unvalidated_data)
 
-    def load(self):
+    def load(self, agent_output=None):
+        if agent_output:
+            self.user_data['agent_output'] = agent_output
         self.load_trigger(self.unvalidated_data)
 
     def wait(self):
@@ -74,24 +76,16 @@ class Agent:
             client = self.user_data['client']
             agent_id = self.user_data['agent_id']
             file_handler = self.user_data['file_handler']
-            self.unvalidated_data.set_data_for_state(
-                'Initialised')
+            # self.unvalidated_data.set_data_for_state(
+            #     'Initialised')
         elif current_state == 'Initialised':
             # Handle both direct user inputs and outputs from other agents
             # Determine input sources: direct user files or outputs from other agents
-
             client = self.validated.workflow_context.client
             agent_id = self.validated.agent_context.id
             file_handler = self.validated.workflow_context.file_handler
-
-            # input_sources = self.determine_input_sources()
-            # Load inputs and create agent thread
-            # uploaded_assistant_files = self.upload_and_prepare_files(client, agent_id, file_handler, input_sources)
-            # agent_thread = self.create_agent_thread(client, agent_id, file_handler)
-
-            # Set unvalidated data for the state
+            uploaded_assistant_files = []
             if self.user_data['input_files']:
-                uploaded_assistant_files = []
                 for file in self.user_data['input_files']:
                     asst_file = file_handler.create_asst_file_from_local(
                         client,
@@ -101,36 +95,32 @@ class Agent:
             self.unvalidated_data.set_data_for_state(
                 'Initialised',
                 asst_input_files=uploaded_assistant_files)
-            # uploaded_assistant_files = None
-            # file_handler = self.validated.workflow_context.file_handler
-            # client = self.validated.workflow_context.client
-            # agent_id = self.validated.agent_context.id
-            #
-            # if self.user_data['input_files']:
-            #     uploaded_assistant_files = []
-            #     for file in self.user_data['input_files']:
-            #         asst_file = file_handler.create_asst_file_from_local(
-            #             client,
-            #             agent_id,
-            #             file)
-            #         uploaded_assistant_files.append(asst_file)
-            # agent_thread = AgentThread(
-            #     client,
-            #     agent_id,
-            #     self.validated.agent_context.prompt,
-            #     self.validated.workflow_context.file_handler)
-            # self.unvalidated_data.set_data_for_state(
-            #     'Initialised',
-            #     agent_thread=agent_thread,
-            #     asst_input_files=uploaded_assistant_files)
+            if self.user_data['agent_output']:
+                output = self.user_data['agent_output']
+                response = output['agent_response']
+                output_file = output['output_file']
+                structured_output = output['structured_output']
+                asst_output_file = file_handler.create_asst_file_from_local(
+                    client,
+                    agent_id,
+                    output)
+                asst_response_file = file_handler.txt_to_asst_file(client, response, "response_", agent_id)
+
+                self.unvalidated_data.set_data_for_state('Initialised',agent_output_file=asst_output_file)
+                self.unvalidated_data.set_data_for_state('Initialised',agent_output_file=asst_response_file)
+                self.unvalidated_data.set_data_for_state('Initialised',structured_output=structured_output)
+
         elif current_state == 'Loaded':
-            agent_thread = self.validated.agent_thread
+            dprint("Loaded state")
+           # agent_thread = self.validated.agent_thread
         elif current_state == 'Running':
             dprint("In Running state, waiting for thread")
             #
             self.validated.agent_thread.retrieve(
                 debug=False
             )
+
+
         return
 
     def validation(self, unvalidated_data):
@@ -190,23 +180,33 @@ class Agent:
                         input_files=unvalidated_data['asst_input_files'])
                     dprint(f"Validation successful, asst_files{asst_files_valid}")
                     asst_input_files = unvalidated_data['asst_input_files']
-                # agent_thread = unvalidated_data['agent_thread']
-                # dprint(f"picked agent_thread = {agent_thread} ")
-                # agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
-                # self.validated.set_data('agent_thread', agent_thread)
                 self.validated.set_data('asst_input_files', asst_input_files)
                 agent_thread = self.validated.agent_thread
+                agent_output = agent_response = structured_output = None
+                if self.user_data['agent_output']:
+                    agent_response = unvalidated_data['agent_response']
+                    # TODO validate output, response
+                    agent_output = unvalidated_data['output_file']
+                    structured_output = unvalidated_data['structured_output']
+                    dprint("Validation successful, agent_output")
+                self.validated.set_data('agent_output', agent_output)
+                self.validated.set_data('agent_response', agent_response)
+                self.validated.set_data('structured_output', structured_output)
+
                 return True
             except ValidationError as e:
                 print(f"Validation failed: {e}")
                 return False
         elif current_state == 'Loaded':
             # Validate and create a RunObjModel instance
-
+            response = None
+            if self.validated.agent_output:
+                response = self.validated.agent_output['response']
             run_object = self.validated.agent_thread.new_runobj(
                 parent=self.validated.agent_thread,
                 input_files=self.validated.asst_input_files,
                 retrieval_limit=20,
+                agent_response=response,
                 requirements=self.validated.agent_context.requirements,
                 output_schema=self.validated.agent_context.output_schema
             )

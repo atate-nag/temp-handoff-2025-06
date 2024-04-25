@@ -32,15 +32,24 @@ class AgentManager:
         #     agent.initialise()
 
         self.agents['competition_agent'].initialise()
-        #self.agents['qm_agent'].initialise()
-        #pub.subscribe(self.agents['qm_agent'].retrieve, 'competition_agent.agent_output_object')
-        dprint(f"agent states = {self.agents['competition_agent'].state} ")
+        self.agents['qm_agent'].initialise()
+
+        # pub.subscribe(self.agents['qm_agent'].retrieve, 'competition_agent.agent_output_object')
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
         self.agents['competition_agent'].load()
-        dprint(f"agent states = {self.agents['competition_agent'].state} ")
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
         self.agents['competition_agent'].run()
-        dprint(f"agent states = {self.agents['competition_agent'].state} ")
-        self.agents['competition_agent'].retrieve()
-        dprint(f"agent states = {self.agents['competition_agent'].state} ")
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+        competition_outputs = self.agents['competition_agent'].retrieve()
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+        self.agents['qm_agent'].load(competition_outputs)
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+        self.agents['qm_agent'].run()
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+        qm_output = self.agents['qm_agent'].retrieve()
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+        dprint(f"QM output = {qm_output}")
+
 
     def handle_output(self, sender, output):
         # Output handling logic based on the sender

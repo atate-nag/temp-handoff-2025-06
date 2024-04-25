@@ -5,7 +5,7 @@ class AgentStateMachineConfig:
     def __init__(self):
         self.permissions = {}
         self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files', 'agent_thread']
-        self.permissions['Initialised'] = ['asst_input_files']
+        self.permissions['Initialised'] = ['asst_input_files', 'agent_output', 'agent_response', 'output_file', 'structured_output']
         self.permissions['Loaded'] = ['run_object']
         self.permissions['Running'] = ['output_dict']
         self.permissions['Retrieved'] = []
