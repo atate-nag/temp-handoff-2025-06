@@ -225,34 +225,59 @@ class FileHandler:
         # TODO store local files in class
         return json.loads(json_content)
 
-    def retrieve_and_create_asst_file(self, client, assistant, thread, tag=""):
+    def retrieve_and_create_asst_file(self, client, assistant, thread, qm_id=None, tag=""):
         """
-            From an assistant thread, extract the file id or direct JSON and store in
-            an assistant-file for accessing by agent
+            From an assistant thread, extract the file id and store in
+            an assistant-file for accessing by agent. Will need to create the output file
+            on both the assistant-id and the qm_id
+            If this comes out of an output file provided by an Agent, then don't create a
+            new one. Just return the JSON.
         """
-
         dprint(f"retrieving on thread {thread} of assistant {assistant} with passed tag {tag}")
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
-            asst_file = self.create_asst_file_from_id(client, assistant, file_id)
+            # This creating an assistant file not in the agent that has produced this but on the QM
             dprint(f"returned from annotations {file_id}")
+            if qm_id is not None:
+                asst_file_qm = self.create_asst_file_from_id(client, qm_id, file_id)
+                dprint(f"created qm asst file: {asst_file_qm}")
+            asst_file = self.create_asst_file_from_id(client, assistant, file_id)
+            dprint(f"created agent asst file: {asst_file}")
             return asst_file
         json_data = self.extract_json_from_response(client, thread)
         if json_data:
+            # This creating an assistant file not in the agent that has produced this but on the QM
+            if qm_id is not None:
+                asst_file_qm = self.json_to_asst_file(client, json_data, tag, qm_id)
+                dprint(f"created qm asst file: {asst_file_qm}")
             asst_file = self.json_to_asst_file(client, json_data, tag, assistant)
-            if asst_file:
-                dprint(f"created asst file {asst_file}")
-                return asst_file
-        dprint(f"No annotations or json content were found, returning None")
+            dprint(f"created agent asst file: {asst_file}")
+            return asst_file
         return None
 
-    def retrieve_direct_agent_content(self, client, agent_id, thread, response_str, output_file, tag=""):
+    def retrieve_output_file_id(self, client, assistant, thread, qm_id=None, tag=""):
+        """
+            From an assistant thread, extract the file id that it references, and store in
+            (if necessary) copy it to the QM agent.
+        """
+        dprint(f"retrieving on thread {thread} of assistant {assistant} with passed tag {tag}")
+        file_id = retrieve_file_annotation(client, thread)
+        if file_id:
+            # This creating an assistant file not in the agent that has produced this but on the QM
+            dprint(f"returned from annotations {file_id}")
+            if qm_id is not None:
+                asst_file_qm = self.create_asst_file_from_id(client, qm_id, file_id)
+                dprint(f"created qm asst file: {asst_file_qm}")
+            return file_id
+
+        return None
+
+    def retrieve_direct_agent_content(self, client, agent_id, response_str, output_file, tag=""):
         """
         Retrieves the content from a file, annotations or set of messages
         After an agent completes, there should be useful JSON data in either the
-        response file or the latest output file. Must be careful of whether one of
-        them did not product JSON, and we pick up old JSON from an old output.
-        TODO - extract both and if they differ choose largest
+        response file or the latest output file.
+
         """
         # dprint(f"retrieving Agent content from response {response} and output {output_file}")
         # response_str = self.retrieve_file_content_str(client, agent_id, response_file)

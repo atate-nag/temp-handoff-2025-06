@@ -17,6 +17,7 @@ from agent_state_machine_config import AgentStateMachineConfig
 import time
 from pubsub import pub
 
+
 class Agent:
     states = ['Zero', 'Waiting', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
 
@@ -26,10 +27,6 @@ class Agent:
         # passed data is unvalidated so stored only as "user_data" until validation
         # defaultdict will add optional arguments to None so they can still be queried without key error
         self.user_data = defaultdict(lambda: None, **kwargs)
-
-        # self.qm_agent = self.thread = self.agent_details = self.input_files = None
-        # self.agent_id = self.prompt = self.description = self.output_schema = self.context = None
-
         self.validated = ValidatedData(self)  # container for validated data
 
         """
@@ -41,16 +38,23 @@ class Agent:
         self.state_machine = AgentStateMachineConfig().setup(self)
         dprint(f"State machine = {self.state_machine}")
         self.permissions = AgentStateMachineConfig().permissions
-        receive_input = None
-        # TODO - the subscription should only happen when agentType is
-        # validated
 
-    def initialise(self):
+    def get_id(self):
+        return self.validated.agent_id
+    def get_qm_id(self):
+        return self.validated.qm_id
+
+    def initialise(self,qm_id=None):
+        dprint(f"qm_id being passed into unvalidated {qm_id}")
+        self.user_data['qm_id'] = qm_id
+        dprint(f"checking now self.user_data['qm_id']={self.user_data['qm_id']} ")
         self.initial_trigger(self.unvalidated_data)
 
-    def load(self, agent_output=None):
+    def load(self, agent_output=None, qm_instructions=None):
         if agent_output:
             self.user_data['agent_output'] = agent_output
+        if qm_instructions:
+            self.user_data['qm_instructions'] = qm_instructions
         self.load_trigger(self.unvalidated_data)
 
     def wait(self):
@@ -61,6 +65,11 @@ class Agent:
 
     def retrieve(self):
         self.retrieve_trigger(self.unvalidated_data)
+        return self.validated.retrieve_output
+
+    # def assess(self, qm_output):
+    #     self.user_data['qm_output'] = qm_output
+    #     self.complete_trigger(self.unvalidated_data)
 
     def receive_input(self, input):
         # Process the input and possibly generate new output
@@ -82,7 +91,7 @@ class Agent:
             # Handle both direct user inputs and outputs from other agents
             # Determine input sources: direct user files or outputs from other agents
             client = self.validated.workflow_context.client
-            agent_id = self.validated.agent_context.id
+            agent_id = self.validated.agent_context.agent_id
             file_handler = self.validated.workflow_context.file_handler
             uploaded_assistant_files = []
             if self.user_data['input_files']:
@@ -92,35 +101,55 @@ class Agent:
                         agent_id,
                         file)
                     uploaded_assistant_files.append(asst_file)
-            self.unvalidated_data.set_data_for_state(
-                'Initialised',
-                asst_input_files=uploaded_assistant_files)
+            agent_response_file = agent_output_file = agent_structured_output = None
             if self.user_data['agent_output']:
                 output = self.user_data['agent_output']
-                response = output['agent_response']
-                output_file = output['output_file']
-                structured_output = output['structured_output']
-                asst_output_file = file_handler.create_asst_file_from_local(
-                    client,
-                    agent_id,
-                    output)
-                asst_response_file = file_handler.txt_to_asst_file(client, response, "response_", agent_id)
-
-                self.unvalidated_data.set_data_for_state('Initialised',agent_output_file=asst_output_file)
-                self.unvalidated_data.set_data_for_state('Initialised',agent_output_file=asst_response_file)
-                self.unvalidated_data.set_data_for_state('Initialised',structured_output=structured_output)
-
+                agent_response_file = output['response_file']
+                agent_output_file = output['output_file']
+                agent_structured_output = output['structured_output']
+                # asst_output_file = file_handler.create_asst_file_from_local(
+                #     client,
+                #     agent_id,
+                #     agent_output_file)
+                # asst_output_file = client.beta.assistants.files.create(
+                #     assistant_id=agent_id,
+                #     file_id=agent_response_file
+                # )
+                # TODO annoying download and upload? Cannot be right
+                # asst_response_file = client.beta.assistants.files.create(
+                #     assistant_id=agent_id,
+                #     file_id=agent_output_file
+                # )
+                # asst_response_file = file_handler.txt_to_asst_file(client, agent_response_file, "response_", agent_id)
+            self.unvalidated_data.set_data_for_state(
+                'Initialised',
+                agent_output_file=agent_output_file,
+                agent_response_file=agent_response_file,
+                agent_structured_output=agent_structured_output,
+                asst_input_files=uploaded_assistant_files
+            )
         elif current_state == 'Loaded':
             dprint("Loaded state")
-           # agent_thread = self.validated.agent_thread
+        # agent_thread = self.validated.agent_thread
         elif current_state == 'Running':
             dprint("In Running state, waiting for thread")
-            #
             self.validated.agent_thread.retrieve(
-                debug=False
+                debug=False,
+                qm_id=self.validated.qm_id
             )
-
-
+        elif current_state == 'Retrieved':
+            # extract the qm instructions
+            instructions = None
+            completed = None
+            qm_output = self.user_data['qm_output']
+            structured_output = qm_output['structured_output']
+            completed = structured_output['completed']
+            if completed is not None:
+                instructions = structured_output['agent instructions']
+                dprint(f"going back to agent with {qm_output}"
+                       )
+            self.unvalidated_data.set_data_for_state('Retrieved', instructions=instructions)
+            self.unvalidated_data.set_data_for_state('Retrieved', completed=completed)
         return
 
     def validation(self, unvalidated_data):
@@ -137,26 +166,35 @@ class Agent:
                 validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
                 dprint("Validated Workflow context")
                 agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
-                dprint("Validated AgentConfigs details")
-                agent_context_valid = AgentContextModel(**agent_configs_valid)
+                dprint(f"Validated AgentConfigs details {agent_configs_valid}")
+                qm_id = validated_workflow_context.qm_id
+                dprint(f"Picked qm_id = {qm_id}")
+                agent_context_valid = AgentContextModel(**agent_configs_valid,qm_id=qm_id)
                 dprint("Validated AgentContextModel")
                 self.validated.set_data('workflow_context', validated_workflow_context)
                 self.validated.set_data('agent_config', agent_configs_valid)
                 self.validated.set_data('agent_context', agent_context_valid)
+                # TODO add model for qm_id
+                self.validated.set_data('qm_id',qm_id)
                 dprint("Set Validated data")
                 input_files_valid = None
+                self.validated.set_data('agent_id', self.validated.agent_context.agent_id)
+                dprint(f"Validated the id={self.validated.agent_id}")
                 if self.user_data['input_files']:
                     input_files_valid = InputFilesModel(
                         client=self.validated.workflow_context.client,
-                        agent_id=self.validated.agent_context.id,
+                        agent_id=self.validated.agent_context.agent_id,
                         input_files=self.user_data['input_files'])
                 dprint("Validated input files")
                 self.validated.set_data('input_files', input_files_valid)
+                dprint(f"Passing to Agentthread {self.validated.workflow_context.client}, "
+                       f"{self.validated.agent_context.agent_id} {self.validated.agent_context.prompt} "
+                       f"self.validated.workflow_context.file_handler")
                 agent_thread = AgentThread(
-                    self.validated.workflow_context.client,
-                    self.validated.agent_context.id,
-                    self.validated.agent_context.prompt,
-                    self.validated.workflow_context.file_handler)
+                    client=self.validated.workflow_context.client,
+                    agent_id=self.validated.agent_context.agent_id,
+                    initial_prompt=self.validated.agent_context.prompt,
+                    file_handler=self.validated.workflow_context.file_handler )
                 dprint(f"New agent_thread = {agent_thread} ")
                 agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
                 self.validated.set_data('agent_thread', agent_thread)
@@ -176,22 +214,21 @@ class Agent:
                     dprint(f"Transition contains Asst files, validating...")
                     asst_files_valid = AsstFilesModel(
                         client=self.validated.workflow_context.client,
-                        agent_id=self.validated.agent_context.id,
+                        agent_id=self.validated.agent_context.agent_id,
                         input_files=unvalidated_data['asst_input_files'])
                     dprint(f"Validation successful, asst_files{asst_files_valid}")
                     asst_input_files = unvalidated_data['asst_input_files']
                 self.validated.set_data('asst_input_files', asst_input_files)
                 agent_thread = self.validated.agent_thread
-                agent_output = agent_response = structured_output = None
+                agent_output_file = agent_response_file = agent_structured_output = None
                 if self.user_data['agent_output']:
-                    agent_response = unvalidated_data['agent_response']
+                    agent_response_file = unvalidated_data['agent_response_file']
                     # TODO validate output, response
-                    agent_output = unvalidated_data['output_file']
-                    structured_output = unvalidated_data['structured_output']
-                    dprint("Validation successful, agent_output")
-                self.validated.set_data('agent_output', agent_output)
-                self.validated.set_data('agent_response', agent_response)
-                self.validated.set_data('structured_output', structured_output)
+                    agent_output_file = unvalidated_data['agent_output_file']
+                    agent_structured_output = unvalidated_data['agent_structured_output']
+                self.validated.set_data('agent_output_file', agent_output_file)
+                self.validated.set_data('agent_response_file', agent_response_file)
+                self.validated.set_data('agent_structured_output', agent_structured_output)
 
                 return True
             except ValidationError as e:
@@ -199,18 +236,29 @@ class Agent:
                 return False
         elif current_state == 'Loaded':
             # Validate and create a RunObjModel instance
-            response = None
-            if self.validated.agent_output:
-                response = self.validated.agent_output['response']
+            dprint(f"the agent output for QM generation is {self.validated.agent_output_file} and schema "
+                   f"{self.validated.agent_context.requirements}")
+            prompt = None
+            if self.user_data['qm_instructions']:
+                # we need to give feedback to the agent from the QM
+                prompt = self.user_data['qm_instructions']
+                dprint(f"Due to QM feedback, using the prompt {prompt}")
+            if self.user_data['agent_output']:
+                # we need to tell the QM that the agent followed instructions
+                # and that there is a new output file
+                prompt = self.validated.agent_context.instructions
+                dprint(f"Agent produced new output so using the prompt {prompt}")
             run_object = self.validated.agent_thread.new_runobj(
                 parent=self.validated.agent_thread,
-                input_files=self.validated.asst_input_files,
                 retrieval_limit=20,
-                agent_response=response,
-                requirements=self.validated.agent_context.requirements,
-                output_schema=self.validated.agent_context.output_schema
+                input_files=self.validated.asst_input_files,
+                agent_response=self.validated.agent_response_file,
+                agent_output=self.validated.agent_output_file,
+                agent_requirements=self.validated.agent_context.requirements,
+                output_schema=self.validated.agent_context.output_schema,
+                prompt=prompt
             )
-            self.validated.set_data('run_object',run_object)
+            self.validated.set_data('run_object', run_object)
             return True
         elif current_state == 'Running':
             # did the run produce the right outputs and response?
@@ -219,74 +267,59 @@ class Agent:
             output_dict = self.validated.agent_thread.get_output()
             # if not, it will get reissued
             # TODO validate output_dict
-            self.validated.set_data('output_dict', output_dict)
-            if output_dict['structured_output']:
-               dprint("Good JSON output - validating state")
-               return True
+            dprint(f"The output retreived is {output_dict}")
+            if output_dict:
+                dprint(f"The structured output is {output_dict['structured_output']} setting that to validated")
+                self.validated.set_data('retrieve_output', output_dict)
+                dprint(f"The validated data is now {self.validated.retrieve_output}")
+                dprint("Good JSON output - validating state")
+                return True
             else:
                 instructions = ("No valid structured JSON was detected in your response or"
                                 "in an output file that you have indicated was present. Please"
                                 "regenerate your response and try again.")
                 # reissue logic will go here
                 dprint("Reissuing with an updated message")
-                dprint(f"Agent did not complete and will be informed: {instructions}")
+                dprint(f"Agent did not produce output and will be informed: {instructions}")
                 # TODO cannot act on agent_thread state
                 self.validated.agent_thread.add_message(instructions)
-                self.trigger('run_trigger')
+                self.load(qm_instructions=instructions)
+        elif current_state == 'Retrieved':
+            output_dict = self.validated.agent_thread.get_output()
+            # if not, it will get reissued
+            # TODO validate output_dict
+            #
+            # completed = unvalidated_data['completed']
+            # if completed:
+            #     self.validated.set_data('completed', completed)
+            #     dprint("Job was completed")
+            #     return True
+            # else:
+            #     self.validated.set_data('completed', completed)
+            #     dprint("Job was not completed - must be reissued")
+            #     return False
+            # Set the job completion status
+            completed = unvalidated_data['completed']
+            self.validated.set_data('completed', completed)
+            # Trigger the appropriate transition based on the job status
+            if completed:
+                self.mark_complete()
+            else:
+                self.reissue()
 
     def after_validation(self, unvalidated_data):
         """ Execute AFTER validation but before state transition"""
         dprint(f"Running transition before state {self.state} to next state")
         current_state = self.state
-        unvalidated_data = self.unvalidated_data.get_data_for_state(current_state)
-        dprint(f"transition data for {self.state} = {unvalidated_data}")
-        client = self.validated.workflow_context.client
-        agent_id = self.validated.agent_context.id
-        file_handler = self.validated.workflow_context.file_handler
         if current_state == 'Zero':
-            dprint("After Validation of Zero")
-            pub.subscribe(self.receive_input, f'{self.validated.workflow_context.agent_type}_input')
-            # Process existing assistant files (if any)
+            current_state = self.state
+            unvalidated_data = self.unvalidated_data.get_data_for_state(current_state)
+            dprint(f"transition data for {self.state} = {unvalidated_data}")
+            client = self.validated.workflow_context.client
+            agent_id = self.validated.agent_context.agent_id
+            file_handler = self.validated.workflow_context.file_handler
             self.delete_existing_assistant_files(client, agent_id, file_handler)
-        if current_state == "Initialised":
-            # pub.sendMessage(f'{self.validated.workflow_context.agent_type}_output', sender=self.validated.workflow_context.agent_type, output="Initialised")
-            dprint(f"Initialised: Loading state Loaded")
-        if current_state == 'Loaded':
-            dprint(f"Exiting Loaded state 'Running'")
-        elif current_state == 'Running':
-            dprint(f"State '{current_state}' and output is {self.validated.output_dict}")
-            pub.sendMessage(f"{self.validated.workflow_context.agent_type}.output", output=self.validated.output_dict)
-        elif current_state == 'Retrieved':
-            dprint(f"State '{current_state}'")
-        else:
-            dprint(f"Completed state: {current_state}")
-            return
-
-    def determine_input_sources(self):
-        """ Decide whether to use user_data or outputs from previous agents
-            Multiple situations
-            1) Initial run and has inputs
-            2) Initial run with inputs from another agent (e.g. QM)
-            3) Repeated run - incorporated user feedback
-        """
-        if self.validated.agent_thread is None:
-            # this means has not yet been through an execution
-            if self.user_data['input_files'] is None:
-                # For QM agents, inputs are typically outputs from other agents
-                dprint("No user inputs")
-            else:
-                # For other agents, use provided input_files if available
-                dprint(f"User inputs")
-            return self.user_data.get('input_files', [])
-        else:
-            # this is the state that the
-            dprint("User XXX inputs")
-
-    def handle_input(self, agent_output_object):
-        """Triggered when AI output is published"""
-        dprint(f"Received output from another agent {agent_output_object}")
-        dprint(f"Can now invoke recieving agent into")
-        return agent_output_object
+        return
 
     def delete_existing_assistant_files(self, client, agent_id, file_handler):
         """ Manage existing assistant files in OpenAI """
@@ -306,8 +339,6 @@ class Agent:
             except Exception as e:
                 dprint(f"Error deleting Assistant file {e}")
 
-
-
     def upload_and_prepare_files(self, client, agent_id, file_handler, input_sources):
         """ Upload files to assistant and prepare them for processing """
         uploaded_files = []
@@ -325,13 +356,12 @@ class Agent:
         """ Execute AFTER  transition"""
         pass
 
-
     def to_error(self):
         logging.error("An error occurred during the state transitions.")
         self.state_machine.set_state('error')
 
-    def set_validated_data(self, key, value):
-        if key in self.permissions.get(self.state, []):
-            self.validated[key] = value
-        else:
-            raise PermissionError(f"Setting {key} is not allowed in the {self.state} state.")
+    # def set_validated_data(self, key, value):
+    #     if key in self.permissions.get(self.state, []):
+    #         self.validated[key] = value
+    #     else:
+    #         raise PermissionError(f"Setting {key} is not allowed in the {self.state} state.")

@@ -32,6 +32,7 @@ class WorkFlowContextModel(BaseModel):
     file_handler: Any
     agent_type: str = Field()
     qm: bool
+    qm_id: Optional[str] = None
     # input_files: List = Field()
     @field_validator('client')
     def check_client_type(cls, v):
@@ -93,17 +94,24 @@ class AgentConfigs:
         return known_agents[agent_type]
 
 class AgentContextModel(BaseModel):
-    id: str = Field()
+    agent_id: str = Field()
     description: str = Field()
     prompt: str = Field()
     output_schema: dict = Field()
     requirements: Optional[Dict] = None  # This field is optional and can be None
-
-    @field_validator('id')
-    def validate_id(cls, v):
+    qm_id: Optional[str] = None
+    instructions: Optional[str] = None
+    @field_validator('agent_id')
+    def validate_agent_id(cls, v):
         dprint("validating id", v)
         if not re.match(r"^asst_[A-Za-z0-9]{24}$", v):
             raise ValueError("ID must start with 'asst_' followed by 24 alphanumeric characters.")
+        return v
+
+    @validator('qm_id', always=True)
+    def validate_qm_id(cls, v):
+        if v is not None and not re.match(r"^asst_[A-Za-z0-9]{24}$", v):
+            raise ValueError("QM ID must start with 'asst_' followed by 24 alphanumeric characters.")
         return v
 
     @field_validator('description', 'prompt')

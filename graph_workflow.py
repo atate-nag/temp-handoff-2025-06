@@ -12,7 +12,7 @@ import json
 import sys
 
 load_dotenv()
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"),default_headers={"OpenAI-Beta": "assistants=v1"})
 # setup neo4j database
 
 uri = "bolt://localhost:7687"
@@ -29,7 +29,6 @@ file_handler = FileHandler(client)
 company_graph = CompanyGraph(uri, user, password)
 insight_graph = InsightGraph(uri, user, password)
 
-
 def execute_workflow():
     dprint("Enabled workflow steps:")
     for step, details in workflow_config.items():
@@ -43,7 +42,6 @@ def execute_workflow():
             else:
                 dprint(f"No function defined for {step}.")
     dprint("Finished workflow steps.")
-
 
 def main():
     enabled_steps = [
@@ -65,7 +63,6 @@ def get_step_function(step_name):
         "createCompanies": create_companies,
 
         # graph manipulation and display routines
-
         "updateCompanyData": update_company_data,
         "displayInsights": display_insights,
         "deleteCompany": delete_company,
@@ -76,11 +73,9 @@ def get_step_function(step_name):
         "deleteInsights": delete_insights,
 
         # custom agent implementations
-
         "extractInsights": extract_insights,
 
         # generic Agent implementations
-
         "evaluateCapabilities": generic_agent_run,
         "recommendInsightPruning": generic_agent_run,
         "buildCompetitiveEnvironment": generic_agent_run,

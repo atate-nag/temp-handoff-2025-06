@@ -34,6 +34,7 @@ class ValidatedData:
         if key in self.parent.permissions.get(self.parent.state, []):
             dprint(f"Permissions allow the update of {key} in state {self.parent.state}")
             self._data[key] = value
+            dprint(f"setting self._data[{key}] to {value} now = {self._data[key]}")
         else:
             raise PermissionError(f"Setting {key} is not allowed in the {self.parent.state} state.")
 

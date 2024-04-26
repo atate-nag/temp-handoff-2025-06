@@ -2,7 +2,7 @@
   "known_agents": {
 
     "insight_agent": {
-      "id": "asst_iYvVBX1aaxu3KBgSEvIAZFEb",
+      "agent_id": "asst_iYvVBX1aaxu3KBgSEvIAZFEb",
       "description": "Structured Extraction Agent",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -54,20 +54,20 @@
       }
     },
     "condense_agent": {
-      "id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",
+      "agent_id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",
       "description": "Condensing Assistant for Json",
       "output_schema": {},
       "prompt" : "Condense the file(s): {INPUT_FILES}"
     },
 
     "recommender_agent": {
-      "id": "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ",
+      "agent_id": "asst_Fh2bYH5IaS0qJKrMlNO3DZLJ",
       "description": "Recommender Agent",
       "output_schema": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"title\": \"Insights\",\n  \"type\": \"array\",\n  \"items\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"id\": { \"type\": \"integer\" },\n      \"description\": { \"type\": \"string\" },\n      \"relevanceScore\": { \"type\": \"number\" },\n      \"recommendation\": {\n        \"type\": \"string\",\n        \"enum\": [\"prune\", \"retain\"]\n      },\n      \"justification\": { \"type\": \"string\" }\n    },\n    \"required\": [\"id\", \"description\", \"relevanceScore\", \"recommendation\", \"justification\"]\n  }\n}\n",
       "prompt" : "Make the recommendations based on the file(s): {INPUT_FILES}"
     },
     "competition_agent": {
-      "id": "asst_uphvlsvGIbtXQAx89cFShovV",
+      "agent_id": "asst_uphvlsvGIbtXQAx89cFShovV",
       "description": "Competition Description",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -182,7 +182,7 @@
       "prompt": "Define the competitive environment based on the file(s): {INPUT_FILES}"
     },
     "capabilities_agent": {
-      "id": "asst_NoLfJg1BUS4yNuZhurDAedXO",
+      "agent_id": "asst_NoLfJg1BUS4yNuZhurDAedXO",
       "description": "Capabilities Agent",
       "prompt": "Generate the capabilities relevant to the company and insights in the file(s): {INPUT_FILES}",
       "output_schema" : {
@@ -216,7 +216,7 @@
     },
 
     "qm_agent": {
-      "id": "asst_49YnOtEIzaLI8scAJsiqLw8G",
+      "agent_id": "asst_49YnOtEIzaLI8scAJsiqLw8G",
       "description": "QM Agent",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -239,18 +239,19 @@
         "additionalProperties": false,
         "description": "Schema for validating agent output."
       },
-      "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}"
+      "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}",
+      "instructions": "The agent followed your instructions, the new response is in the file : {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}"
     },
     "trends_agent": {
-      "id": "asst_ripeR7nhZq822ek0PwDM31Fs",
+      "agent_id": "asst_ripeR7nhZq822ek0PwDM31Fs",
       "description": "Trends Agent"
     },
     "actions_agent": {
-      "id": "asst_ACUyLQAjjCii40BRs9sBPout",
+      "agent_id": "asst_ACUyLQAjjCii40BRs9sBPout",
       "description": "Actions Agent"
     },
     "challenges_agent": {
-      "id": "asst_vlOVosMTXgg8qOf8FReoeNjg",
+      "agent_id": "asst_vlOVosMTXgg8qOf8FReoeNjg",
       "description": "Challenges Agent"
     }
   }

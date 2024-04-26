@@ -4,10 +4,10 @@ from transitions import Machine
 class AgentStateMachineConfig:
     def __init__(self):
         self.permissions = {}
-        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files', 'agent_thread']
-        self.permissions['Initialised'] = ['asst_input_files', 'agent_output', 'agent_response', 'output_file', 'structured_output']
+        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files', 'agent_thread','agent_id','qm_id']
+        self.permissions['Initialised'] = ['asst_input_files', 'agent_output_file', 'agent_response_file', 'agent_structured_output']
         self.permissions['Loaded'] = ['run_object']
-        self.permissions['Running'] = ['output_dict']
+        self.permissions['Running'] = ['retrieve_output']
         self.permissions['Retrieved'] = []
 
     def setup(self, agent):
@@ -32,6 +32,20 @@ class AgentStateMachineConfig:
                                     before='after_validation'
                                     )
         # Loadedstate configs
+        self.machine.add_transition('load_trigger',
+                                    'Running',
+                                    'Loaded',
+                                    prepare='before_validation',
+                                    conditions=['validation'],
+                                    before='after_validation'
+                                    )
+        self.machine.add_transition('load_trigger',
+                                    'Retrieved',
+                                    'Loaded',
+                                    prepare='before_validation',
+                                    conditions=['validation'],
+                                    before='after_validation'
+                                    )
 
         self.machine.add_transition('run_trigger',
                                     'Loaded',
@@ -45,7 +59,7 @@ class AgentStateMachineConfig:
                                     prepare='before_validation',
                                     conditions=['validation'],
                                     before='after_validation')
-        self.machine.add_transition('complete', 'Returned', 'Completed',
-                                    conditions=['validation'])
-
+        # Transition to handle successful completion
+        self.machine.add_transition('mark_complete', 'Retrieved', 'Completed')
+        self.machine.add_transition('reissue', 'Retrieved', 'Loaded')
         return self.machine
