@@ -268,6 +268,7 @@ class FileHandler:
             if qm_id is not None:
                 asst_file_qm = self.create_asst_file_from_id(client, qm_id, file_id)
                 dprint(f"created qm asst file: {asst_file_qm}")
+            asst_file = self.create_asst_file_from_id(client, assistant, file_id)
             return file_id
 
         return None

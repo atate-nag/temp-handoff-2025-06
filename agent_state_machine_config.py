@@ -32,18 +32,17 @@ class AgentStateMachineConfig:
                                     before='after_validation'
                                     )
         # Loadedstate configs
+        # self.machine.add_transition('load_trigger',
+        #                             'Running',
+        #                             'Loaded',
+        #                             prepare='before_validation',
+        #                             conditions=['validation'],
+        #                             before='after_validation'
+        #                             )
         self.machine.add_transition('load_trigger',
                                     'Running',
                                     'Loaded',
                                     prepare='before_validation',
-                                    conditions=['validation'],
-                                    before='after_validation'
-                                    )
-        self.machine.add_transition('load_trigger',
-                                    'Retrieved',
-                                    'Loaded',
-                                    prepare='before_validation',
-                                    conditions=['validation'],
                                     before='after_validation'
                                     )
 
@@ -61,5 +60,7 @@ class AgentStateMachineConfig:
                                     before='after_validation')
         # Transition to handle successful completion
         self.machine.add_transition('mark_complete', 'Retrieved', 'Completed')
-        self.machine.add_transition('reissue', 'Retrieved', 'Loaded')
+        self.machine.add_transition('reissue_trigger', 'Running', 'Loaded')
+        self.machine.add_transition('reinitialise', 'Retrieved', 'Initialised')
+
         return self.machine

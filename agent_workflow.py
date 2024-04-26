@@ -50,12 +50,18 @@ class Agent:
         dprint(f"checking now self.user_data['qm_id']={self.user_data['qm_id']} ")
         self.initial_trigger(self.unvalidated_data)
 
+
+
     def load(self, agent_output=None, qm_instructions=None):
         if agent_output:
             self.user_data['agent_output'] = agent_output
         if qm_instructions:
             self.user_data['qm_instructions'] = qm_instructions
         self.load_trigger(self.unvalidated_data)
+
+    def reissue(self,instructions):
+        self.user_data['qm_instructions'] = instructions
+        self.reissue_trigger(self.unvalidated_data)
 
     def wait(self):
         self.wait_trigger(self.unvalidated_data)
@@ -107,7 +113,7 @@ class Agent:
                 agent_response_file = output['response_file']
                 agent_output_file = output['output_file']
                 agent_structured_output = output['structured_output']
-                # asst_output_file = file_handler.create_asst_file_from_local(
+                # asst_output_file = file_hbefore_validationandler.create_asst_file_from_local(
                 #     client,
                 #     agent_id,
                 #     agent_output_file)
@@ -130,26 +136,30 @@ class Agent:
             )
         elif current_state == 'Loaded':
             dprint("Loaded state")
-        # agent_thread = self.validated.agent_thread
         elif current_state == 'Running':
             dprint("In Running state, waiting for thread")
             self.validated.agent_thread.retrieve(
                 debug=False,
                 qm_id=self.validated.qm_id
             )
-        elif current_state == 'Retrieved':
-            # extract the qm instructions
-            instructions = None
-            completed = None
-            qm_output = self.user_data['qm_output']
-            structured_output = qm_output['structured_output']
-            completed = structured_output['completed']
-            if completed is not None:
-                instructions = structured_output['agent instructions']
-                dprint(f"going back to agent with {qm_output}"
-                       )
-            self.unvalidated_data.set_data_for_state('Retrieved', instructions=instructions)
-            self.unvalidated_data.set_data_for_state('Retrieved', completed=completed)
+        #elif current_state == 'Retrieved':
+            # extract the qm instructions if they were provided
+            # instructions = None
+            # completed = None
+            # qm_output = self.user_data['qm_output']
+            # if qm_output:
+            #     structured_output = qm_output['structured_output']
+            #     completed = structured_output['completed']
+            #     if completed is not None:
+            #         instructions = structured_output['agent instructions']
+            #         dprint(f"going back to agent with {qm_output}"
+            #                )
+            # self.unvalidated_data.set_data_for_state(
+            #     'Retrieved',
+            #     instructions=instructions)
+            # self.unvalidated_data.set_data_for_state(
+            #     'Retrieved',
+            #     completed=completed)
         return
 
     def validation(self, unvalidated_data):
@@ -229,7 +239,6 @@ class Agent:
                 self.validated.set_data('agent_output_file', agent_output_file)
                 self.validated.set_data('agent_response_file', agent_response_file)
                 self.validated.set_data('agent_structured_output', agent_structured_output)
-
                 return True
             except ValidationError as e:
                 print(f"Validation failed: {e}")
@@ -264,11 +273,12 @@ class Agent:
             # did the run produce the right outputs and response?
             dprint(f"Validating the run in state {current_state}")
             # checks 1) is there a valid response and output file?
-            output_dict = self.validated.agent_thread.get_output()
+            raw_output_dict = self.validated.agent_thread.get_output()
             # if not, it will get reissued
             # TODO validate output_dict
-            dprint(f"The output retreived is {output_dict}")
-            if output_dict:
+            dprint(f"The output retreived is {raw_output_dict}")
+            if raw_output_dict:
+                output_dict = self.normalize_agent_output(raw_output_dict)
                 dprint(f"The structured output is {output_dict['structured_output']} setting that to validated")
                 self.validated.set_data('retrieve_output', output_dict)
                 dprint(f"The validated data is now {self.validated.retrieve_output}")
@@ -283,12 +293,11 @@ class Agent:
                 dprint(f"Agent did not produce output and will be informed: {instructions}")
                 # TODO cannot act on agent_thread state
                 self.validated.agent_thread.add_message(instructions)
-                self.load(qm_instructions=instructions)
-        elif current_state == 'Retrieved':
-            output_dict = self.validated.agent_thread.get_output()
+                self.reissue(instructions=instructions)
+        #elif current_state == 'Retrieved':
+            # output_dict = self.validated.agent_thread.get_output()
             # if not, it will get reissued
             # TODO validate output_dict
-            #
             # completed = unvalidated_data['completed']
             # if completed:
             #     self.validated.set_data('completed', completed)
@@ -299,13 +308,13 @@ class Agent:
             #     dprint("Job was not completed - must be reissued")
             #     return False
             # Set the job completion status
-            completed = unvalidated_data['completed']
-            self.validated.set_data('completed', completed)
-            # Trigger the appropriate transition based on the job status
-            if completed:
-                self.mark_complete()
-            else:
-                self.reissue()
+            # completed = unvalidated_data['completed']
+            # self.validated.set_data('completed', completed)
+            # # Trigger the appropriate transition based on the job status
+            # if completed:
+            #     self.mark_complete()
+            # else:
+            #     self.reissue()
 
     def after_validation(self, unvalidated_data):
         """ Execute AFTER validation but before state transition"""
@@ -339,6 +348,24 @@ class Agent:
             except Exception as e:
                 dprint(f"Error deleting Assistant file {e}")
 
+    def normalize_agent_output(self, output):
+        # Check and convert 'completed' from string 'true'/'false' to Boolean True/False
+        if 'completed' in output:
+            completed_value = output['completed']
+            if isinstance(completed_value, str):
+                completed_value = completed_value.lower()
+                if completed_value == 'true':
+                    output['completed'] = True
+                elif completed_value == 'false':
+                    output['completed'] = False
+                else:
+                    raise ValueError("Unexpected value for 'completed': must be 'true' or 'false'")
+            elif not isinstance(completed_value, bool):
+                raise ValueError("Unexpected type for 'completed': must be a boolean or string representing a boolean")
+
+        # Normalize other fields as needed
+        return output
+
     def upload_and_prepare_files(self, client, agent_id, file_handler, input_sources):
         """ Upload files to assistant and prepare them for processing """
         uploaded_files = []
@@ -346,11 +373,6 @@ class Agent:
             uploaded_file = file_handler.create_asst_file_from_local(client, agent_id, file)
             uploaded_files.append(uploaded_file)
         return uploaded_files
-
-    def create_agent_thread(self, client, agent_id, file_handler):
-        """ Create an AgentThread instance """
-        agent_thread = AgentThread(client, agent_id, self.validated.agent_context.prompt, file_handler)
-        return agent_thread
 
     def after_transition(self, unvalidated_data):
         """ Execute AFTER  transition"""

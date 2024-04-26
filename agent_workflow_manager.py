@@ -30,34 +30,43 @@ class AgentManager:
         self.agents['qm_agent'].initialise()
         qm_id = self.agents['qm_agent'].get_id()
         dprint(f"QM ID return: {qm_id}")
+        self.print_state()
         self.agents['competition_agent'].initialise(qm_id=qm_id)
-        # pub.subscribe(self.agents['qm_agent'].retrieve, 'competition_agent.agent_output_object')
+        self.print_state()
         completed = False
         qm_instructions = None
         while completed is False:
             self.agents['competition_agent'].load(qm_instructions=qm_instructions)
-            dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+            self.print_state()
             self.agents['competition_agent'].run()
-            dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+            self.print_state()
             competition_outputs = self.agents['competition_agent'].retrieve()
-            dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+            self.print_state()
             self.agents['qm_agent'].load(agent_output=competition_outputs)
-            dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+            self.print_state()
             self.agents['qm_agent'].run()
-            dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+            self.print_state()
             qm_output = self.agents['qm_agent'].retrieve()
-            dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
+            self.print_state()
             dprint(f"QM output = {qm_output}")
             if qm_output is not None:
                 dict = qm_output['structured_output']
                 completed = dict['completed']
                 qm_instructions = dict['agent instructions']
-                if completed:
-                    dprint(f"Completed - Exiting")
+                if dict['completed']:
+                    dprint(f"Completed, will exit now")
                 else:
+                    # both agent and qm qill need to be reverted back to Initialised state
                     dprint(f"Agent will be reissued with instructions {qm_instructions}")
+                    self.agents['competition_agent'].reinitialise()
+                    self.agents['qm_agent'].reinitialise()
             else:
                 dprint("Error getting output from QM")
+        self.print_state()
+        dprint(f"Finalised output is {competition_outputs['structured_output']}")
+
+    def print_state(self):
+        dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
 
     def handle_output(self, sender, output):
         # Output handling logic based on the sender

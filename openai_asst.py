@@ -153,22 +153,6 @@ class AgentThread():
             self.returnobjs.append(self.output_dict)
         return self.output_dict
 
-
-    def generate_thread(self):
-        if self.run_prompt is None:
-            print("Error: Running agent with empty Prompt")
-        prompt = self.run_prompt
-        self.thread = self.client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ]
-        )
-        dprint(f"generated thread {self.thread.id}")
-        return
-
     def add_message(self, instructions, input_files=None):
         """
             add a message {prompt} to the thread
@@ -199,20 +183,6 @@ class AgentThread():
         if new_messages:
             self.last_timestamp = new_messages[-1].created_at
         return response
-
-    def retrieve_direct_agent_content(self, str=None, tag=""):
-        """
-            given an asst-file-id, return the file content as a dictionary
-        """
-        if str:
-            return self.file_handler.retrieve_direct_agent_content(self.client, self.agent_id, self.active_thread(),
-                                                   str, self.active_output_file(), "")
-        else:
-            # TODO need to pass string instead of response file
-            dprint(f"retrieve needs fixing")
-            return self.file_handler.retrieve_direct_agent_content( self.client, self.agent_id, self.active_thread(),
-                                                               self.response_file, self.active_output_file(), "")
-
 
 class RunObj(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
