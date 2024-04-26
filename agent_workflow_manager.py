@@ -35,14 +35,15 @@ class AgentManager:
         self.print_state()
         completed = False
         qm_instructions = None
+        initial_run = True
         while completed is False:
-            self.agents['competition_agent'].load(qm_instructions=qm_instructions)
+            self.agents['competition_agent'].load(qm_instructions=qm_instructions, initial_run=initial_run)
             self.print_state()
             self.agents['competition_agent'].run()
             self.print_state()
             competition_outputs = self.agents['competition_agent'].retrieve()
             self.print_state()
-            self.agents['qm_agent'].load(agent_output=competition_outputs)
+            self.agents['qm_agent'].load(agent_output=competition_outputs, initial_run=initial_run)
             self.print_state()
             self.agents['qm_agent'].run()
             self.print_state()
@@ -62,6 +63,7 @@ class AgentManager:
                     self.agents['qm_agent'].reinitialise()
             else:
                 dprint("Error getting output from QM")
+            initial_run = False
         self.print_state()
         dprint(f"Finalised output is {competition_outputs['structured_output']}")
 
