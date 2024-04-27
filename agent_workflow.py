@@ -60,6 +60,7 @@ class Agent:
 
     def run(self):
         self.run_trigger(self.unvalidated_data)
+        return self.validated.retrieve_output
 
     def retrieve(self):
         self.retrieve_trigger(self.unvalidated_data)
@@ -267,7 +268,7 @@ class Agent:
         file_handler = self.validated.workflow_context.file_handler
         if current_state == 'Zero':
             self.delete_existing_assistant_files(client, agent_id)
-        if current_state == 'Retrieved':
+        if current_state == 'Running':
             self.delete_oldest_assistant_files(client, agent_id )
         return
 

@@ -12,18 +12,12 @@ class AgentStateMachineConfig:
 
     def setup(self, agent):
         self.machine = Machine(model=agent, states=agent.states, initial='Zero')
-        # ZeroState confgis
         self.machine.add_transition('initial_trigger',
                                     'Zero',
                                     'Initialised',
                                     prepare='before_validation',
                                     conditions=['validation'],
                                     before='after_validation')
-        # Initialised State Configs
-        # self.machine.add_transition(
-        #     trigger='wait_trigger',
-        #     source='Initialised',
-        #     dest='Waiting')
         self.machine.add_transition('load_trigger',
                                     'Initialised',
                                     'Loaded',
@@ -31,27 +25,19 @@ class AgentStateMachineConfig:
                                     conditions=['validation'],
                                     before='after_validation'
                                     )
-        # Loadedstate configs
-        # self.machine.add_transition('load_trigger',
-        #                             'Running',
-        #                             'Loaded',
-        #                             prepare='before_validation',
-        #                             conditions=['validation'],
-        #                             before='after_validation'
-        #                             )
         self.machine.add_transition('load_trigger',
                                     'Running',
                                     'Loaded',
                                     prepare='before_validation',
                                     before='after_validation'
                                     )
-
         self.machine.add_transition('run_trigger',
                                     'Loaded',
                                     'Running',
                                     prepare='before_validation',
                                     conditions=['validation'],
-                                    before='after_validation')
+                                    before='after_validation',
+                                    after='retrieve_trigger')
         self.machine.add_transition('retrieve_trigger',
                                     'Running',
                                     'Retrieved',

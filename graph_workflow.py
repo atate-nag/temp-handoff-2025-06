@@ -254,13 +254,7 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
             # local_json = file_handler.write_local_json("full_graph", json_graph)
             agent_manager = AgentManager(client=client, file_handler=file_handler, agent_types=[agentType, 'qm_agent'],
                                          input_files=[file_path])
-        sys.exit()
-        dprint(f"Agent is now in state {agent_work_flow.state}")
-        sys.exit()
-        dprint(f"Agent ={agent} and Validated context is {agent.context}")
-        dprint(f"An Agent of type {agent.type} and context {agent.context} ")
-        run = agent.setup_run(agent_graph_file, qm=True)
-        dictionary_return = agent.run_agent()
+        dictionary_return = agent_manager.return_dict()
         dprint(f"Agent file has returned {dictionary_return}")
     # now call a generic graph updater also
     if updateGraph:

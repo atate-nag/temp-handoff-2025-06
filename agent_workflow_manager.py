@@ -93,7 +93,6 @@ class AgentManager:
                                             file_handler=file_handler,
                                             agent_type=agent_type,
                                             input_files=input_files if agent_type != 'qm_agent' else None)
-                                           # qm=agent_type == 'qm_agent')
 
         self.agents['qm_agent'].initialise()
         qm_id = self.agents['qm_agent'].get_id()
@@ -107,18 +106,14 @@ class AgentManager:
         while completed is False:
             self.agents['competition_agent'].load(qm_instructions=qm_instructions, initial_run=initial_run)
             self.print_state()
-            self.agents['competition_agent'].run()
-            self.print_state()
-            competition_outputs = self.agents['competition_agent'].retrieve()
+            competition_outputs = self.agents['competition_agent'].run()
             self.print_state()
             self.agents['qm_agent'].load(
                 agent_output=competition_outputs,
                 initial_run=initial_run,
                 agent_requirements=self.agents['competition_agent'].requirements())
             self.print_state()
-            self.agents['qm_agent'].run()
-            self.print_state()
-            qm_output = self.agents['qm_agent'].retrieve()
+            qm_output = self.agents['qm_agent'].run()
             self.print_state()
             dprint(f"QM output = {qm_output}")
             if qm_output is not None or self.agents['qm_agent'] != "Retrieved":
@@ -129,7 +124,7 @@ class AgentManager:
                     dprint(f"Completed, will exit now")
                 else:
                     # both agent and qm qill need to be reverted back to Initialised state
-                    dprint(f"Agent will be reissued with instructions {qm_instructions}")
+                    dprint(f"Agent will be rerun with instructions {qm_instructions}")
                     self.agents['competition_agent'].reinitialise()
                     self.agents['qm_agent'].reinitialise()
             else:
@@ -137,6 +132,10 @@ class AgentManager:
             initial_run = False
         self.print_state()
         dprint(f"Finalised output is {competition_outputs['structured_output']}")
+        self.return_dict = competition_outputs['structured_output']
+
+    def return_dict(self):
+        return self.return_dict
 
     def print_state(self):
         dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")
