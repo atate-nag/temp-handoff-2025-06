@@ -59,72 +59,50 @@ class AgentThread():
             dprint("Error: The runobj did not run yet")
         return
 
-    def retrieve(self, debug=False, qm_id=None):
-        if debug:
-            debug_string = '{"debug": "This is a debug entry"}\n'  # JSONL format requires new lines
-            with open(f"debug_{self.id}.json", "w") as file:
-                file.write(debug_string)
-            with open(f"debug_{self.id}.json", "rb") as local_file:
-                uploaded_file = self.client.files.create(
-                    file=local_file,
-                    purpose="assistants"
-                )
-                asst_file = self.client.beta.assistants.files.create(
-                    assistant_id=self.agent_id,
-                    file_id=uploaded_file.id
-                )
-            self.output_dict = {
-                'run_obj': self.runobjs[-1],
-                'response': asst_file,
-                'output_file': asst_file
-            }
-            return self.output_dict
+    def retrieve(self, qm_id=None):
+        """ retrieves an existing run via the runobj
+            and extracts the response, output and json """
+        self.runobjs[-1].retrieve()
+        # switch the runobj to ran state, can't be modified or reran
+        self.runobjs[-1].ran = True
+        # should we retrieve from qm_id or agent_id?
+        if qm_id:
+            target_id = qm_id
         else:
-            self.runobjs[-1].retrieve()
-            # switch the runobj to ran state, can't be modified or reran
-            self.runobjs[-1].ran = True
-            # should we retrieve from qm_id or agent_id?
-            if qm_id:
-                target_id = qm_id
-            else:
-                target_id = self.agent_id
-
-            asst_file_agent_output = self.file_handler.retrieve_output_file_id(
-                self.client,
-                self.agent_id,
-                self.thread,
-                target_id,
-                f"output_file_Run{self.runobjs[-1].id}",
-            )
-
-            agent_response = self.get_new_messages()
-            asst_file_response = self.file_handler.txt_to_asst_file(
-                self.client,
-                agent_response,
-                "agent_response",
-                target_id)
-
-            structured_output = self.file_handler.retrieve_direct_agent_content(
-                self.client,
-                self.agent_id,
-                agent_response,
-                asst_file_agent_output,
-                f"_runobj{self.runobjs[-1].id}")
-
-            if structured_output is None:
-                dprint(f"No JSON in responses, need to reissue")
-                self.output_dict = None
-                self.returnobjs.append(None)
-                return None
-            # TODO structured_output could be too large to be passed in a dict and
-            #  should be a new assistant_file ?
-            self.output_dict = {
-                'run_obj': self.runobjs[-1],
-                'response_file': asst_file_response.id,
-                'output_file': asst_file_agent_output,
-                'structured_output': structured_output
-            }
-            self.returnobjs.append(self.output_dict)
+            target_id = self.agent_id
+        asst_file_agent_output = self.file_handler.retrieve_output_file_id(
+            self.client,
+            self.agent_id,
+            self.thread,
+            target_id,
+            f"output_file_Run{self.runobjs[-1].id}",
+        )
+        agent_response = self.get_new_messages()
+        asst_file_response = self.file_handler.txt_to_asst_file(
+            self.client,
+            agent_response,
+            "agent_response",
+            target_id)
+        structured_output = self.file_handler.retrieve_direct_agent_content(
+            self.client,
+            self.agent_id,
+            agent_response,
+            asst_file_agent_output,
+            f"_runobj{self.runobjs[-1].id}")
+        if structured_output is None:
+            dprint(f"No JSON in responses, need to reissue")
+            self.output_dict = None
+            self.returnobjs.append(None)
+            return None
+        # TODO structured_output could be too large to be passed in a dict and
+        #  should be a new assistant_file ?
+        self.output_dict = {
+            'run_obj': self.runobjs[-1],
+            'response_file': asst_file_response.id,
+            'output_file': asst_file_agent_output,
+            'structured_output': structured_output
+        }
+        self.returnobjs.append(self.output_dict)
         return self.output_dict
 
     def add_message(self, instructions, input_files=None):

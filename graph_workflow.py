@@ -234,33 +234,45 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
             insight_graph.add_insight(insight_content, companyName)
     return
 
-def generic_agent_run(agentType, companyName, updateGraph, debugRun):
+
+def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun):
     # TODO needs a generic intermediates write adding
     # TODO can be made more generic by defining the graph input -> agent function -> graph output
     if debugRun:
         # TODO debugRun needs to be incremental not wholesale
-        dictionary_return = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
+        agent_dictionary_return = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
     else:
         # get the graph data to send to agent
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-        # dprint(json_graph)
-        # file_path = f"graph.json"
-        # with open(file_path, "w") as file:
-        #     file.write(json_graph)
-        # with open(file_path, "rb") as local_file:
         file_path = file_handler.write_local_json("graph_upload_",json_graph)
-        agent_manager = AgentManager(
-            client=client,
-            file_handler=file_handler,
-            agent_types=[agentType, 'qm_agent'],
-            input_files=[file_path])
-        dictionary_return = agent_manager.return_dict()
-        dprint(f"Agent file has returned {dictionary_return}")
+        # agent_configs = [{'agent_type': 'competition_agent'}, {'agent_type': 'analysis_agent'}]
+        agent_configs = [{'agent_type': 'competition_agent'}]
+        # agent_configs = ['competition_agent','qm_agent']
+        agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
+        # agent_manager = AgentManager(
+        #     client=client,
+        #     file_handler=file_handler,
+        #     agent_types=[agentType, 'qm_agent'],
+        #     input_files=[file_path])
+        agent_dictionary_return = agent_manager.return_dict()
+        dprint(f"Agent file has returned {agent_dictionary_return}")
+        # agent_dictionary_return = file_handler.local_json_read(f"Final_NAG_Competitive_Environment_Profile.json")
+        dprint(f"agent_dict={agent_dictionary_return}")
+        # company_basic_graph = company_graph.get_company_info(companyName)
+        # company_file_path = file_handler.write_local_json("basic_info_local_",json.dumps(company_basic_graph))
+        # agent_manager_report = AgentManager(
+        #     client=client,
+        #     file_handler=file_handler,
+        #     agent_types=[reportType, 'qm_agent'],
+        #     input_files=[company_file_path, agent_dictionary_return] )
+        # dictionary_report_return = agent_manager_report.return_dict()
+        # dprint(f"Report has returned {dictionary_report_return}")
     # now call a generic graph updater also
     if updateGraph:
-        company_graph.generic_update_graph(companyName, dictionary_return, agentType)
-    for item in dictionary_return:
+        company_graph.generic_update_graph(companyName, agent_dictionary_return, agentType)
+    for item in agent_dictionary_return:
         dprint(item)
+
 
 if __name__ == '__main__':
     main()

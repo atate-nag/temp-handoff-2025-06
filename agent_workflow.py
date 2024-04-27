@@ -9,6 +9,7 @@ from openai_asst import AgentThread
 from agent_state_machine_config import AgentStateMachineConfig
 from pubsub import pub
 
+
 class Agent:
     states = ['Zero', 'Waiting', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
 
@@ -19,7 +20,8 @@ class Agent:
         # defaultdict will add optional arguments to None so they can still be queried without key error
         self.user_data = defaultdict(lambda: None, **kwargs)
         self.validated = ValidatedData(self)  # container for validated data
-
+        self.last_validated_output = None
+        self.agent_type = None
         """
             Each state transition will follow this path:
             before_validation  ->   validation ->  after_validation - > transition 
@@ -32,14 +34,15 @@ class Agent:
 
     def get_id(self):
         return self.validated.agent_id
+
     def get_qm_id(self):
         return self.validated.qm_id
 
-    def initialise(self,qm_id=None):
+    def initialise(self, qm_id=None):
         self.user_data['qm_id'] = qm_id
         self.initial_trigger(self.unvalidated_data)
 
-    def load(self, initial_run, agent_output=None, qm_instructions=None, agent_requirements=None):
+    def load(self, initial_run, agent_output=None, qm_instructions=None,agent_requirements=None):
         self.user_data['initial_run'] = initial_run
         if agent_output:
             self.user_data['agent_output'] = agent_output
@@ -49,7 +52,17 @@ class Agent:
             self.user_data['agent_requirements'] = agent_requirements
         self.load_trigger(self.unvalidated_data)
 
-    def reissue(self,instructions=None):
+    def receive_input(self, agent_output=None, qm_instructions=None, agent_requirements=None):
+        # assumption is that this is a QM itself
+        # so the inputs are
+        if agent_output:
+            self.user_data['agent_output'] = agent_output
+        if qm_instructions:
+            self.user_data['qm_instructions'] = qm_instructions
+        if agent_requirements:
+            self.user_data['agent_requirements'] = agent_requirements
+
+    def reissue(self):
         self.reissue_trigger(self.unvalidated_data)
 
     def wait(self):
@@ -63,11 +76,6 @@ class Agent:
         self.retrieve_trigger(self.unvalidated_data)
         return self.validated.retrieve_output
 
-    def receive_input(self, input):
-        # Process the input and possibly generate new output
-        self.process_input(input)
-        pub.sendMessage(f'{self.agent_type}_output', sender=self.agent_type, output="Processed")
-
     def requirements(self):
         return self.validated.agent_context.output_schema
 
@@ -75,15 +83,17 @@ class Agent:
 
     def get_id(self):
         return self.validated.agent_id
+
     def get_qm_id(self):
         return self.validated.qm_id
 
     """ State Transition and Validation Methods """
 
     """ 1) before validation - take unvalidated data inputs 
-        and perform any neccessary configurations
+        and perform any necessary configurations
         before validation tests
     """
+
     def before_validation(self, unvalidated_data):
         """ Execute Before validation and transition """
         dprint(f"Generating state data for state {self.state}")
@@ -91,6 +101,9 @@ class Agent:
         if current_state == 'Zero':
             self.unvalidated_data.set_data_for_state(current_state, **self.user_data)
         elif current_state == 'Initialised':
+            # TODO must not reload data when reinitialising
+            # possibly needs to be split into two states, input files are
+            #  a one-time upload wheras the others are not
             client = self.validated.workflow_context.client
             agent_id = self.validated.agent_context.agent_id
             file_handler = self.validated.workflow_context.file_handler
@@ -119,9 +132,7 @@ class Agent:
             dprint("Loaded state")
         elif current_state == 'Running':
             dprint("In Running state, waiting for thread")
-
             self.validated.agent_thread.retrieve(
-                debug=False,
                 qm_id=self.validated.qm_id
             )
         return
@@ -139,12 +150,14 @@ class Agent:
                 validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
                 agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
                 qm_id = validated_workflow_context.qm_id
-                agent_context_valid = AgentContextModel(**agent_configs_valid,qm_id=qm_id)
+
+                agent_context_valid = AgentContextModel(**agent_configs_valid, qm_id=qm_id)
                 self.validated.set_data('workflow_context', validated_workflow_context)
                 self.validated.set_data('agent_config', agent_configs_valid)
+                self.agent_type = validated_workflow_context.agent_type
                 self.validated.set_data('agent_context', agent_context_valid)
                 # TODO add model for qm_id
-                self.validated.set_data('qm_id',qm_id)
+                self.validated.set_data('qm_id', qm_id)
                 input_files_valid = None
                 self.validated.set_data('agent_id', self.validated.agent_context.agent_id)
                 if self.user_data['input_files']:
@@ -157,7 +170,7 @@ class Agent:
                     client=self.validated.workflow_context.client,
                     agent_id=self.validated.agent_context.agent_id,
                     initial_prompt=self.validated.agent_context.prompt,
-                    file_handler=self.validated.workflow_context.file_handler )
+                    file_handler=self.validated.workflow_context.file_handler)
                 agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
                 self.validated.set_data('agent_thread', agent_thread)
                 return True
@@ -227,6 +240,7 @@ class Agent:
             dprint(f"Validating the run in state {current_state}")
             # checks 1) is there a valid response and output file?
             raw_output_dict = self.validated.agent_thread.get_output()
+            dprint(f"raw output from agent = {raw_output_dict}")
             # if not, it will get reissued
             # TODO validate output_dict
             # Much of the following is not validation logic - move to after
@@ -243,7 +257,13 @@ class Agent:
                 dprint(f"Agent did not produce output and will be informed: {instructions}")
                 # TODO cannot act on agent_thread state
                 self.validated.agent_thread.add_message(instructions)
-                self.validated.set_data('retrieve_output',None)
+                self.validated.set_data('retrieve_output', None)
+                # need to delete some files here in case we get into a long loop
+                #  of uploading new files
+                #  TODO reissue should not create new files?
+                self.delete_oldest_assistant_files(
+                    self.validated.workflow_context.client,
+                    self.validated.agent_context.agent_id)
                 self.reissue()
 
     def after_validation(self, unvalidated_data):
@@ -258,7 +278,7 @@ class Agent:
         if current_state == 'Zero':
             self.delete_existing_assistant_files(client, agent_id)
         if current_state == 'Running':
-            self.delete_oldest_assistant_files(client, agent_id )
+            self.delete_oldest_assistant_files(client, agent_id)
         return
 
     def delete_existing_assistant_files(self, client, agent_id):
@@ -285,7 +305,7 @@ class Agent:
             asst_files = client.beta.assistants.files.list(
                 assistant_id=agent_id,
             )
-            dprint(f"Total assistant files: {len(asst_files.data)}")
+            dprint(f"Total assistant files: {len(asst_files.data)} on {agent_id}")
             # Check if the number of files exceeds the maximum allowed
             if len(asst_files.data) > max_files:
                 sorted_files = sorted(asst_files.data, key=lambda x: x.created_at)

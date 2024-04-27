@@ -124,11 +124,12 @@ class FileHandler:
 
     @staticmethod
     def write_local_json(tag, data):
-        file_path = f"./Intermediates/local_{tag}_for_agent_upload.json"
+        # TODO - pass dictionary data not a string?
+        # sdata is already a serialised json string
+        file_path = f"./Intermediates/local_{tag}.json"
         # Open the file in binary mode for writing; encode the text to bytes
         with open(file_path, "w") as file:
-            json.dump(data, file)
-        dprint(f"local json written to {file_path}")
+            file.write(data)
         return file_path
 
     def upload_text_to_file(self, client, text):
@@ -260,7 +261,6 @@ class FileHandler:
         Retrieves the content from a file, annotations or set of messages
         After an agent completes, there should be useful JSON data in either the
         response file or the latest output file.
-
         """
         json_data = self.extract_json_from_response_text(response_str)
         if json_data:
@@ -273,7 +273,6 @@ class FileHandler:
                 return json_data
         dprint("No json data found in either response or latest output file, returning None")
         return None
-
 
     @staticmethod
     def clean_json_string(s):
@@ -337,7 +336,6 @@ class FileHandler:
         """
         # Adjusting regex to capture JSON data enclosed within markdown code blocks
         # and be resilient to the absence of newlines
-
         match = re.search(r"```json\s*(.+?)\s*```", response, re.DOTALL)
         if match:
             json_string = match.group(1)

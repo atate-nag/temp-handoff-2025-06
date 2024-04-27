@@ -103,6 +103,7 @@
       "enabled": true,
       "parameters" : {
         "agentType" : "competition_agent",
+        "reportType" : "competitive_analysis_report_agent",
         "companyName": "nag",
         "updateGraph": false,
         "debugRun" : false
