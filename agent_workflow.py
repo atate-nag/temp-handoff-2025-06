@@ -42,16 +42,17 @@ class Agent:
         dprint(f"checking now self.user_data['qm_id']={self.user_data['qm_id']} ")
         self.initial_trigger(self.unvalidated_data)
 
-    def load(self, initial_run, agent_output=None, qm_instructions=None):
+    def load(self, initial_run, agent_output=None, qm_instructions=None, agent_requirements=None):
         self.user_data['initial_run'] = initial_run
         if agent_output:
             self.user_data['agent_output'] = agent_output
         if qm_instructions:
             self.user_data['qm_instructions'] = qm_instructions
+        if agent_requirements:
+            self.user_data['agent_requirements'] = agent_requirements
         self.load_trigger(self.unvalidated_data)
 
-    def reissue(self,instructions):
-        self.user_data['qm_instructions'] = instructions
+    def reissue(self,instructions=None):
         self.reissue_trigger(self.unvalidated_data)
 
     def wait(self):
@@ -68,6 +69,9 @@ class Agent:
         # Process the input and possibly generate new output
         self.process_input(input)
         pub.sendMessage(f'{self.agent_type}_output', sender=self.agent_type, output="Processed")
+
+    def requirements(self):
+        return self.validated.agent_context.output_schema
 
     def before_validation(self, unvalidated_data):
         """ Execute Before validation and transition """
@@ -104,6 +108,7 @@ class Agent:
             dprint("Loaded state")
         elif current_state == 'Running':
             dprint("In Running state, waiting for thread")
+
             self.validated.agent_thread.retrieve(
                 debug=False,
                 qm_id=self.validated.qm_id
@@ -195,11 +200,14 @@ class Agent:
             # Validate and create a RunObjModel instance
             dprint(f"the agent output for QM generation is {self.validated.agent_output_file} and schema "
                    f"{self.validated.agent_context.requirements}")
-            prompt = None
+            prompt = agent_requirements = None
             if self.user_data['qm_instructions']:
                 # we need to give feedback to the agent from the QM
                 prompt = self.user_data['qm_instructions']
                 dprint(f"Due to QM feedback, using the prompt {prompt}")
+            if self.user_data['agent_requirements']:
+                # TODO need to validate agent_requirements
+                agent_requirements = self.user_data['agent_requirements']
             if self.user_data['agent_output']:
                 # we need to tell the QM that the agent followed instructions
                 # and that there is a new output file
@@ -214,7 +222,7 @@ class Agent:
                 input_files=self.validated.asst_input_files,
                 agent_response=self.validated.agent_response_file,
                 agent_output=self.validated.agent_output_file,
-                agent_requirements=self.validated.agent_context.requirements,
+                agent_requirements=agent_requirements,
                 output_schema=self.validated.agent_context.output_schema,
                 prompt=prompt
             )
@@ -227,7 +235,8 @@ class Agent:
             raw_output_dict = self.validated.agent_thread.get_output()
             # if not, it will get reissued
             # TODO validate output_dict
-            dprint(f"The output retreived is {raw_output_dict}")
+            dprint(f"The output retreived is {raw_output_dict}")\
+            # Much of the following is not validation logic - move to after
             if raw_output_dict:
                 output_dict = self.normalize_agent_output(raw_output_dict)
                 dprint(f"The structured output is {output_dict['structured_output']} setting that to validated")
@@ -236,31 +245,33 @@ class Agent:
                 dprint("Good JSON output - validating state")
                 return True
             else:
-                instructions = ("No valid structured JSON was detected in your response or"
-                                "in an output file that you have indicated was present. Please"
+                instructions = ("No valid structured JSON was detected in your response or "
+                                "in an output file that you have indicated was present. Please "
                                 "regenerate your response and try again.")
                 # reissue logic will go here
                 dprint("Reissuing with an updated message")
                 dprint(f"Agent did not produce output and will be informed: {instructions}")
                 # TODO cannot act on agent_thread state
                 self.validated.agent_thread.add_message(instructions)
-                self.reissue(instructions=instructions)
+                self.validated.set_data('retrieve_output',None)
+                self.reissue()
 
     def after_validation(self, unvalidated_data):
         """ Execute AFTER validation but before state transition"""
         dprint(f"Running transition before state {self.state} to next state")
         current_state = self.state
+        unvalidated_data = self.unvalidated_data.get_data_for_state(current_state)
+        dprint(f"transition data for {self.state} = {unvalidated_data}")
+        client = self.validated.workflow_context.client
+        agent_id = self.validated.agent_context.agent_id
+        file_handler = self.validated.workflow_context.file_handler
         if current_state == 'Zero':
-            current_state = self.state
-            unvalidated_data = self.unvalidated_data.get_data_for_state(current_state)
-            dprint(f"transition data for {self.state} = {unvalidated_data}")
-            client = self.validated.workflow_context.client
-            agent_id = self.validated.agent_context.agent_id
-            file_handler = self.validated.workflow_context.file_handler
-            self.delete_existing_assistant_files(client, agent_id, file_handler)
+            self.delete_existing_assistant_files(client, agent_id)
+        if current_state == 'Retrieved':
+            self.delete_oldest_assistant_files(client, agent_id )
         return
 
-    def delete_existing_assistant_files(self, client, agent_id, file_handler):
+    def delete_existing_assistant_files(self, client, agent_id):
         """ Manage existing assistant files in OpenAI """
         asst_files = client.beta.assistants.files.list(
             assistant_id=agent_id,
@@ -277,6 +288,30 @@ class Agent:
                 dprint(f"Deleted Assistant file")
             except Exception as e:
                 dprint(f"Error deleting Assistant file {e}")
+
+    def delete_oldest_assistant_files(self, client, agent_id, max_files=10):
+        """Manage existing assistant files by keeping only the latest 'max_files'."""
+        try:
+            # Retrieve list of assistant files
+            asst_files = client.beta.assistants.files.list(
+                assistant_id=agent_id,
+            )
+            dprint(f"Total assistant files: {len(asst_files.data)}")
+            # Check if the number of files exceeds the maximum allowed
+            if len(asst_files.data) > max_files:
+                sorted_files = sorted(asst_files.data, key=lambda x: x.created_at)
+                files_to_delete = sorted_files[:len(asst_files.data) - max_files]
+
+                # Delete the oldest files
+                for asst_file in files_to_delete:
+                    dprint(f"Attempting to delete Assistant file-id: {asst_file.id}")
+                    client.beta.assistants.files.delete(
+                        assistant_id=agent_id,
+                        file_id=asst_file.id
+                    )
+                    dprint(f"Deleted Assistant file-id: {asst_file.id}")
+        except Exception as e:
+            dprint(f"Error managing Assistant files: {e}")
 
     def normalize_agent_output(self, output):
         # Check and convert 'completed' from string 'true'/'false' to Boolean True/False

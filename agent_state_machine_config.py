@@ -60,7 +60,7 @@ class AgentStateMachineConfig:
                                     before='after_validation')
         # Transition to handle successful completion
         self.machine.add_transition('mark_complete', 'Retrieved', 'Completed')
-        self.machine.add_transition('reissue_trigger', 'Running', 'Loaded',after='run_trigger')
+        self.machine.add_transition('reissue_trigger', 'Running', 'Loaded', after='run_trigger')
         self.machine.add_transition('reinitialise', 'Retrieved', 'Initialised')
 
         return self.machine

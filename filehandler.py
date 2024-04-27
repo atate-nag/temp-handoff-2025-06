@@ -476,35 +476,3 @@ def retrieve_file_annotation(client, thread):
                     return file
     dprint("No annotations for a file were found")
     return None
-
-
-
-# def retrieve_file_path(client, thread):
-#     # Retrieve file from "annotations" but when it is a path
-#     messages = client.beta.threads.messages.list(thread_id=thread.id).data
-#     for message in messages:
-#         dprint(message)
-#         if message.role == "assistant" and message.content[0].type == "text":
-#             annotations = message.content[0].text.annotations
-#             dprint(annotations)
-#             for index, annotation in enumerate(annotations):
-#                 dprint(annotation)
-#                 dprint(f"annotation.file_path = {annotation.file_path}")
-#                 if annotation.file_path.file_id:
-#                     dprint(annotation.file_path)
-#                     file = annotation.file_path.file_id
-#                     return file
-#     dprint("No annotations for a file were found")
-#     return None
-
-# def download_file_by_id(client, file_id):
-#     content = client.files.retrieve_content(file_id)
-#     return content
-#
-# def download_content_and_write(client, agent_file, local_filename):
-#     json_content = download_file_by_id(client, agent_file)
-#     with open(
-#             f"./Intermediates/{local_filename}.json", "w", encoding="utf-8"
-#     ) as json_file:
-#         json_file.write(json_content)
-#     return json_file

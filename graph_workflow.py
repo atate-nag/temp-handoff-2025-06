@@ -82,12 +82,9 @@ def get_step_function(step_name):
     }
     return step_map.get(step_name, None)  # Return None if not found
 
-    #
     #    Following are the workflow functionality functions - they are 1:1 mappings between
     #    functions mentioned in the file wofkflow_config.json
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
-    #
-
 
 def create_companies(companyName):
     dprint(f"Creating company {companyName}")
