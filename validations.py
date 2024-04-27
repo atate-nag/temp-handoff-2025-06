@@ -31,7 +31,6 @@ class WorkFlowContextModel(BaseModel):
     client: Any
     file_handler: Any
     agent_type: str = Field()
-    qm: bool
     qm_id: Optional[str] = None
     # input_files: List = Field()
     @field_validator('client')

@@ -1,3 +1,82 @@
+# from agent_workflow import Agent
+# class AgentManager:
+#     def __init__(self, client, file_handler, agent_types):
+#         self.client = client
+#         self.file_handler = file_handler
+#         self.agents = {}
+#         self.initialize_agents(agent_types)
+#
+#     def initialize_agents(self, agent_configs):
+#         """ Initialize operational agents and their corresponding QM agents. """
+#         for config in agent_configs:
+#             operational_agent = self.create_agent(config['operational'])
+#             qm_agent = self.create_agent(config['qm'], is_qm=True)
+#             self.agents[operational_agent.agent_type] = operational_agent
+#             self.agents[qm_agent.agent_type] = qm_agent
+#
+#         # Initialize the integrator agent, which collates all results
+#         integrator_config = {'agent_type': 'integrator', 'input_files': None}
+#         self.integrator = self.create_agent(integrator_config)
+#         self.integrator_qm = self.create_agent({'agent_type': 'integrator_qm'}, is_qm=True)
+#
+#     def create_agent(self, config, is_qm=False):
+#         """ Factory method to create and initialize agents. """
+#         input_files = None if is_qm else config.get('input_files', None)
+#         agent = Agent(
+#             client=self.client,
+#             file_handler=self.file_handler,
+#             agent_type=config['agent_type'],
+#             input_files=input_files,
+#             qm=is_qm)
+#         agent.initialise()
+#         return agent
+#
+#     def run_workflow(self):
+#         """ Manage the complete workflow across all agents and their QMs. """
+#         for agent_type, agent in self.agents.items():
+#             if 'qm' not in agent_type:  # Avoid running QMs directly
+#                 self.process_agent(agent)
+#
+#         # Once all individual agents and their QMs have processed, run the integrator
+#         self.process_integrator()
+#
+#     def process_agent(self, agent):
+#         """ Processes an individual agent and its corresponding QM. """
+#         agent.load()
+#         agent.run()
+#         output = agent.retrieve()
+#
+#         # Load and run the corresponding QM agent
+#         qm_agent = self.agents[f"{agent.agent_type}_qm"]
+#         qm_agent.receive_input(output)
+#         qm_agent.load()
+#         qm_agent.run()
+#         qm_validation = qm_agent.retrieve()
+#
+#         # Handle the output of the QM process, possibly reissue tasks
+#         if not qm_validation['passed']:
+#             agent.reinitialise()  # Reset agent for reprocessing if needed
+#
+#     def process_integrator(self):
+#         """ Processes the integrator agent which collates all outputs. """
+#         # Gather outputs from all agents
+#         inputs_for_integration = [self.agents[atype].get_latest_output() for atype in self.agents if 'qm' not in atype]
+#         self.integrator.receive_inputs(inputs_for_integration)
+#         self.integrator.load()
+#         self.integrator.run()
+#         final_output = self.integrator.retrieve()
+#
+#         # Validate final output with its QM
+#         self.integrator_qm.receive_input(final_output)
+#         self.integrator_qm.load()
+#         self.integrator_qm.run()
+#         final_validation = self.integrator_qm.retrieve()
+#
+#         if final_validation['passed']:
+#             print("Workflow completed successfully with validated final output.")
+#         else:
+#             print("Final output did not pass validation; adjustments needed.")
+
 from agent_workflow import Agent
 from debug import dprint
 
@@ -13,8 +92,8 @@ class AgentManager:
             self.agents[agent_type] = Agent(client=client,
                                             file_handler=file_handler,
                                             agent_type=agent_type,
-                                            input_files=input_files if agent_type != 'qm_agent' else None,
-                                            qm=agent_type == 'qm_agent')
+                                            input_files=input_files if agent_type != 'qm_agent' else None)
+                                           # qm=agent_type == 'qm_agent')
 
         self.agents['qm_agent'].initialise()
         qm_id = self.agents['qm_agent'].get_id()
