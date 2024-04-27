@@ -8,7 +8,9 @@ from collections import defaultdict
 from openai_asst import AgentThread
 from agent_state_machine_config import AgentStateMachineConfig
 from pubsub import pub
-
+import json
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 class Agent:
     states = ['Zero', 'Waiting', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
@@ -115,7 +117,7 @@ class Agent:
                         agent_id,
                         file)
                     uploaded_assistant_files.append(asst_file)
-            agent_response_file = agent_output_file = agent_structured_output = None
+            agent_response_file = agent_output_file = agent_structured_output = agent_schema_error = None
             if self.user_data['agent_output']:
                 output = self.user_data['agent_output']
                 agent_response_file = output['response_file']
@@ -126,7 +128,7 @@ class Agent:
                 agent_output_file=agent_output_file,
                 agent_response_file=agent_response_file,
                 agent_structured_output=agent_structured_output,
-                asst_input_files=uploaded_assistant_files
+                asst_input_files=uploaded_assistant_files,
             )
         elif current_state == 'Loaded':
             dprint("Loaded state")
@@ -193,15 +195,23 @@ class Agent:
                     asst_input_files = unvalidated_data['asst_input_files']
                 self.validated.set_data('asst_input_files', asst_input_files)
                 agent_thread = self.validated.agent_thread
-                agent_output_file = agent_response_file = agent_structured_output = None
+                agent_output_file = agent_response_file = agent_structured_output = agent_schema_errors = agent_requirements = None
+                if self.user_data['agent_requirements']:
+                    # TODO need to validate agent_requirements
+                    agent_requirements = self.user_data['agent_requirements']
+                self.validated.set_data('agent_requirements', agent_requirements)
+
                 if self.user_data['agent_output']:
                     agent_response_file = unvalidated_data['agent_response_file']
-                    # TODO validate output, response
+                    # TODO validate output, response, schema
                     agent_output_file = unvalidated_data['agent_output_file']
                     agent_structured_output = unvalidated_data['agent_structured_output']
+                    agent_schema_errors = self.validate_schema(agent_structured_output, self.validated.agent_requirements)
+                    dprint(f"agent_schema_errors are {agent_schema_errors}")
                 self.validated.set_data('agent_output_file', agent_output_file)
                 self.validated.set_data('agent_response_file', agent_response_file)
                 self.validated.set_data('agent_structured_output', agent_structured_output)
+                self.validated.set_data('agent_schema_errors', agent_schema_errors)
                 return True
             except ValidationError as e:
                 print(f"Validation failed: {e}")
@@ -209,13 +219,12 @@ class Agent:
         elif current_state == 'Loaded':
             # Validate and create a RunObjModel instance
             prompt = agent_requirements = None
+            # TODO - should qm_instructions and agent_output be
+            #  validated in Initialised state since part of load()?
             if self.user_data['qm_instructions']:
                 # we need to give feedback to the agent from the QM
                 prompt = self.user_data['qm_instructions']
                 dprint(f"Due to QM feedback, using the prompt {prompt}")
-            if self.user_data['agent_requirements']:
-                # TODO need to validate agent_requirements
-                agent_requirements = self.user_data['agent_requirements']
             if self.user_data['agent_output']:
                 # we need to tell the QM that the agent followed instructions
                 # and that there is a new output file
@@ -229,8 +238,9 @@ class Agent:
                 input_files=self.validated.asst_input_files,
                 agent_response=self.validated.agent_response_file,
                 agent_output=self.validated.agent_output_file,
-                agent_requirements=agent_requirements,
+                agent_requirements=self.validated.agent_requirements,
                 output_schema=self.validated.agent_context.output_schema,
+                agent_schema_errors=self.validated.agent_schema_errors,
                 prompt=prompt
             )
             self.validated.set_data('run_object', run_object)
@@ -240,6 +250,7 @@ class Agent:
             dprint(f"Validating the run in state {current_state}")
             # checks 1) is there a valid response and output file?
             raw_output_dict = self.validated.agent_thread.get_output()
+
             dprint(f"raw output from agent = {raw_output_dict}")
             # if not, it will get reissued
             # TODO validate output_dict
@@ -280,6 +291,28 @@ class Agent:
         if current_state == 'Running':
             self.delete_oldest_assistant_files(client, agent_id)
         return
+
+    def validate_schema(self, data, schema):
+        # Store validation issues
+        issues = []
+
+        # Validate schema
+        try:
+            validate(instance=data, schema=schema)
+        except ValidationError as e:
+            issues.append(f"Schema validation error: {e.message}")
+
+        # Check for duplicate names
+        seen_names = {}
+        for index, item in enumerate(data):
+            competitor_name = item['competitor']['name']
+            if competitor_name in seen_names:
+                issues.append(
+                    f"Duplicate competitor name found at index {index} and {seen_names[competitor_name]}: '{competitor_name}'")
+            else:
+                seen_names[competitor_name] = index
+
+        return issues
 
     def delete_existing_assistant_files(self, client, agent_id):
         """ Manage existing assistant files in OpenAI """
@@ -323,6 +356,8 @@ class Agent:
 
     def normalize_agent_output(self, output):
         # Check and convert 'completed' from string 'true'/'false' to Boolean True/False
+        # TODO needs other normalisations - these are specific
+        #  to QM issues
         if 'completed' in output:
             completed_value = output['completed']
             if isinstance(completed_value, str):

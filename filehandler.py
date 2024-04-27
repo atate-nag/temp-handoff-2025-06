@@ -253,11 +253,11 @@ class FileHandler:
                 asst_file_qm = self.create_asst_file_from_id(client, qm_id, file_id)
             asst_file = self.create_asst_file_from_id(client, assistant, file_id)
             return file_id
-
         return None
 
     def retrieve_direct_agent_content(self, client, agent_id, response_str, output_file, tag=""):
         """
+        TODO Must be changed so that the best of the JSOn from any source is used
         Retrieves the content from a file, annotations or set of messages
         After an agent completes, there should be useful JSON data in either the
         response file or the latest output file.

@@ -32,6 +32,7 @@ class AgentThread():
                    agent_output,
                    agent_requirements,
                    output_schema,
+                   agent_schema_errors,
                    prompt=None):
         run = RunObj(
             parent=parent,
@@ -44,7 +45,8 @@ class AgentThread():
             input_files=input_files,
             agent_response=agent_response,
             agent_output=agent_output,
-            agent_requirements=agent_requirements)
+            agent_requirements=agent_requirements,
+            agent_schema_errors=agent_schema_errors)
         self.add_message(prompt)
         run.create_run()
         self.runobjs.append(run)
@@ -222,7 +224,8 @@ class RunObj(BaseModel):
         print(f"Run {run_id} did not complete after {self.retrieval_limit} queries.")
         return None
 
-    def generate_runtime_prompt(self,prompt,input_files=None, agent_response=None,agent_output=None, agent_requirements=None):
+    def generate_runtime_prompt(self, prompt,input_files=None, agent_response=None,agent_output=None,
+                                agent_requirements=None, agent_schema_errors=None):
         """
             Generate a prompt using runtime information. Note placeholder values
             appear in the prompt in known_agents.json in the "prompt" field.
@@ -232,6 +235,7 @@ class RunObj(BaseModel):
             "AGENT_RESPONSE": agent_response,
             "AGENT_OUTPUT" : agent_output,
             "AGENT_REQUIREMENTS": agent_requirements,
+            "AGENT_SCHEMA_ERRORS": agent_schema_errors
         }
         # Prepare the prompt by replacing placeholders with actual runtime values
         for placeholder, value in placeholder_values.items():

@@ -101,11 +101,6 @@ class AgentManager:
         self.qm_agents = {}
         self.return_data = None
         
-        # for agent_type in agent_types:
-        #     self.agents[agent_type] = Agent(client=client,
-        #                                     file_handler=file_handler,
-        #                                     agent_type=agent_type,
-        #                                     input_files=input_files if agent_type != 'qm_agent' else None)
         operational_agent = qm_agent = None
         for agent_config in agent_configs:
             dprint(f"Creating QM agent for operational type: {agent_config['agent_type']}")

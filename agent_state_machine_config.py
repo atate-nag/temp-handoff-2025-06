@@ -4,8 +4,10 @@ from transitions import Machine
 class AgentStateMachineConfig:
     def __init__(self):
         self.permissions = {}
-        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files', 'agent_thread','agent_id','qm_id']
-        self.permissions['Initialised'] = ['asst_input_files', 'agent_output_file', 'agent_response_file', 'agent_structured_output']
+        self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files', 'agent_thread',
+                                    'agent_id','qm_id']
+        self.permissions['Initialised'] = ['asst_input_files', 'agent_output_file', 'agent_response_file',
+                                           'agent_structured_output','agent_requirements', 'agent_schema_errors']
         self.permissions['Loaded'] = ['run_object']
         self.permissions['Running'] = ['retrieve_output']
         self.permissions['Retrieved'] = []
