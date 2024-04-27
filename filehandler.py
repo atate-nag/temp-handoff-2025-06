@@ -41,10 +41,8 @@ class FileHandler:
 
     def json_to_asst_file(self, client, data, tag, assistant ):
         local_json = self.write_local_json(tag, data)
-        dprint(f"local json file is {local_json}")
         # Upload to Assistant file
         asst_file = self.create_asst_file_from_local(client, assistant, local_json)
-        dprint(f"asst_file is {asst_file}")
         return asst_file
 
     def txt_to_asst_file(self,client, text, tag, assistant):
@@ -102,10 +100,8 @@ class FileHandler:
         files = [
             f for f in os.listdir(path_to_dir) if os.path.isfile(os.path.join(path_to_dir, f))
         ]
-        dprint(f"FH: files are {files}")
         uploaded_files = []
         for i, file_name in enumerate(files):
-            dprint(f"FH: i,file_name = {i},{file_name}")
             file_path = os.path.join(path_to_dir, file_name)  # Full path to the file
             _, file_extension = os.path.splitext(file_name)  # Extract file extension
             file_format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
@@ -155,21 +151,17 @@ class FileHandler:
     def create_asst_file_from_local(self, client, assistant, file):
         # first upload the file
         uploaded_file = self.direct_upload_file(file)
-        dprint("uploaded file", uploaded_file)
         try:
             asst_file = client.beta.assistants.files.create(
                 assistant_id=assistant,
                 file_id=uploaded_file
             )
-            dprint("assistant file", asst_file)
             return asst_file.id
         except Exception as e:
             dprint(f"Failed to create assistant file due to {e}")
             return None
 
     def create_asst_file_from_id(self, client, assistant, file):
-
-        dprint("pre-uploaded file: ", file)
         try:
             asst_file = client.beta.assistants.files.create(
                 assistant_id=assistant,
@@ -195,7 +187,6 @@ class FileHandler:
             file_path = os.path.join(data_dir, file_name)  # Full path to the file
             _, file_extension = os.path.splitext(file_name)  # Extract file extension
             format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
-            dprint(f"format is {format}")
             doc = Rdoc.create(file_path, format, document_type)
             json_doc = doc.build_structured_data()
             with open(
@@ -233,25 +224,19 @@ class FileHandler:
             If this comes out of an output file provided by an Agent, then don't create a
             new one. Just return the JSON.
         """
-        dprint(f"retrieving on thread {thread} of assistant {assistant} with passed tag {tag}")
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
             # This creating an assistant file not in the agent that has produced this but on the QM
-            dprint(f"returned from annotations {file_id}")
             if qm_id is not None:
                 asst_file_qm = self.create_asst_file_from_id(client, qm_id, file_id)
-                dprint(f"created qm asst file: {asst_file_qm}")
             asst_file = self.create_asst_file_from_id(client, assistant, file_id)
-            dprint(f"created agent asst file: {asst_file}")
             return asst_file
         json_data = self.extract_json_from_response(client, thread)
         if json_data:
             # This creating an assistant file not in the agent that has produced this but on the QM
             if qm_id is not None:
                 asst_file_qm = self.json_to_asst_file(client, json_data, tag, qm_id)
-                dprint(f"created qm asst file: {asst_file_qm}")
             asst_file = self.json_to_asst_file(client, json_data, tag, assistant)
-            dprint(f"created agent asst file: {asst_file}")
             return asst_file
         return None
 
@@ -260,14 +245,11 @@ class FileHandler:
             From an assistant thread, extract the file id that it references, and store in
             (if necessary) copy it to the QM agent.
         """
-        dprint(f"retrieving on thread {thread} of assistant {assistant} with passed tag {tag}")
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
             # This creating an assistant file not in the agent that has produced this but on the QM
-            dprint(f"returned from annotations {file_id}")
             if qm_id is not None:
                 asst_file_qm = self.create_asst_file_from_id(client, qm_id, file_id)
-                dprint(f"created qm asst file: {asst_file_qm}")
             asst_file = self.create_asst_file_from_id(client, assistant, file_id)
             return file_id
 
@@ -280,10 +262,7 @@ class FileHandler:
         response file or the latest output file.
 
         """
-        # dprint(f"retrieving Agent content from response {response} and output {output_file}")
-        # response_str = self.retrieve_file_content_str(client, agent_id, response_file)
         json_data = self.extract_json_from_response_text(response_str)
-        dprint(f"dict extracted from response {json_data}")
         if json_data:
             return json_data
         # if nothing there, then extract contents of the output file
@@ -359,7 +338,6 @@ class FileHandler:
         # Adjusting regex to capture JSON data enclosed within markdown code blocks
         # and be resilient to the absence of newlines
 
-        dprint(f"Extracting from response")
         match = re.search(r"```json\s*(.+?)\s*```", response, re.DOTALL)
         if match:
             json_string = match.group(1)
@@ -398,14 +376,11 @@ class FileHandler:
             given an asst-file-id, return the JSON file content
             TODO should be in filehandler?
         """
-        dprint(f"Retrieving file {file} for agent {agent_id}")
         asst_file = client.beta.assistants.files.retrieve(
             assistant_id=agent_id,
             file_id=file.id
         )
-        dprint(f"asst_file {asst_file}")
         content = client.files.retrieve_content(asst_file.id)
-        dprint(f"content = {content}")
         return content
 
     def retrieve_file_content_dict(self, client, agent_id, file):
@@ -413,14 +388,11 @@ class FileHandler:
             given an asst-file-id, return the JSON file content
             TODO should be in filehandler?
         """
-        dprint(f"Retrieving file {file} for agent {agent_id}")
         asst_file = client.beta.assistants.files.retrieve(
             assistant_id=agent_id,
             file_id=file
         )
-        dprint(f"asst_file {asst_file}")
         content = client.files.retrieve_content(asst_file.id)
-        dprint(f"content = {content}")
         return json.loads(content)
 
     def list_asst_files(self, client, agent_id):
@@ -464,12 +436,9 @@ def retrieve_file_annotation(client, thread):
     """
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
     for message in messages:
-        dprint(message)
         if message.role == "assistant" and message.content[0].type == "text":
             annotations = message.content[0].text.annotations
-            dprint(annotations)
             for index, annotation in enumerate(annotations):
-                dprint(annotation)
                 dprint(f"annotation.file_path = {annotation.file_path}")
                 if annotation.file_path.file_id:
                     file = annotation.file_path.file_id

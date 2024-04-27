@@ -22,11 +22,10 @@ class Agent:
 
         """
             Each state transition will follow this path:
-            before_validation  ->  validation ->  after_validation - > transition 
+            before_validation  ->   validation ->  after_validation - > transition 
             (set up                 (True or       ( cleanup          (Opt: trigger
-            validation)              False   )     State Data)         next state)
+            validation)             False   )      State Data)         next state)
         """
-
         self.state_machine = AgentStateMachineConfig().setup(self)
         dprint(f"State machine = {self.state_machine}")
         self.permissions = AgentStateMachineConfig().permissions
@@ -37,9 +36,7 @@ class Agent:
         return self.validated.qm_id
 
     def initialise(self,qm_id=None):
-        dprint(f"qm_id being passed into unvalidated {qm_id}")
         self.user_data['qm_id'] = qm_id
-        dprint(f"checking now self.user_data['qm_id']={self.user_data['qm_id']} ")
         self.initial_trigger(self.unvalidated_data)
 
     def load(self, initial_run, agent_output=None, qm_instructions=None, agent_requirements=None):
@@ -74,6 +71,19 @@ class Agent:
     def requirements(self):
         return self.validated.agent_context.output_schema
 
+    """ Class methods """
+
+    def get_id(self):
+        return self.validated.agent_id
+    def get_qm_id(self):
+        return self.validated.qm_id
+
+    """ State Transition and Validation Methods """
+
+    """ 1) before validation - take unvalidated data inputs 
+        and perform any neccessary configurations
+        before validation tests
+    """
     def before_validation(self, unvalidated_data):
         """ Execute Before validation and transition """
         dprint(f"Generating state data for state {self.state}")
@@ -126,40 +136,28 @@ class Agent:
         if current_state == 'Zero':
             try:
                 # Validate initial data
-                dprint(f"Doing Validations for Zero state with {unvalidated_data}")
                 validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
-                dprint("Validated Workflow context")
                 agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
-                dprint(f"Validated AgentConfigs details {agent_configs_valid}")
                 qm_id = validated_workflow_context.qm_id
-                dprint(f"Picked qm_id = {qm_id}")
                 agent_context_valid = AgentContextModel(**agent_configs_valid,qm_id=qm_id)
-                dprint("Validated AgentContextModel")
                 self.validated.set_data('workflow_context', validated_workflow_context)
                 self.validated.set_data('agent_config', agent_configs_valid)
                 self.validated.set_data('agent_context', agent_context_valid)
                 # TODO add model for qm_id
                 self.validated.set_data('qm_id',qm_id)
-                dprint("Set Validated data")
                 input_files_valid = None
                 self.validated.set_data('agent_id', self.validated.agent_context.agent_id)
-                dprint(f"Validated the id={self.validated.agent_id}")
                 if self.user_data['input_files']:
                     input_files_valid = InputFilesModel(
                         client=self.validated.workflow_context.client,
                         agent_id=self.validated.agent_context.agent_id,
                         input_files=self.user_data['input_files'])
-                dprint("Validated input files")
                 self.validated.set_data('input_files', input_files_valid)
-                dprint(f"Passing to Agentthread {self.validated.workflow_context.client}, "
-                       f"{self.validated.agent_context.agent_id} {self.validated.agent_context.prompt} "
-                       f"self.validated.workflow_context.file_handler")
                 agent_thread = AgentThread(
                     client=self.validated.workflow_context.client,
                     agent_id=self.validated.agent_context.agent_id,
                     initial_prompt=self.validated.agent_context.prompt,
                     file_handler=self.validated.workflow_context.file_handler )
-                dprint(f"New agent_thread = {agent_thread} ")
                 agent_thread_valid = AgentThreadModel(agent_thread=agent_thread)
                 self.validated.set_data('agent_thread', agent_thread)
                 return True
@@ -175,12 +173,10 @@ class Agent:
                 print("Transition successful, context and files validated")
                 asst_input_files = None
                 if unvalidated_data['asst_input_files']:
-                    dprint(f"Transition contains Asst files, validating...")
                     asst_files_valid = AsstFilesModel(
                         client=self.validated.workflow_context.client,
                         agent_id=self.validated.agent_context.agent_id,
                         input_files=unvalidated_data['asst_input_files'])
-                    dprint(f"Validation successful, asst_files{asst_files_valid}")
                     asst_input_files = unvalidated_data['asst_input_files']
                 self.validated.set_data('asst_input_files', asst_input_files)
                 agent_thread = self.validated.agent_thread
@@ -199,8 +195,6 @@ class Agent:
                 return False
         elif current_state == 'Loaded':
             # Validate and create a RunObjModel instance
-            dprint(f"the agent output for QM generation is {self.validated.agent_output_file} and schema "
-                   f"{self.validated.agent_context.requirements}")
             prompt = agent_requirements = None
             if self.user_data['qm_instructions']:
                 # we need to give feedback to the agent from the QM
@@ -216,7 +210,6 @@ class Agent:
                     prompt = self.validated.agent_context.prompt
                 else:
                     prompt = self.validated.agent_context.instructions
-                dprint(f"Agent produced new output so using the prompt {prompt}")
             run_object = self.validated.agent_thread.new_runobj(
                 parent=self.validated.agent_thread,
                 retrieval_limit=20,
@@ -236,13 +229,10 @@ class Agent:
             raw_output_dict = self.validated.agent_thread.get_output()
             # if not, it will get reissued
             # TODO validate output_dict
-            dprint(f"The output retreived is {raw_output_dict}")\
             # Much of the following is not validation logic - move to after
             if raw_output_dict:
                 output_dict = self.normalize_agent_output(raw_output_dict)
-                dprint(f"The structured output is {output_dict['structured_output']} setting that to validated")
                 self.validated.set_data('retrieve_output', output_dict)
-                dprint(f"The validated data is now {self.validated.retrieve_output}")
                 dprint("Good JSON output - validating state")
                 return True
             else:
@@ -250,7 +240,6 @@ class Agent:
                                 "in an output file that you have indicated was present. Please "
                                 "regenerate your response and try again.")
                 # reissue logic will go here
-                dprint("Reissuing with an updated message")
                 dprint(f"Agent did not produce output and will be informed: {instructions}")
                 # TODO cannot act on agent_thread state
                 self.validated.agent_thread.add_message(instructions)
@@ -279,9 +268,7 @@ class Agent:
         )
         dprint(f"Assistant files: {asst_files}")
         for asst_file in asst_files.data:
-            dprint(f"Assistant file: {asst_file}")
             try:
-                dprint(f"Attempting to delete Assistant file-id: {asst_file.id}")
                 client.beta.assistants.files.delete(
                     assistant_id=agent_id,
                     file_id=asst_file.id
@@ -292,6 +279,7 @@ class Agent:
 
     def delete_oldest_assistant_files(self, client, agent_id, max_files=10):
         """Manage existing assistant files by keeping only the latest 'max_files'."""
+        dprint("delete_oldest_assistant_files")
         try:
             # Retrieve list of assistant files
             asst_files = client.beta.assistants.files.list(
@@ -305,7 +293,6 @@ class Agent:
 
                 # Delete the oldest files
                 for asst_file in files_to_delete:
-                    dprint(f"Attempting to delete Assistant file-id: {asst_file.id}")
                     client.beta.assistants.files.delete(
                         assistant_id=agent_id,
                         file_id=asst_file.id

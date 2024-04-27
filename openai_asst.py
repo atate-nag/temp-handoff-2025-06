@@ -33,12 +33,10 @@ class AgentThread():
                    agent_requirements,
                    output_schema,
                    prompt=None):
-        dprint(f"Creating new runobj with inputs {input_files}")
         run = RunObj(
             parent=parent,
             input_files=input_files,
             retrieval_limit=retrieval_limit)
-        dprint(f"New run object created {run}")
         if prompt is None:
             prompt = self.initial_prompt
         prompt = run.generate_runtime_prompt(
@@ -47,20 +45,15 @@ class AgentThread():
             agent_response=agent_response,
             agent_output=agent_output,
             agent_requirements=agent_requirements)
-        dprint(f"Generated new runtime information for {run}")
         self.add_message(prompt)
-        dprint(f"Added message {run.run_prompt}")
         run.create_run()
         self.runobjs.append(run)
-        dprint(f"appended the runobjs list so that the end item is {self.runobjs[-1].id}")
         return run
 
     def get_output(self):
         # The only valid output is the one that specifically relates to the last
-        # RubObj (which could be empty)
         if self.runobjs[-1].ran :
             rtuple = self.returnobjs[-1]
-            dprint(f"Agent did run and returned tuple {rtuple}")
             return rtuple
         else:
             dprint("Error: The runobj did not run yet")
@@ -87,7 +80,6 @@ class AgentThread():
             }
             return self.output_dict
         else:
-            dprint(f"The end runobjs item is {self.runobjs[-1]}")
             self.runobjs[-1].retrieve()
             # switch the runobj to ran state, can't be modified or reran
             self.runobjs[-1].ran = True
@@ -96,11 +88,7 @@ class AgentThread():
                 target_id = qm_id
             else:
                 target_id = self.agent_id
-            my_agent = self.client.beta.assistants.retrieve(self.agent_id)
-            dprint(f"my_agent: {my_agent}")
-            if qm_id:
-                my_qm = self.client.beta.assistants.retrieve(qm_id)
-                dprint("my_qm", my_qm)
+
             asst_file_agent_output = self.file_handler.retrieve_output_file_id(
                 self.client,
                 self.agent_id,
@@ -108,40 +96,26 @@ class AgentThread():
                 target_id,
                 f"output_file_Run{self.runobjs[-1].id}",
             )
-            my_agent = self.client.beta.assistants.retrieve(self.agent_id)
-            dprint(f"my_agent: {my_agent}")
-            if qm_id:
-                my_qm = self.client.beta.assistants.retrieve(qm_id)
-                dprint("my_qm", my_qm)
+
             agent_response = self.get_new_messages()
             asst_file_response = self.file_handler.txt_to_asst_file(
                 self.client,
                 agent_response,
                 "agent_response",
                 target_id)
-            my_agent = self.client.beta.assistants.retrieve(self.agent_id)
-            dprint(f"my_agent: {my_agent}")
-            if qm_id:
-                my_qm = self.client.beta.assistants.retrieve(qm_id)
-                dprint("my_qm", my_qm)
+
             structured_output = self.file_handler.retrieve_direct_agent_content(
                 self.client,
                 self.agent_id,
                 agent_response,
                 asst_file_agent_output,
                 f"_runobj{self.runobjs[-1].id}")
-            my_agent = self.client.beta.assistants.retrieve(self.agent_id)
-            dprint(f"my_agent: {my_agent}")
-            if qm_id:
-                my_qm = self.client.beta.assistants.retrieve(qm_id)
-                dprint("my_qm", my_qm)
+
             if structured_output is None:
-                dprint(f"No JSOn in responses, need to reissue")
+                dprint(f"No JSON in responses, need to reissue")
                 self.output_dict = None
                 self.returnobjs.append(None)
                 return None
-            dprint(f"structured output from Agent = {structured_output}")
-            dprint(f"Updating returnobjs with {agent_response, asst_file_agent_output}")
             # TODO structured_output could be too large to be passed in a dict and
             #  should be a new assistant_file ?
             self.output_dict = {
@@ -157,13 +131,11 @@ class AgentThread():
         """
             add a message {prompt} to the thread
         """
-        dprint(f"Adding message [{instructions}] to thread {self.thread.id}")
         self.client.beta.threads.messages.create(
             thread_id=self.thread.id,
             role="user",
             content=instructions
         )
-        dprint(f"Added message [{instructions}] to thread {self.thread.id}")
 
     def get_new_messages(self):
         """
@@ -284,7 +256,6 @@ class RunObj(BaseModel):
             "AGENT_REQUIREMENTS": agent_requirements,
         }
         # Prepare the prompt by replacing placeholders with actual runtime values
-        dprint("placeholder values:", placeholder_values)
         for placeholder, value in placeholder_values.items():
             # Convert list to string if necessary
             if isinstance(value, list):
@@ -292,7 +263,6 @@ class RunObj(BaseModel):
             else:
                 value_str = str(value)
             prompt = prompt.replace(f"{{{placeholder}}}", value_str)
-        dprint(f"End self-prompt is {prompt}")
         self.set_run_prompt(prompt)
         return prompt
     class Config:
