@@ -277,7 +277,7 @@ class Agent:
             except Exception as e:
                 dprint(f"Error deleting Assistant file {e}")
 
-    def delete_oldest_assistant_files(self, client, agent_id, max_files=10):
+    def delete_oldest_assistant_files(self, client, agent_id, max_files=6):
         """Manage existing assistant files by keeping only the latest 'max_files'."""
         dprint("delete_oldest_assistant_files")
         try:

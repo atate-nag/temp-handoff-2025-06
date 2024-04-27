@@ -132,10 +132,10 @@ class AgentManager:
             initial_run = False
         self.print_state()
         dprint(f"Finalised output is {competition_outputs['structured_output']}")
-        self.return_dict = competition_outputs['structured_output']
+        self.return_data = competition_outputs['structured_output']
 
     def return_dict(self):
-        return self.return_dict
+        return self.return_data
 
     def print_state(self):
         dprint(f"States = {self.agents['competition_agent'].state} and {self.agents['qm_agent'].state} ")

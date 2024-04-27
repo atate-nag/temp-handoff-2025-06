@@ -12,7 +12,7 @@ import json
 import sys
 
 load_dotenv()
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"),default_headers={"OpenAI-Beta": "assistants=v1"})
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), default_headers={"OpenAI-Beta": "assistants=v1"})
 # setup neo4j database
 
 uri = "bolt://localhost:7687"
