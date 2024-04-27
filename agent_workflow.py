@@ -295,7 +295,8 @@ class Agent:
     def validate_schema(self, data, schema):
         # Store validation issues
         issues = []
-
+        if data is None or schema is None:
+            return issues
         # Validate schema
         try:
             validate(instance=data, schema=schema)

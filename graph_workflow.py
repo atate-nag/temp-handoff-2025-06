@@ -249,11 +249,7 @@ def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun)
         agent_configs = [{'agent_type': 'competition_agent'}]
         # agent_configs = ['competition_agent','qm_agent']
         agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
-        # agent_manager = AgentManager(
-        #     client=client,
-        #     file_handler=file_handler,
-        #     agent_types=[agentType, 'qm_agent'],
-        #     input_files=[file_path])
+        agent_manager.run_workflow()
         agent_dictionary_return = agent_manager.return_dict()
         dprint(f"Agent file has returned {agent_dictionary_return}")
         # agent_dictionary_return = file_handler.local_json_read(f"Final_NAG_Competitive_Environment_Profile.json")
