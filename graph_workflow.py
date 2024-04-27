@@ -244,16 +244,16 @@ def generic_agent_run(agentType, companyName, updateGraph, debugRun):
         # get the graph data to send to agent
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
         # dprint(json_graph)
-        file_path = f"graph.json"
-        with open(file_path, "w") as file:
-            file.write(json_graph)
-        with open(file_path, "rb") as local_file:
-            filename_prefix = f"{agentType}_graph_{companyName}"
-            # create appropriate agent type
-            dprint(f"creating an agent of type {agentType}")
-            # local_json = file_handler.write_local_json("full_graph", json_graph)
-            agent_manager = AgentManager(client=client, file_handler=file_handler, agent_types=[agentType, 'qm_agent'],
-                                         input_files=[file_path])
+        # file_path = f"graph.json"
+        # with open(file_path, "w") as file:
+        #     file.write(json_graph)
+        # with open(file_path, "rb") as local_file:
+        file_path = file_handler.write_local_json("graph_upload_",json_graph)
+        agent_manager = AgentManager(
+            client=client,
+            file_handler=file_handler,
+            agent_types=[agentType, 'qm_agent'],
+            input_files=[file_path])
         dictionary_return = agent_manager.return_dict()
         dprint(f"Agent file has returned {dictionary_return}")
     # now call a generic graph updater also

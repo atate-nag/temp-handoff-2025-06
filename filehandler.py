@@ -115,7 +115,7 @@ class FileHandler:
 
     @staticmethod
     def write_local_file(tag, text):
-        file_path = f"./Intermediates/upload{tag}.jsonl"
+        file_path = f"./Intermediates/upload{tag}.json"
         # Open the file in binary mode for writing; encode the text to bytes
         with open(file_path, "w") as file:
             file.write(text.encode('utf-8'))
