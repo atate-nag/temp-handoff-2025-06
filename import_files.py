@@ -16,6 +16,9 @@ class InputFilesModel(BaseModel):
     input_files: list = Field(default=[])
     @validator('input_files', each_item=True)
     def check_input_files(cls, v, values):
+        # None is OK for input files
+        if v is None:
+            return v
         if not isinstance(v, str):
             raise ValueError(f"v={v}: Each item in input_files must be a string representing a file path.")
         dprint(f"filepath OK")

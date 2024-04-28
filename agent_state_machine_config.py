@@ -18,28 +18,26 @@ class AgentStateMachineConfig:
                                     'Zero',
                                     'Initialised',
                                     prepare='before_zero_to_initialised',
-                                    conditions=['validation'],
-                                    before='after_validation')
+                                    conditions=['zero_to_initialised_validation'],
+                                    before='after_validation_running_to_retrieved')
         self.machine.add_transition('load_trigger',
                                     'Initialised',
                                     'Loaded',
                                     prepare='before_initialised_to_loaded',
-                                    conditions=['validation'],
-                                    before='after_validation'
+                                    conditions=['initialised_to_loaded_validation'],
                                     )
         self.machine.add_transition('run_trigger',
                                     'Loaded',
                                     'Running',
                                     prepare='before_loaded_to_running',
-                                    conditions=['validation'],
-                                    before='after_validation',
+                                    conditions=['loaded_to_running_validation'],
                                     after='retrieve_trigger')
         self.machine.add_transition('retrieve_trigger',
                                     'Running',
                                     'Retrieved',
                                     prepare='before_running_to_retrieved',
-                                    conditions=['validation'],
-                                    before='after_validation')
+                                    conditions=['running_to_retrieved_validation'],
+                                    before='after_validation_running_to_retrieved')
         # Transition to handle successful completion
         self.machine.add_transition('mark_complete', 'Retrieved', 'Completed')
         self.machine.add_transition('reissue_trigger', 'Running', 'Loaded', after='run_trigger')

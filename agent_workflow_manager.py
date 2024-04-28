@@ -11,6 +11,7 @@ class AgentManager:
         self.qm_agents = {}
         self.return_data = None
 
+        dprint(f"input_files: {input_files}")
         for agent_config in agent_configs:
             qm_agent = self.create_agent('qm_agent', None)
             self.qm_agents[agent_config['agent_type']] = qm_agent

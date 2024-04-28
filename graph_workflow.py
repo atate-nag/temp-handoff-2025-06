@@ -253,14 +253,14 @@ def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun)
         dprint(f"Agent file has returned {agent_dictionary_return}")
         # agent_dictionary_return = file_handler.local_json_read(f"Final_NAG_Competitive_Environment_Profile.json")
         dprint(f"agent_dict={agent_dictionary_return}")
-        company_basic_graph = company_graph.get_company_info(companyName)
-        company_file_path = file_handler.write_local_json("basic_info_local_",json.dumps(company_basic_graph))
-        competition_file_path = file_handler.write_local_json("competition_info_local_", json.dumps(agent_dictionary_return))
-        agent_configs = [{'agent_type': 'competitive_analysis_report_agent'}]
-        agent_manager_report = AgentManager(client, file_handler, agent_configs, [company_file_path, "Final_NAG_Competitive_Environment_Profile.json"])
-        agent_manager_report.run_workflow()
-        agent_dictionary_report_return = agent_manager_report.return_dict()
-        dprint(f"Agent file has returned {agent_dictionary_report_return}")
+        # company_basic_graph = company_graph.get_company_info(companyName)
+        # company_file_path = file_handler.write_local_json("basic_info_local_",json.dumps(company_basic_graph))
+        # competition_file_path = file_handler.write_local_json("competition_info_local_", json.dumps(agent_dictionary_return))
+        # agent_configs = [{'agent_type': 'competitive_analysis_report_agent'}]
+        # agent_manager_report = AgentManager(client, file_handler, agent_configs, [company_file_path, "Final_NAG_Competitive_Environment_Profile.json"])
+        # agent_manager_report.run_workflow()
+        # agent_dictionary_report_return = agent_manager_report.return_dict()
+        # dprint(f"Agent file has returned {agent_dictionary_report_return}")
     # now call a generic graph updater also
     if updateGraph:
         company_graph.generic_update_graph(companyName, agent_dictionary_return, agentType)

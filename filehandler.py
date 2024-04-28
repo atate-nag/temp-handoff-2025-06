@@ -257,20 +257,21 @@ class FileHandler:
 
     def retrieve_direct_agent_content(self, client, agent_id, response_str, output_file, tag=""):
         """
-        TODO Must be changed so that the best of the JSOn from any source is used
-        Retrieves the content from a file, annotations or set of messages
-        After an agent completes, there should be useful JSON data in either the
-        response file or the latest output file.
+        Retrieves the content from a file, annotations or set of messages.
         """
-        json_data = self.extract_json_from_response_text(response_str)
-        if json_data:
-            return json_data
-        # if nothing there, then extract contents of the output file
-        dprint(f"as no direct JSON, looking at output file {output_file} on agent {agent_id}")
+        # TODO make this more intelligent - get the best JSON from either
         if output_file:
             json_data = self.retrieve_file_content_dict(client, agent_id, output_file)
             if json_data:
                 return json_data
+        json_data = self.extract_json_from_response_text(response_str)
+        if json_data:
+            return json_data
+        # if nothing there, then extract contents of the output file
+        # if output_file:
+        #     json_data = self.retrieve_file_content_dict(client, agent_id, output_file)
+        #     if json_data:
+        #         return json_data
         dprint("No json data found in either response or latest output file, returning None")
         return None
 
