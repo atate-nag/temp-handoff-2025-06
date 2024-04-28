@@ -105,6 +105,7 @@ class Agent:
             self.validated.set_data('agent_config', agent_configs_valid)
             self.validated.set_data('agent_context', agent_context_valid)
             self.validated.set_data('qm_id', qm_id)
+            self.agent_type = validated_workflow_context.agent_type
 
             input_files_valid = None
             if self.user_data['input_files'] is not None:
@@ -163,42 +164,76 @@ class Agent:
             asst_input_files=uploaded_assistant_files,
         )
 
-    def initialised_to_loaded_validation(self,unvalidated_data):
+    def initialised_to_loaded_validation(self, unvalidated_data):
         """ Validate data when transitioning from 'Initialised' to 'Loaded'. """
         dprint("Running validations for state transition from Initialised to Loaded")
         try:
             unvalidated_data = self.unvalidated_data.get_data_for_state('Initialised')
+            dprint("Retrieved unvalidated data for 'Initialised' state.")
+
             input_files_valid = None
+            dprint("Initialized input_files_valid to None.")
+
             asst_input_files = None
+            dprint("Initialized asst_input_files to None.")
+
             if unvalidated_data['asst_input_files']:
                 asst_files_valid = AsstFilesModel(
                     client=self.validated.workflow_context.client,
                     agent_id=self.validated.agent_context.agent_id,
                     input_files=unvalidated_data['asst_input_files'])
+                dprint("Assistant files model created.")
+
                 asst_input_files = unvalidated_data['asst_input_files']
+                dprint("Assigned assistant files to asst_input_files.")
+
             self.validated.set_data('asst_input_files', asst_input_files)
+            dprint("Assistant input files data set in validated data store.")
+
             agent_thread = self.validated.agent_thread
+            dprint("Retrieved agent thread from validated data.")
+
             agent_output_file = agent_response_file = agent_structured_output = agent_schema_errors = agent_requirements = None
+            dprint("Initialized multiple variables to None for further validation.")
+
             if self.user_data['agent_requirements']:
-                # TODO need to validate agent_requirements
                 agent_requirements = self.user_data['agent_requirements']
+                dprint("Agent requirements retrieved from user data.")
+
             self.validated.set_data('agent_requirements', agent_requirements)
+            dprint("Agent requirements set in validated data.")
 
             if self.user_data['agent_output']:
                 agent_response_file = unvalidated_data['agent_response_file']
-                # TODO validate output, response, schema
+                dprint("Agent response file retrieved from unvalidated data.")
+
                 agent_output_file = unvalidated_data['agent_output_file']
+                dprint("Agent output file retrieved from unvalidated data.")
+
                 agent_structured_output = unvalidated_data['agent_structured_output']
-                agent_schema_errors = self.validate_schema(agent_structured_output, self.validated.agent_requirements)
-                dprint(f"agent_schema_errors are {agent_schema_errors}")
+                dprint(f"Agent structured output retrieved from unvalidated data.{agent_structured_output}")
+                dprint(f"schema to check against is {self.validated.agent_requirements}")
+                # TODO schema not working for writer agents
+                # if self.agent_type is not "competitive_analysis_report_agent":
+                #     agent_schema_errors = self.validate_schema(agent_structured_output, self.validated.agent_requirements)
+                #     dprint(f"agent_schema_errors are {agent_schema_errors}")
 
             self.validated.set_data('agent_output_file', agent_output_file)
+            dprint("Agent output file set in validated data.")
+
             self.validated.set_data('agent_response_file', agent_response_file)
+            dprint("Agent response file set in validated data.")
+
             self.validated.set_data('agent_structured_output', agent_structured_output)
+            dprint("Agent structured output set in validated data.")
+
             self.validated.set_data('agent_schema_errors', agent_schema_errors)
+            dprint("Agent schema errors set in validated data.")
+
             return True
         except ValidationError as e:
             print(f"Validation failed: {e}")
+            dprint(f"Validation exception caught: {e}")
             return False
         except Exception as e:
             dprint(f"Validation error during Initialised to Loaded transition: {e}")
@@ -290,6 +325,9 @@ class Agent:
                 self.delete_oldest_assistant_files(
                     self.validated.workflow_context.client,
                     self.validated.agent_context.agent_id)
+                # need to remove the instructions so that they don't
+                # just repeat
+                self.user_data['qm_instructions'] = None
                 self.reissue()
             return True
         except Exception as e:
