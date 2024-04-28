@@ -27,12 +27,6 @@ class AgentStateMachineConfig:
                                     conditions=['validation'],
                                     before='after_validation'
                                     )
-        self.machine.add_transition('load_trigger',
-                                    'Running',
-                                    'Loaded',
-                                    prepare='before_validation',
-                                    before='after_validation'
-                                    )
         self.machine.add_transition('run_trigger',
                                     'Loaded',
                                     'Running',

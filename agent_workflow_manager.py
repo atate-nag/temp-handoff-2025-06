@@ -25,7 +25,7 @@ class AgentManager:
     def run_agent_workflow(self, agent, qm_agent):
         completed = False
         initial_run = True
-        qm_instructions = qm_output = None
+        qm_instructions = qm_output = agent_output = None
 
         while not completed:
             try:
@@ -49,7 +49,7 @@ class AgentManager:
                 initial_run = False  # Subsequent runs are not initial anymore
             self.print_state()
 
-        self.return_data = qm_output.get('structured_output', {}) if qm_output else {}
+        self.return_data = agent_output.get('structured_output', {}) if qm_output else {}
 
     def evaluate_qm_output(self, qm_output):
         """

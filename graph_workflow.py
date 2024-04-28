@@ -247,22 +247,20 @@ def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun)
         file_path = file_handler.write_local_json("graph_upload_",json_graph)
         # agent_configs = [{'agent_type': 'competition_agent'}, {'agent_type': 'analysis_agent'}]
         agent_configs = [{'agent_type': 'competition_agent'}]
-        # agent_configs = ['competition_agent','qm_agent']
         agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
         agent_manager.run_workflow()
         agent_dictionary_return = agent_manager.return_dict()
         dprint(f"Agent file has returned {agent_dictionary_return}")
         # agent_dictionary_return = file_handler.local_json_read(f"Final_NAG_Competitive_Environment_Profile.json")
         dprint(f"agent_dict={agent_dictionary_return}")
-        # company_basic_graph = company_graph.get_company_info(companyName)
-        # company_file_path = file_handler.write_local_json("basic_info_local_",json.dumps(company_basic_graph))
-        # agent_manager_report = AgentManager(
-        #     client=client,
-        #     file_handler=file_handler,
-        #     agent_types=[reportType, 'qm_agent'],
-        #     input_files=[company_file_path, agent_dictionary_return] )
-        # dictionary_report_return = agent_manager_report.return_dict()
-        # dprint(f"Report has returned {dictionary_report_return}")
+        company_basic_graph = company_graph.get_company_info(companyName)
+        company_file_path = file_handler.write_local_json("basic_info_local_",company_basic_graph)
+        competition_file_path = file_handler.write_local_json("competition_info_local_",agent_dictionary_return)
+        agent_configs = [{'agent_type': 'competitive_analysis_report_agent'}]
+        agent_manager_report = AgentManager(client, file_handler, agent_configs, [company_file_path, "Final_NAG_Competitive_Environment_Profile.json"])
+        agent_manager_report.run_workflow()
+        agent_dictionary_report_return = agent_manager_report.return_dict()
+        dprint(f"Agent file has returned {agent_dictionary_report_return}")
     # now call a generic graph updater also
     if updateGraph:
         company_graph.generic_update_graph(companyName, agent_dictionary_return, agentType)

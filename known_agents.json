@@ -236,8 +236,8 @@
         "additionalProperties": false,
         "description": "Schema for validating agent output."
       },
-      "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}",
-      "instructions": "The agent followed your instructions, the new response is in the file : {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}. Additionally, the following errors were detected when comparing the agent's output against the provided schema: {AGENT_SCHEMA_ERRORS}"
+      "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}. Please perform your 5-stage QM process using this data as input",
+      "instructions": "The agent followed your instructions, the new response is in the file : {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}. Additionally, the following errors were detected when comparing the agent's output against the provided schema: {AGENT_SCHEMA_ERRORS}. Please repeat all of your 5 QM stages, using the same process on the new data."
     },
     "competitive_analysis_report_agent": {
       "agent_id": "asst_M8PwuNAQx8URyqhDrBHobJtj",

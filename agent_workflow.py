@@ -17,11 +17,12 @@ class Agent:
 
     def __init__(self, **kwargs):
         # set all class variables to None until validated
+        # self.unvalidated_data = UnvalidatedData()
+        self.validated = ValidatedData(self)
         self.unvalidated_data = UnvalidatedData()
         # passed data is unvalidated so stored only as "user_data" until validation
         # defaultdict will add optional arguments to None so they can still be queried without key error
         self.user_data = defaultdict(lambda: None, **kwargs)
-        self.validated = ValidatedData(self)  # container for validated data
         self.last_validated_output = None
         self.agent_type = None
         """
