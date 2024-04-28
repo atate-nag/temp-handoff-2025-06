@@ -17,27 +17,27 @@ class AgentStateMachineConfig:
         self.machine.add_transition('initial_trigger',
                                     'Zero',
                                     'Initialised',
-                                    prepare='before_validation',
+                                    prepare='before_zero_to_initialised',
                                     conditions=['validation'],
                                     before='after_validation')
         self.machine.add_transition('load_trigger',
                                     'Initialised',
                                     'Loaded',
-                                    prepare='before_validation',
+                                    prepare='before_initialised_to_loaded',
                                     conditions=['validation'],
                                     before='after_validation'
                                     )
         self.machine.add_transition('run_trigger',
                                     'Loaded',
                                     'Running',
-                                    prepare='before_validation',
+                                    prepare='before_loaded_to_running',
                                     conditions=['validation'],
                                     before='after_validation',
                                     after='retrieve_trigger')
         self.machine.add_transition('retrieve_trigger',
                                     'Running',
                                     'Retrieved',
-                                    prepare='before_validation',
+                                    prepare='before_running_to_retrieved',
                                     conditions=['validation'],
                                     before='after_validation')
         # Transition to handle successful completion

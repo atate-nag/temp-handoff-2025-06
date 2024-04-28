@@ -68,8 +68,6 @@ class Agent:
     def reissue(self):
         self.reissue_trigger(self.unvalidated_data)
 
-    def wait(self):
-        self.wait_trigger(self.unvalidated_data)
 
     def run(self):
         self.run_trigger(self.unvalidated_data)
@@ -97,48 +95,90 @@ class Agent:
         before validation tests
     """
 
-    def before_validation(self, unvalidated_data):
-        """ Execute Before validation and transition """
+    def before_zero_to_initialised(self,unvalidated_data):
+        """ Prepare data specifically for the 'Zero2Initialised' state transition. """
         dprint(f"Generating state data for state {self.state}")
-        current_state = self.state
-        if current_state == 'Zero':
-            self.unvalidated_data.set_data_for_state(current_state, **self.user_data)
-        elif current_state == 'Initialised':
-            # TODO must not reload data when reinitialising
-            # possibly needs to be split into two states, input files are
-            #  a one-time upload wheras the others are not
-            client = self.validated.workflow_context.client
-            agent_id = self.validated.agent_context.agent_id
-            file_handler = self.validated.workflow_context.file_handler
-            uploaded_assistant_files = []
-            if self.user_data['input_files']:
-                for file in self.user_data['input_files']:
-                    asst_file = file_handler.create_asst_file_from_local(
-                        client,
-                        agent_id,
-                        file)
-                    uploaded_assistant_files.append(asst_file)
-            agent_response_file = agent_output_file = agent_structured_output = agent_schema_error = None
-            if self.user_data['agent_output']:
-                output = self.user_data['agent_output']
-                agent_response_file = output['response_file']
-                agent_output_file = output['output_file']
-                agent_structured_output = output['structured_output']
-            self.unvalidated_data.set_data_for_state(
-                'Initialised',
-                agent_output_file=agent_output_file,
-                agent_response_file=agent_response_file,
-                agent_structured_output=agent_structured_output,
-                asst_input_files=uploaded_assistant_files,
-            )
-        elif current_state == 'Loaded':
-            dprint("Loaded state")
-        elif current_state == 'Running':
-            dprint("In Running state, waiting for thread")
-            self.validated.agent_thread.retrieve(
-                qm_id=self.validated.qm_id
-            )
-        return
+        self.unvalidated_data.set_data_for_state('Zero', **self.user_data)
+
+    def before_initialised_to_loaded(self,unvalidated_data):
+        """ Prepare data specifically for the 'Initialised2Loaded' state transition. """
+        dprint(f"Generating state data for state {self.state}")
+        client = self.validated.workflow_context.client
+        agent_id = self.validated.agent_context.agent_id
+        file_handler = self.validated.workflow_context.file_handler
+        uploaded_assistant_files = []
+
+        if self.user_data.get('input_files'):
+            for file in self.user_data['input_files']:
+                asst_file = file_handler.create_asst_file_from_local(client, agent_id, file)
+                uploaded_assistant_files.append(asst_file)
+
+        agent_response_file = agent_output_file = agent_structured_output = None
+        if self.user_data.get('agent_output'):
+            output = self.user_data['agent_output']
+            agent_response_file = output['response_file']
+            agent_output_file = output['output_file']
+            agent_structured_output = output['structured_output']
+
+        self.unvalidated_data.set_data_for_state(
+            'Initialised',
+            agent_output_file=agent_output_file,
+            agent_response_file=agent_response_file,
+            agent_structured_output=agent_structured_output,
+            asst_input_files=uploaded_assistant_files,
+        )
+
+    def before_loaded_to_running(self,unvalidated_data):
+        """ Actions to prepare for the 'Loaded2Running' state transition. """
+        dprint("Preparing for the Loaded state.")
+
+    def before_running_to_retrieved(self,unvalidated_data):
+        """ Actions to prepare for the 'Running2Retreived' state transition. """
+        dprint("Preparing for the Running state, waiting for thread.")
+        self.validated.agent_thread.retrieve(qm_id=self.validated.qm_id)
+
+    # def before_validation(self, unvalidated_data):
+    #     """ Execute Before validation and transition """
+    #     dprint(f"Generating state data for state {self.state}")
+    #     current_state = self.state
+    #     if current_state == 'Zero':
+    #         self.unvalidated_data.set_data_for_state(current_state, **self.user_data)
+    #     elif current_state == 'Initialised':
+    #         # TODO must not reload data when reinitialising
+    #         # possibly needs to be split into two states, input files are
+    #         #  a one-time upload wheras the others are not
+    #         client = self.validated.workflow_context.client
+    #         agent_id = self.validated.agent_context.agent_id
+    #         file_handler = self.validated.workflow_context.file_handler
+    #         uploaded_assistant_files = []
+    #         if self.user_data['input_files']:
+    #             for file in self.user_data['input_files']:
+    #                 asst_file = file_handler.create_asst_file_from_local(
+    #                     client,
+    #                     agent_id,
+    #                     file)
+    #                 uploaded_assistant_files.append(asst_file)
+    #         agent_response_file = agent_output_file = agent_structured_output = agent_schema_error = None
+    #         if self.user_data['agent_output']:
+    #             output = self.user_data['agent_output']
+    #             agent_response_file = output['response_file']
+    #             agent_output_file = output['output_file']
+    #             agent_structured_output = output['structured_output']
+    #         self.unvalidated_data.set_data_for_state(
+    #             'Initialised',
+    #             agent_output_file=agent_output_file,
+    #             agent_response_file=agent_response_file,
+    #             agent_structured_output=agent_structured_output,
+    #             asst_input_files=uploaded_assistant_files,
+    #         )
+    #     elif current_state == 'Loaded':
+    #         dprint("Loaded state")
+    #     elif current_state == 'Running':
+    #         dprint("In Running state, waiting for thread")
+    #         self.validated.agent_thread.retrieve(
+    #             qm_id=self.validated.qm_id
+    #         )
+    #     return
 
     def validation(self, unvalidated_data):
         """ the validation phase of the transition. The state transition will
