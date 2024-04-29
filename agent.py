@@ -1,673 +1,425 @@
-import json
-import time
-import sys
-import openai
-from transitions import Machine, MachineError, EventData
-from quality_manager import QualityManager
+from pydantic import ValidationError
+from validations import (WorkFlowContextModel, AgentConfigs, AgentContextModel,
+                         AgentThreadModel)
+from import_files import InputFilesModel, AsstFilesModel
+from data_validation import UnvalidatedData, ValidatedData
 from debug import dprint
-from agent_context import *
+from collections import defaultdict
+from openai_asst import AgentThread
+from agent_state_machine_config import AgentStateMachineConfig
+from pubsub import pub
+import json
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 class Agent:
-    states = ['ZeroState', 'InitialisedState', 'LoadedState', 'RunningState']
-    def __init__(self, client, file_handler, agent_type, qm=False, requirements=None):
+    states = ['Zero', 'Waiting', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
+
+    def __init__(self, **kwargs):
         # set all class variables to None until validated
-        self.client = self.file_handler = self.type = self.qm = self.qm_agent = self.thread = None
-        self.agent_id = self.prompt = self.description = self.output_schema = self.context = None
-        self.machine = Machine(model=self, states=Agent.states, initial='ZeroState')
-        self.machine.add_transition(trigger='initialise',
-                                    source='ZeroState',
-                                    dest='InitialisedState',
-                                    conditions=['validate_agent_details'],
-                                    after='load_context'
-                                    )
-        self.machine.add_transition(trigger='load',
-                                    source='InitialisedState',
-                                    dest='LoadedState',
-                                    conditions=['validate_input_files'],
-                                    after='setup_qm')
-        self.machine.add_transition(trigger='run',
-                                    source='LoadedState',
-                                    dest='RunningState',
-                                    conditions=['validate_run_object'],
-                                    after='')
-        self.max_retries = 4
-        self.last_timestamp = 0
-        self.input_response = None
-        self.threads = []
-        self.runs = []
-        self.thread_details = {}  # notused yet: A dictionary to map threads to their details
-        self.input_files = {}
-        self.output_files = {}
-        self.response_file = ""
-        dprint("deleting all the existing assistant files")
-        self.initialise(client, file_handler, qm, agent_type, requirements)
-
-        dprint(f"Agent in state {self.state}")
-        # now it is safe to add some supporting date to the agent class
-        self.id = self.context.id
-        self.client = self.context.client
-        self.file_handler = self.context.file_handler
-        # self.delete_asst_files()
-
-    def update_context(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self.context, key, value)
-
-    ''' ZeroState Methods (inputs=client, file_handler, qm, agent_key) '''
-
-    def validate_agent_details(self, client, file_handler, qm, agent_key, requirements):
+        # self.unvalidated_data = UnvalidatedData()
+        self.validated = ValidatedData(self)
+        self.unvalidated_data = UnvalidatedData()
+        # passed data is unvalidated so stored only as "user_data" until validation
+        # defaultdict will add optional arguments to None so they can still be queried without key error
+        self.user_data = defaultdict(lambda: None, **kwargs)
+        self.last_validated_output = None
+        self.agent_type = None
         """
-            Load and validate agent configuration details. Validation so no
-            side-effects.
+            Each state transition will follow this path:
+            before_validation  ->   validation ->  after_validation - > transition 
+            (set up                 (True or       ( cleanup          (Opt: trigger
+            validation)             False   )      State Data)         next state)
         """
-        try:
-            agent_config = AgentConfigs().get_agent_details(agent_key)
-            context = AgentContext(
-                client=client,
-                file_handler=file_handler,
-                agent_type=agent_key,
-                qm=qm,
-                id=agent_config['id'],
-                description=agent_config['description'],
-                prompt=agent_config['prompt'],
-                reqs_schema=agent_config.get('output_schema', None),
-                qm_reqs_schema=requirements
-            )
-            return True
-        except ValueError as e:
-            print(f"Failed to validate agent details: {e}")
-            return False
+        self.state_machine = AgentStateMachineConfig().setup(self)
+        dprint(f"State machine = {self.state_machine}")
+        self.permissions = AgentStateMachineConfig().permissions
 
-    def load_context(self, client, file_handler, qm, agent_key, requirements):
-        """
-            Load agent configuration details. Update self.context
-        """
-        try:
-            agent_config = AgentConfigs().get_agent_details(agent_key)
-            context = AgentContext(
-                client=client,
-                file_handler=file_handler,
-                agent_type=agent_key,
-                qm=qm,
-                id=agent_config['id'],
-                description=agent_config['description'],
-                prompt=agent_config['prompt'],
-                reqs_schema=agent_config.get('output_schema', None),
-                qm_reqs_schema=requirements
-            )
-            self.context = context
-            dprint("Successfully loaded agent context")
-        except ValueError as e:
-            print(f"Failed to load agent details: {e}")
+    def initialise(self, qm_id=None):
+        self.user_data['qm_id'] = qm_id
+        self.initial_trigger(self.unvalidated_data)
 
-    ''' InitialisedState Methods (inputs=input_files) '''
+    def load(self, initial_run, agent_output=None, qm_instructions=None,agent_requirements=None):
+        self.user_data['initial_run'] = initial_run
+        if agent_output:
+            self.user_data['agent_output'] = agent_output
+        if qm_instructions:
+            self.user_data['qm_instructions'] = qm_instructions
+        if agent_requirements:
+            self.user_data['agent_requirements'] = agent_requirements
+        self.load_trigger(self.unvalidated_data)
 
-    def validate_input_files(self, input_files ):
-        dprint(f"Validating input files {input_files} with agent_id {self.context.id} "
-               f"and client = {self.context.client}")
-        try:
-            validated_input = AgentInputFilesModel(client=self.context.client, input_files=input_files,
-                                                   agent_id=self.context.id,
-                                                   prompt=self.context.prompt)
-            print("Input validated successfully.")
-            return True
-        except ValidationError as e:
-            print(f"Validation error: {e}")
-            return False
+    def receive_input(self, agent_output=None, qm_instructions=None, agent_requirements=None):
+        # assumption is that this is a QM itself
+        # so the inputs are
+        if agent_output:
+            self.user_data['agent_output'] = agent_output
+        if qm_instructions:
+            self.user_data['qm_instructions'] = qm_instructions
+        if agent_requirements:
+            self.user_data['agent_requirements'] = agent_requirements
 
-    def setup_qm(self, input_files):
-        if self.context.qm:
-            self.qm_agent = Agent(self.client,
-                                  self.file_handler,
-                                  "qm_agent",
-                                  qm=False,
-                                  requirements=self.context.reqs_schema)
-            self.qm = QualityManager(self, self.qm_agent)
-        dprint(f"Agent {self.id} setup with schema: {self.context.reqs_schema} QM_agent={self.qm_agent}")
+    def reissue(self):
+        self.reissue_trigger(self.unvalidated_data)
 
-    def setup_agent(self, client, file_handler, qm, agent_type, agent_id, description, prompt, output_schema):
-        """ not a user function, instantiate class variables
-            when successfully in INITIALISED state
-        """
-        self.agent_id = agent_id
-        self.prompt = prompt
-        self.description = description
-        self.output_schema = output_schema
-        # Validate and apply setup
-        if self.qm:
-            self.qm_agent = Agent(self.client, self.file_handler, "qm_agent", qm=False,requirements=self.output_schema)
-            self.qm = QualityManager(self, self.qm_agent)
-        dprint(f"Agent {self.agent_id} setup with schema: {self.output_schema} QM_agent={self.qm_agent}")
 
     def run(self):
-        """
-            Attempting to change the state of the agent to Running
-        """
+        self.run_trigger(self.unvalidated_data)
+        return self.validated.retrieve_output
 
+    def retrieve(self):
+        self.retrieve_trigger(self.unvalidated_data)
+        return self.validated.retrieve_output
 
-    def generate_thread(self, data):
-        prompt = self.context.prompt
-        self.thread = self.client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ]
+    def requirements(self):
+        return self.validated.agent_context.output_schema
+
+    """ Class methods """
+
+    def get_id(self):
+        return self.validated.agent_context.agent_id
+
+    def get_qm_id(self):
+        return self.validated_workflow_context.qm_id
+
+    """ State Transition and Validation Methods """
+
+    """ Zero State to Initialised State Transition """
+
+    def before_zero_to_initialised(self,unvalidated_data):
+        """ Prepare data specifically for the 'Zero2Initialised' state transition. """
+        dprint(f"Generating state data for state {self.state}")
+        self.unvalidated_data.set_data_for_state('Zero', **self.user_data)
+
+    def zero_to_initialised_validation(self,unvalidated_data):
+        """ Validate data when transitioning from 'Zero' to 'Initialised'. """
+        dprint("Running validations for state transition from Zero to Initialised")
+        try:
+            unvalidated_data = self.unvalidated_data.get_data_for_state('Zero')
+            validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
+            agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
+            qm_id = validated_workflow_context.qm_id
+
+            agent_context_valid = AgentContextModel(**agent_configs_valid, qm_id=qm_id)
+            self.validated.set_data('workflow_context', validated_workflow_context)
+            self.validated.set_data('agent_config', agent_configs_valid)
+            self.validated.set_data('agent_context', agent_context_valid)
+            self.validated.set_data('qm_id', qm_id)
+            self.agent_type = validated_workflow_context.agent_type
+
+            input_files_valid = None
+            if self.user_data['input_files'] is not None:
+                dprint(f"Validating input files which are {self.user_data['input_files']}")
+                input_files_valid = InputFilesModel(
+                    client=self.validated.workflow_context.client,
+                    agent_id=self.validated.agent_context.agent_id,
+                    input_files=self.user_data['input_files'])
+            self.validated.set_data('input_files', input_files_valid)
+
+            agent_thread = AgentThread(
+                client=self.validated.workflow_context.client,
+                agent_id=self.validated.agent_context.agent_id,
+                initial_prompt=self.validated.agent_context.prompt,
+                file_handler=self.validated.workflow_context.file_handler)
+            self.validated.set_data('agent_thread', agent_thread)
+            return True
+        except Exception as e:
+            dprint(f"Validation error during Zero to Initialised transition: {e}")
+            return False
+
+    def after_validation_zero_to_initialised(self,unvalidated_data):
+        """ Execute AFTER validation of zero2initial state transition"""
+        dprint(f"Running transition before state {self.state} to next state")
+        client = self.validated.workflow_context.client
+        agent_id = self.validated.agent_context.agent_id
+        self.delete_existing_assistant_files(client, agent_id)
+
+    """ Initialised State to Loaded State Transition """
+
+    def before_initialised_to_loaded(self, unvalidated_data):
+        """ Prepare data specifically for the 'Initialised2Loaded' state transition. """
+        dprint(f"Generating state data for state {self.state}")
+        client = self.validated.workflow_context.client
+        agent_id = self.validated.agent_context.agent_id
+        file_handler = self.validated.workflow_context.file_handler
+        uploaded_assistant_files = []
+
+        if self.user_data.get('input_files'):
+            for file in self.user_data['input_files']:
+                asst_file = file_handler.create_asst_file_from_local(client, agent_id, file)
+                uploaded_assistant_files.append(asst_file)
+
+        agent_response_file = agent_output_file = agent_structured_output = None
+        if self.user_data.get('agent_output'):
+            output = self.user_data['agent_output']
+            agent_response_file = output['response_file']
+            agent_output_file = output['output_file']
+            agent_structured_output = output['structured_output']
+
+        self.unvalidated_data.set_data_for_state(
+            'Initialised',
+            agent_output_file=agent_output_file,
+            agent_response_file=agent_response_file,
+            agent_structured_output=agent_structured_output,
+            asst_input_files=uploaded_assistant_files,
         )
-        return
 
-    @staticmethod
-    def load_config(file_path):
-        with open(file_path, 'r') as file:
-            return json.load(file)
+    def initialised_to_loaded_validation(self, unvalidated_data):
+        """ Validate data when transitioning from 'Initialised' to 'Loaded'. """
+        dprint("Running validations for state transition from Initialised to Loaded")
+        try:
+            unvalidated_data = self.unvalidated_data.get_data_for_state('Initialised')
+            dprint("Retrieved unvalidated data for 'Initialised' state.")
 
-    def active_thread(self):
-        return self.threads[-1]
+            input_files_valid = None
+            dprint("Initialized input_files_valid to None.")
 
-    def active_run_id(self):
-        if self.runs:
-            dprint(f"self.runs={self.runs} and so self.runs[-1] = {self.runs[-1]}")
-            return self.runs[-1].id
-        else:
-            dprint(f"self.runs={self.runs} and so self.runs[-1] = 0")
-            return "initial agent call"
+            asst_input_files = None
+            dprint("Initialized asst_input_files to None.")
 
-    def active_output_file(self):
-        if self.active_run_id() not in self.output_files.keys():
-            return None
-        else:
-            return self.output_files[self.active_run_id()]
+            if unvalidated_data['asst_input_files']:
+                asst_files_valid = AsstFilesModel(
+                    client=self.validated.workflow_context.client,
+                    agent_id=self.validated.agent_context.agent_id,
+                    input_files=unvalidated_data['asst_input_files'])
+                dprint("Assistant files model created.")
 
-    def active_input_files(self):
-        if self.active_run_id() not in self.input_files.keys():
-            dprint("No input file for run {self.active_run_id()} is stored")
-            return None
-        else:
-            return self.input_files[self.active_run_id()]
+                asst_input_files = unvalidated_data['asst_input_files']
+                dprint("Assigned assistant files to asst_input_files.")
 
-    def list_asst_files(self):
-        asst_files = self.client.beta.assistants.files.list(
-            assistant_id=self.agent_id,
-            order="asc"
-        )
-        return asst_files
+            self.validated.set_data('asst_input_files', asst_input_files)
+            dprint("Assistant input files data set in validated data store.")
 
-    def len_asst_files(self):
-        return len(self.list_asst_files())
+            agent_thread = self.validated.agent_thread
+            dprint("Retrieved agent thread from validated data.")
 
-    def check_asst_files(self,file):
-        """
-        Checks if the assistant-file {file} exists
-        """
-        asst_files = self.list_asst_files().data
-        dprint(f"Assistant files for agent {self.agent_id} ", asst_files)
-        for asst_file in asst_files:
-            if file == asst_file.id:
-                dprint(f"Agent has {file} in file_ids")
+            agent_output_file = agent_response_file = agent_structured_output = agent_schema_errors = agent_requirements = None
+            dprint("Initialized multiple variables to None for further validation.")
+
+            if self.user_data['agent_requirements']:
+                agent_requirements = self.user_data['agent_requirements']
+                dprint("Agent requirements retrieved from user data.")
+
+            self.validated.set_data('agent_requirements', agent_requirements)
+            dprint("Agent requirements set in validated data.")
+
+            if self.user_data['agent_output']:
+                agent_response_file = unvalidated_data['agent_response_file']
+                dprint("Agent response file retrieved from unvalidated data.")
+
+                agent_output_file = unvalidated_data['agent_output_file']
+                dprint("Agent output file retrieved from unvalidated data.")
+
+                agent_structured_output = unvalidated_data['agent_structured_output']
+                dprint(f"Agent structured output retrieved from unvalidated data.{agent_structured_output}")
+                dprint(f"schema to check against is {self.validated.agent_requirements}")
+                # TODO schema not working for writer agents
+                agent_schema_errors = self.validate_schema(agent_structured_output, self.validated.agent_requirements)
+                dprint(f"agent_schema_errors are {agent_schema_errors}")
+
+            self.validated.set_data('agent_output_file', agent_output_file)
+            dprint("Agent output file set in validated data.")
+
+            self.validated.set_data('agent_response_file', agent_response_file)
+            dprint("Agent response file set in validated data.")
+
+            self.validated.set_data('agent_structured_output', agent_structured_output)
+            dprint("Agent structured output set in validated data.")
+
+            self.validated.set_data('agent_schema_errors', agent_schema_errors)
+            dprint("Agent schema errors set in validated data.")
+
+            return True
+        except ValidationError as e:
+            print(f"Validation failed: {e}")
+            dprint(f"Validation exception caught: {e}")
+            return False
+        except Exception as e:
+            dprint(f"Validation error during Initialised to Loaded transition: {e}")
+            return False
+
+    """ Loaded State to Running State Transition """
+
+    def before_loaded_to_running(self,unvalidated_data):
+        """ Actions to prepare for the 'Loaded2Running' state transition. """
+        dprint("Preparing for the Loaded state.")
+        pass
+
+    def loaded_to_running_validation(self, unvalidated_data):
+        """ Validate data when transitioning from 'Loaded' to 'Running'. """
+        dprint("Running validations for state transition from Loaded to Running")
+        try:
+            # Insert specific validation logic for data pertinent to this transition
+            # Validate and create a RunObjModel instance
+            prompt = agent_requirements = None
+            # TODO - should qm_instructions and agent_output be
+            #  validated in Initialised state since part of load()?
+            if self.user_data['qm_instructions']:
+                # we need to give feedback to the agent from the QM
+                prompt = self.user_data['qm_instructions']
+                dprint(f"Due to QM feedback, using the prompt {prompt}")
+            if self.user_data['agent_output']:
+                # we need to tell the QM that the agent followed instructions
+                # and that there is a new output file
+                if self.user_data['initial_run']:
+                    prompt = self.validated.agent_context.prompt
+                else:
+                    prompt = self.validated.agent_context.instructions
+
+            run_object = self.validated.agent_thread.new_runobj(
+                parent=self.validated.agent_thread,
+                retrieval_limit=20,
+                input_files=self.validated.asst_input_files,
+                agent_response=self.validated.agent_response_file,
+                agent_output=self.validated.agent_output_file,
+                agent_requirements=self.validated.agent_requirements,
+                output_schema=self.validated.agent_context.output_schema,
+                agent_schema_errors=self.validated.agent_schema_errors,
+                prompt=prompt
+            )
+
+            self.validated.set_data('run_object', run_object)
+            return True
+        except Exception as e:
+            dprint(f"Validation error during Loaded to Running transition: {e}")
+            return False
+
+    """ Running State to Retrieved State Transitions """
+
+    def before_running_to_retrieved(self,unvalidated_data):
+        """ Actions to prepare for the 'Running2Retreived' state transition. """
+        dprint("Preparing for the Running state")
+        self.validated.agent_thread.retrieve(qm_id=self.validated.qm_id)
+
+    def running_to_retrieved_validation(self, unvalidated_data):
+        """ Validate data when transitioning from 'Running' to 'Retrieved'. """
+        dprint("Running validations for state transition from Running to Retrieved")
+        try:
+            unvalidated_data = self.unvalidated_data.get_data_for_state('Running')
+            # Insert specific validation logic for data pertinent to this transition
+            # did the run produce the right outputs and response?
+            raw_output_dict = self.validated.agent_thread.get_output()
+            dprint(f"raw output from agent = {raw_output_dict}")
+            # if not, it will get reissued
+            # TODO validate output_dict
+            # TODO Much of the following is not validation logic - move to after
+
+            if raw_output_dict:
+                output_dict = self.normalize_agent_output(raw_output_dict)
+                self.validated.set_data('retrieve_output', output_dict)
+                dprint("Good JSON output - validating state")
                 return True
-        dprint(f"Agent does not have {file} accessible in file_ids")
-        return False
-
-    def generate_runtime_prompt(self,input_files=None,input_response=None,agent_output=None, requirements=None):
-        """
-            Generate a prompt using runtime information. Note placeholder values
-            appear in the prompt in known_agents.json in the "prompt" field.
-        """
-        placeholder_values = {
-            "INPUT_FILES": input_files,
-            "AGENT_RESPONSE": input_response,
-            "AGENT_OUTPUT" : agent_output,
-            "AGENT_REQUIREMENTS": requirements,
-        }
-        # Prepare the prompt by replacing placeholders with actual runtime values
-        dprint("placeholder values:", placeholder_values)
-        prompt = self.prompt
-        for placeholder, value in placeholder_values.items():
-            # Convert list to string if necessary
-            if isinstance(value, list):
-                value_str = ', '.join(map(str, value))  # Ensure all elements are converted to strings
             else:
-                value_str = str(value)
-            prompt = prompt.replace(f"{{{placeholder}}}", value_str)
-        # self.prompt = prompt
-        dprint(f"End self-prompt is {self.prompt}")
-        return prompt
+                instructions = ("No valid structured JSON was detected in your response or "
+                                "in an output file that you have indicated was present. Please "
+                                "regenerate your response and try again.")
+                # reissue logic will go here
+                dprint(f"Agent did not produce output and will be informed: {instructions}")
+                # TODO cannot act on agent_thread state
+                self.validated.agent_thread.add_message(instructions)
+                self.validated.set_data('retrieve_output', None)
+                # need to delete some files here in case we get into a long loop
+                #  of uploading new files
+                #  TODO reissue should not create new files?
+                self.delete_oldest_assistant_files(
+                    self.validated.workflow_context.client,
+                    self.validated.agent_context.agent_id)
+                # need to remove the instructions so that they don't
+                # just repeat
+                self.user_data['qm_instructions'] = None
+                self.reissue()
+            return True
+        except Exception as e:
+            dprint(f"Validation error during Running to Retrieved transition: {e}")
+            return False
 
-    def setup_run(self, input_files=None, qm=False, max_retries=4):
-        """
-            Set up an agent - creates a thread on the agent, uploads files,
-            and if QM is enabled, starts the QM agent
-        """
-        self.max_retries = max_retries
-        dprint(f"input files: {input_files}")
-        thread = self.create_thread(self.prompt, input_files)
-        dprint(f"Running agent with prompt {self.prompt}")
-        dprint(f"Thread input files: {self.active_input_files()}")
-        # build a QM instance
-        self.threads.append(thread)
-        if qm:
-            self.qm_agent = Agent(self.client, self.filehandler, "qm_agent", requirements=self.output_schema)
-            self.qm = QualityManager(self, self.qm_agent)
+    def after_validation_running_to_retrieved(self, unvalidated_data):
+        """ Execute AFTER validation but before state transition"""
+        current_state = self.state
+        client = self.validated.workflow_context.client
+        agent_id = self.validated.agent_context.agent_id
+        self.delete_oldest_assistant_files(client, agent_id)
         return
 
-    def setup_qm_run(self, agent_response_file, agent_output_file, max_retries=4):
-        """
-            Set up a QM agent
-        """
-        self.max_retries = max_retries
-        dprint(f"Agent response file {agent_response_file} and output file {agent_output_file}")
-        thread = self.create_qm_thread(agent_response_file, agent_output_file)
-        # build a QM instance
-        self.threads.append(thread)
-        dprint(f"setup_run created a QM instance with run_agent:{self.qm_agent} ")
+    def validate_schema(self, data, schema):
+        # Store validation issues
+        issues = []
+        if data is None or schema is None:
+            return issues
+        # Validate schema
+        try:
+            validate(instance=data, schema=schema)
+        except ValidationError as e:
+            issues.append(f"Schema validation error: {e.message}")
 
-    def run_agent(self):
-        """
-            run the agent and make both response and output available to other agents
-            will iterate until there is JSON in response or an output file is produced
-            the contents of either are not checked - that is only happening in QM
-        """
-        # every run has a self-QM element - if no JSON in response and no output then repeat
-
-        content_dict = self.run_until_json_output()
-
-        if self.qm:
-            content_dict = self.qm.quality_manage_agent(self.active_thread())
-            # if agent_output_file:
-            #     content_dict = self.retrieve_direct_agent_content(
-            #         f"agent_output_retrieval")
-            return content_dict
-        else:
-            return content_dict
-        # else:
-            # dprint("QM is not enabled (usually means it is a QM agent itself)")
-            # content_dict = self.retrieve_direct_agent_content(
-            #     f"agent_output_retrieval")
-            # if content_dict:
-            #     return content_dict
-            # else:
-            #     # did not get output, so reissue
-            #     prompt = "Please generate JSON data with your output"
-            #     dprint(f"Agent did not complete and will be informed: {prompt}")
-            #     self.add_message(self.active_thread().id, prompt)
-            #     asst_file_agent_output = self.run_and_retrieve_output_file()
-            #     if asst_file_agent_output:
-            #         return asst_file_agent_output
-            #     else:
-            #         dprint("Error - QM agent didn't generate its own output")
-            #         return None
-
-    def run_and_retrieve_thread(self):
-        client = self.client
-        run = client.beta.threads.runs.create(
-            thread_id=self.active_thread().id,
-            assistant_id=self.agent_id,
-            model="gpt-4-turbo-preview",
-            tools=[{"type": "code_interpreter"}],
-        )
-        self.runs.append(run)
-        start_time = time.time()
-        retrieve = self.retrieve_run(run.id)
-        end_time = time.time()
-        dprint("Retrieve time: " + str(end_time - start_time))
-        return retrieve
-
-    def run_and_retrieve_output_file(self):
-        """
-            Runs the agent, creates an assistant file from the provided output file,
-            Or from the json in the response.
-        """
-        retrieve = self.run_and_retrieve_thread()
-        dprint(f"retrieve from Agent run = {retrieve}")
-        asst_file_agent_output = self.filehandler.retrieve_and_create_asst_file(
-            self.client,
-            self.agent_id,
-            self.active_thread(),
-            "agent_retrieval_for_asst_file",
-        )
-        dprint(f"generated asst_file_agent_output = {asst_file_agent_output}")
-        if asst_file_agent_output:
-            # need to keep an output file per run
-            # self.output_files.append(asst_file_agent_output)
-            dprint(f"active_run = {self.active_run_id()}")
-            self.append_output_file(asst_file_agent_output)
-            dprint(
-                f"Output file = {asst_file_agent_output} now in self.output_files and returned as "
-                f"{self.active_output_file()}")
-            return asst_file_agent_output
-
-    def run_and_retrieve_response_and_output(self):
-        asst_file_output = self.run_and_retrieve_output_file()
-        response = self.get_new_messages(self.active_thread())
-        response_asst_file = self.filehandler.txt_to_asst_file(self.client, response, "latest_response", self.agent_id)
-        dprint(f"response from Agent = {response}")
-        # append the output file list and replace the response file
-        if response_asst_file:
-            self.response_file = response_asst_file
-            dprint(
-                f"Response file = {response_asst_file} now in self.response_file and returned as {self.response_file}")
-        return response, asst_file_output
-
-    def run_until_json_output(self, prompt=None):
-        while True:
-            response_str, asst_file_agent_output = self.run_and_retrieve_response_and_output()
-            dprint(f"Agent returned a response file {response_str} "
-                   f"and output file {asst_file_agent_output}")
-            content_dict = self.retrieve_direct_agent_content(str=response_str, tag=f"agent_output_retrieval")
-            if content_dict:
-                return content_dict
+        # Check for duplicate names
+        seen_names = {}
+        for index, item in enumerate(data):
+            competitor_name = item['competitor']['name']
+            if competitor_name in seen_names:
+                issues.append(
+                    f"Duplicate competitor name found at index {index} and {seen_names[competitor_name]}: '{competitor_name}'")
             else:
-                prompt = "Please generate JSON data with your output"
-                dprint(f"Agent did not complete and will be informed: {prompt}")
-                self.add_message(self.active_thread().id, prompt)
+                seen_names[competitor_name] = index
 
-    def retrieve_run(self, run_id ):
-        """
-            from a run_id, retrieve a run and report status
-        """
-        retries = 0
-        client = self.client
-        thread_id = self.active_thread().id
-        while retries < self.max_retries:
-            try:
-                retrieve = client.beta.threads.runs.retrieve(
-                    thread_id=thread_id, run_id=run_id
-                )
-                dprint(f" Assistant {self.description} status: {retrieve.status}")
-                if retrieve.status == "completed":
-                    return retrieve
-                elif retrieve.status == "failed" or retrieve.status == "expired":
-                    dprint(f"Run {run_id} failed.")
-                    return None
-                time.sleep(5)
-            except Exception as e:
-                dprint(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
-                retries += 1
-                time.sleep(5)  # Wait before retrying
-        dprint(f"Run {run_id} did not complete after {self.max_retries} retries.")
-        return None
+        return issues
 
-    # def retrieve_file_content(self, file):
-    #     return self.filehandler.retrieve_file_content(self.client, self.agent_id, file)
-        # """
-        #     given an asst-file-id, return the file content
-        #     TODO should be in filehandler?
-        # """
-        # asst_file = self.client.beta.assistants.files.retrieve(
-        #     assistant_id=self.agent_id,
-        #     file_id=file
-        # )
-        # content = json.loads(self.client.files.retrieve_content(asst_file.id))
-        # return content
-
-    def retrieve_direct_agent_content(self, str=None, tag=""):
-        """
-            given an asst-file-id, return the file content as a dictionary
-        """
-        if str:
-            return self.filehandler.retrieve_direct_agent_content(self.client, self.agent_id, self.active_thread(),
-                                                                  str, self.active_output_file(), "")
-        else:
-            # TODO need to pass string instead of response file
-            dprint(f"retrieve needs fixing")
-            return self.filehandler.retrieve_direct_agent_content( self.client, self.agent_id, self.active_thread(),
-                                                               self.response_file, self.active_output_file(), "")
-
-
-    def get_messages(self, thread):
-        """
-            extract and return all the messages on a thread
-        """
-        messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
-        response = ""
-        for message in messages:
-            dprint(f"Message: {message}")
-            if message.role == "assistant" and message.content[0].type == "text":
-                dprint(message.content[0])
-                dprint(message.content[0].text.value)
-                response += message.content[0].text.value
-        return response
-
-    def get_new_messages(self, thread):
-        """
-            just return the latest messages, i.e the last response
-            TODO needs to be specific to a thread if we allow more threads per agent
-            TODO needs a more robust implementation that can be called from more than one location
-        """
-        # Fetch all messages from the thread
-        messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
-        # Sort the messages by the created_at timestamp just in case they are not in order
-        messages.sort(key=lambda msg: msg.created_at)
-        # Gather new messages
-        new_messages = [msg for msg in messages if msg.created_at > self.last_timestamp]
-        response = ""
-        for message in new_messages:
-            if message.role == "assistant" and message.content[0].type == "text":
-                response += message.content[0].text.value
-        # Update the last timestamp
-        if new_messages:
-            self.last_timestamp = new_messages[-1].created_at
-        return response
-
-    def add_message(self, thread_id, prompt, input_files=None):
-        """
-            add a message {prompt} to the thread
-        """
-        dprint(f"Adding message [{prompt}] to thread {thread_id}")
-        if input_files:
-            dprint(f"Adding input file(s): input_files")
-            self.append_input_files(input_files)
-            self.client.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",
-                content=prompt,
-                file_ids=self.active_input_files()
-            )
-        else:
-            self.client.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",
-                content=prompt
-            )
-
-    def qm_add_message(self, prompt, response, output ):
-        """
-            add a message {prompt} to the thread
-            TODO this may be defunct
-        """
-        dprint(f"Adding message {prompt} to thread {self.active_thread()}")
-        dprint(f"Adding input file(s): input_files")
-        file_ids = []
-        if response:
-            file_ids.append(response)
-        if output:
-            file_ids.append(output)
-        self.client.beta.threads.messages.create(
-            thread_id=self.active_thread().id,
-            role="user",
-            content=prompt,
-            file_ids=file_ids
+    def delete_existing_assistant_files(self, client, agent_id):
+        """ Manage existing assistant files in OpenAI """
+        asst_files = client.beta.assistants.files.list(
+            assistant_id=agent_id,
         )
+        dprint(f"Assistant files: {asst_files}")
+        for asst_file in asst_files.data:
+            try:
+                client.beta.assistants.files.delete(
+                    assistant_id=agent_id,
+                    file_id=asst_file.id
+                )
+                dprint(f"Deleted Assistant file")
+            except Exception as e:
+                dprint(f"Error deleting Assistant file {e}")
 
-    # def retrieve_output_or_reissue(self, thread):
-    #     client = self.client
-    #     dprint(f" thread {thread}")
-    #     afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, thread)
-    #     dprint(f"file is {afile}")
-    #     if afile:
-    #         dprint(f"good file retrieved")
-    #         return afile
-    #     else:
-    #         client.beta.threads.messages.create(
-    #             thread_id=thread.id,
-    #             role="user",
-    #             content="Please generate JSON data for processing by the agent team"
-    #         )
-    #         dprint("updated message to ask for output")
-    #         response = self.run_and_retrieve_thread()
-    #         afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, thread)
-    #         return afile
+    def delete_oldest_assistant_files(self, client, agent_id, max_files=6):
+        """Manage existing assistant files by keeping only the latest 'max_files'."""
+        dprint("delete_oldest_assistant_files")
+        try:
+            # Retrieve list of assistant files
+            asst_files = client.beta.assistants.files.list(
+                assistant_id=agent_id,
+            )
+            dprint(f"Total assistant files: {len(asst_files.data)} on {agent_id}")
+            # Check if the number of files exceeds the maximum allowed
+            if len(asst_files.data) > max_files:
+                sorted_files = sorted(asst_files.data, key=lambda x: x.created_at)
+                files_to_delete = sorted_files[:len(asst_files.data) - max_files]
 
-    # def upload_text_to_file(self, tag, text):
-    #     local_file_path = self.filehandler.write_local_file(tag, text)
-    #     dprint(local_file_path)
-    #     agent_file = self.filehandler.create_asst_file_from_local(
-    #         self.client, self.agent_id, local_file_path)
-    #     self.append_input_files(agent_file)
-    #     dprint(f"uploading ")
-    #     # return self.filehandler.upload_text_to_file(self.client,text)
-    #     return agent_file
-
-    def create_asst_file_from_id(self, file):
-        """
-            when a file-id is already existing, attach it to an assistant
-        """
-        agent_file = self.filehandler.create_asst_file_from_id(
-            self.client, self.agent_id, file)
-        return agent_file
-
-    def delete_asst_files(self):
-        """
-        delete all assistant files on this assistant
-        TODO: a bug means that this will always throw an error
-        """
-        asst_files = self.list_asst_files()
-        print(f"Assistant files: {asst_files}")
-        for asst_file in asst_files:
-            retries = 3
-            while retries > 0:
-                try:
-                    print(f"Attempting to delete Assistant file-id: {asst_file.id}")
-                    self.client.beta.assistants.files.delete(
-                        assistant_id=self.agent_id,
+                # Delete the oldest files
+                for asst_file in files_to_delete:
+                    client.beta.assistants.files.delete(
+                        assistant_id=agent_id,
                         file_id=asst_file.id
                     )
-                    print(f"Successfully deleted Assistant file-id: {asst_file.id}")
-                    break  # Exit the retry loop on success
-                except openai.OpenAIError as e:
-                    print(f"Error deleting file-id {asst_file.id}: {str(e)}")
-                    if retries > 1:
-                        print("Retrying...")
-                        time.sleep(5)  # Wait a bit before retrying
-                    else:
-                        print("Final attempt failed.")
-                retries -= 1
+                    dprint(f"Deleted Assistant file-id: {asst_file.id}")
+        except Exception as e:
+            dprint(f"Error managing Assistant files: {e}")
 
-    # def retrieve_output(self):
-    #     afile = self.filehandler.retrieve_and_create_asst_file(self.client, self.agent_id, self.active_thread())
-    #     if afile:
-    #         dprint(f"good file retrieved")
-    #         return afile
-    #     return None
+    def normalize_agent_output(self, output):
+        # Check and convert 'completed' from string 'true'/'false' to Boolean True/False
+        # TODO needs other normalisations - these are specific
+        #  to QM issues
+        if 'completed' in output:
+            completed_value = output['completed']
+            if isinstance(completed_value, str):
+                completed_value = completed_value.lower()
+                if completed_value == 'true':
+                    output['completed'] = True
+                elif completed_value == 'false':
+                    output['completed'] = False
+                else:
+                    raise ValueError("Unexpected value for 'completed': must be 'true' or 'false'")
+            elif not isinstance(completed_value, bool):
+                raise ValueError("Unexpected type for 'completed': must be a boolean or string representing a boolean")
 
-    def create_new_assistant(self, name, description, instructions):
-        assistant = self.client.beta.assistants.create(
-            name=name,
-            description=description,
-            model="gpt-4-turbo-preview",
-            tools="code_interpreter",
-            instructions=instructions
-        )
-        # Assume the assistant creation response includes the assistant ID and description
-        self.agent_id = assistant.id
-        self.description = assistant.description
-
-
-    def append_input_files(self, input_files):
-        """
-            Appends input_files to self.input_files
-        """
-        if isinstance(input_files, str):
-            if input_files not in self.input_files:
-                self.input_files[self.active_run_id()] = [input_files]
-        elif isinstance(input_files, list):
-            self.input_files[self.active_run_id()] = []
-            for input_file in input_files:
-                if input_file not in self.input_files[self.active_run_id()] and input_file:
-                    self.input_files[self.active_run_id()].append(input_file)
-
-    def append_output_file(self, output_file):
-        """
-            Appends input_file to self.input_files
-        """
-        if isinstance(output_file, str):
-            if output_file not in self.output_files.values():
-                self.output_files[self.active_run_id()] = output_file
-        elif isinstance(output_file, list):
-           dprint(f"Error should only be one output file for an agent")
-
-    def create_qm_thread(self, agent_response, agent_output):
-        """
-           adds a QM thread to the QM agent.
-           TODO could be combined with the create_thread, it is just the inputs that differ really
-        """
-        if agent_output:
-            #self.append_input_files(self.create_asst_file_from_id(agent_output))
-            self.append_input_files(self.create_asst_file_from_id(agent_output))
-        if agent_response:
-            self.input_response = self.create_asst_file_from_id(agent_response)
-        dprint(f"input_files are now {self.active_input_files()} and stored response is {self.input_response}")
-        # now auto-generate the runtime prompt ready for uploading to thread
-        self.generate_runtime_prompt()
-        # Create the thread with the prompt and input file
-        thread = self.client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": self.prompt,
-                    "file_ids": self.active_input_files(),
-                }
-            ]
-        )
-        self.threads.append(thread)
-        return thread
-
-    def create_thread(self, prompt, input_files=None):
-        """
-            adds a new thread + message to an agent
-        """
-        # input files should be fileIDs already uploaded but will need adding to local list
-        if input_files:
-            dprint(f"Input files detected : {input_files}")
-            self.append_input_files(input_files)
-
-        # TODO safety check all input files already exist on the
-        dprint(f"self.input_files = {self.active_input_files()}")
-
-        # now auto-generate the runtime prompt ready for uploading to thread
-        self.generate_runtime_prompt()
-        # Create the thread with the prompt and input file
-        thread = self.client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Read the file(s) {self.active_input_files()}. {self.prompt}",
-                   # "file_ids": self.active_input_files(),
-                }
-            ]
-        )
-        self.threads.append(thread)
-        return thread
-
-    # Setter for agent_name
-    # def set_agent_name(self, new_name):
-    #     self.agent_name = new_name
-
-    # def set_input_file_id(self, file_id):
-    #     if file_id not in self.input_files:
-    #         self.input_files.append(file_id)
-
-    # Setter for role
-    # def set_role(self, new_role):
-    #     self.role = new_role
-
-    # Setter for json_schema
-    # def set_json_schema(self, new_json_schema):
-    #     self.json_schema = new_json_schema
-
-    # Setter for quality_criteria
-    # def set_quality_criteria(self, new_quality_criteria):
-    #     self.quality_criteria = new_quality_criteria
-
-
+        # Normalize other fields as needed
+        return output

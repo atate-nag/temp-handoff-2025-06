@@ -1,6 +1,5 @@
-from agent_workflow import Agent
+from agent import Agent
 from debug import dprint
-
 
 class AgentManager:
     def __init__(self, client, file_handler, agent_configs, input_files):
@@ -49,7 +48,6 @@ class AgentManager:
             finally:
                 initial_run = False  # Subsequent runs are not initial anymore
             self.print_state()
-
         self.return_data = agent_output.get('structured_output', {}) if qm_output else {}
 
     def evaluate_qm_output(self, qm_output):

@@ -3,7 +3,7 @@ import openai
 from dotenv import load_dotenv
 from datetime import datetime
 from multiprocessing import Process, Queue
-from agent_workflow import Agent
+from agent import Agent
 from agent_workflow_manager import AgentManager
 from debug import dprint
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
@@ -243,25 +243,15 @@ def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun)
         agent_dictionary_return = file_handler.local_json_read(f"debug_{agentType}_{companyName}.json")
     else:
         # get the graph data to send to agent
-        # json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-        # file_path = file_handler.write_local_json("graph_upload_",json_graph)
-        # # agent_configs = [{'agent_type': 'competition_agent'}, {'agent_type': 'analysis_agent'}]
-        # agent_configs = [{'agent_type': 'competition_agent'}]
-        # agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
-        # agent_manager.run_workflow()
-        # agent_dictionary_return = agent_manager.return_dict()
-        # dprint(f"Agent file has returned {agent_dictionary_return}")
-        agent_dictionary_return = file_handler.local_json_read(f"Final_NAG_Competitive_Environment_Profile.json")
+        json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
+        file_path = file_handler.write_local_json("graph_upload_",json_graph)
+        # agent_configs = [{'agent_type': 'competition_agent'}, {'agent_type': 'analysis_agent'}]
+        agent_configs = [{'agent_type': agentType}]
+        agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
+        agent_manager.run_workflow()
+        agent_dictionary_return = agent_manager.return_dict()
+        dprint(f"Agent file has returned {agent_dictionary_return}")
         dprint(f"agent_dict={agent_dictionary_return}")
-        company_basic_graph = company_graph.get_company_info(companyName)
-        company_file_path = file_handler.write_local_json("basic_info_local_",json.dumps(company_basic_graph))
-        competition_file_path = file_handler.write_local_json("competition_info_local_", json.dumps(agent_dictionary_return))
-        agent_configs = [{'agent_type': 'competitive_analysis_report_agent'}]
-        agent_manager_report = AgentManager(client, file_handler, agent_configs, [company_file_path, "Final_NAG_Competitive_Environment_Profile.json"])
-        agent_manager_report.run_workflow()
-        agent_dictionary_report_return = agent_manager_report.return_dict()
-        dprint(f"Agent file has returned {agent_dictionary_report_return}")
-    # now call a generic graph updater also
     if updateGraph:
         company_graph.generic_update_graph(companyName, agent_dictionary_return, agentType)
     for item in agent_dictionary_return:
