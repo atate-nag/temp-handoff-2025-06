@@ -1,14 +1,11 @@
 from pydantic import ValidationError
-from validations import (WorkFlowContextModel, AgentConfigs, AgentContextModel,
-                         AgentThreadModel)
+from validations import WorkFlowContextModel, AgentConfigs, AgentContextModel
 from import_files import InputFilesModel, AsstFilesModel
 from data_validation import UnvalidatedData, ValidatedData
 from debug import dprint
 from collections import defaultdict
 from openai_asst import AgentThread
 from agent_state_machine_config import AgentStateMachineConfig
-from pubsub import pub
-import json
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 
@@ -16,19 +13,16 @@ class Agent:
     states = ['Zero', 'Waiting', 'Initialised', 'Loaded', 'Running', 'Retrieved', 'Completed']
 
     def __init__(self, **kwargs):
-        # set all class variables to None until validated
-        # self.unvalidated_data = UnvalidatedData()
         self.validated = ValidatedData(self)
         self.unvalidated_data = UnvalidatedData()
         # passed data is unvalidated so stored only as "user_data" until validation
-        # defaultdict will add optional arguments to None so they can still be queried without key error
-        self.user_data = defaultdict(lambda: None, **kwargs)
+        self.user_data = defaultdict(lambda: None, **kwargs) # defaultdict will add optional arguments to None
         self.last_validated_output = None
         self.agent_type = None
         """
             Each state transition will follow this path:
             before_validation  ->   validation ->  after_validation - > transition 
-            (set up                 (True or       ( cleanup          (Opt: trigger
+            (set up                 (True or       ( cleanup           (Opt: trigger
             validation)             False   )      State Data)         next state)
         """
         self.state_machine = AgentStateMachineConfig().setup(self)
@@ -50,8 +44,6 @@ class Agent:
         self.load_trigger(self.unvalidated_data)
 
     def receive_input(self, agent_output=None, qm_instructions=None, agent_requirements=None):
-        # assumption is that this is a QM itself
-        # so the inputs are
         if agent_output:
             self.user_data['agent_output'] = agent_output
         if qm_instructions:
@@ -342,25 +334,30 @@ class Agent:
         return
 
     def validate_schema(self, data, schema):
-        # Store validation issues
         issues = []
         if data is None or schema is None:
             return issues
-        # Validate schema
+
         try:
             validate(instance=data, schema=schema)
         except ValidationError as e:
             issues.append(f"Schema validation error: {e.message}")
 
-        # Check for duplicate names
-        seen_names = {}
-        for index, item in enumerate(data):
-            competitor_name = item['competitor']['name']
-            if competitor_name in seen_names:
-                issues.append(
-                    f"Duplicate competitor name found at index {index} and {seen_names[competitor_name]}: '{competitor_name}'")
-            else:
-                seen_names[competitor_name] = index
+        # if data:
+        #     # Extract fields from the first item assuming all items are similar
+        #     fields_to_check = data[0].keys()
+        #     for field in fields_to_check:
+        #         seen = {}
+        #         for index, item in enumerate(data):
+        #             try:
+        #                 key_value = item[field]
+        #                 if key_value in seen:
+        #                     issues.append(
+        #                         f"Duplicate value for '{field}' found at index {index} and {seen[key_value]}: '{key_value}'")
+        #                 else:
+        #                     seen[key_value] = index
+        #             except KeyError:
+        #                 issues.append(f"Key '{field}' not found in item at index {index}")
 
         return issues
 
