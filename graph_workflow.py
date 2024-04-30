@@ -181,7 +181,7 @@ def condense_and_extract(companyName, json_graph_str, file_path, output_queue):
     # cond_agent.setup_run(file_id, qm=False)  # not clear we can QM the condense process
     # cond_agent_output = cond_agent.run_agent()
     agent_configs = [{'agent_type': "condense_agent"}]
-    agent_manager = AgentManager(client, file_handler, agent_configs, [file_path], create_new=True)
+    agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
     agent_manager.run_workflow()
     agent_dictionary_return = agent_manager.return_dict()
     # dprint(f"condensed agent output = {cond_agent_output}")

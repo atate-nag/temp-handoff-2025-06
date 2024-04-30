@@ -2,11 +2,10 @@ from agent import Agent
 from debug import dprint
 
 class AgentManager:
-    def __init__(self, client, file_handler, agent_configs, input_files, create_new=False):
+    def __init__(self, client, file_handler, agent_configs, input_files):
         self.client = client
         self.file_handler = file_handler
         self.input_files = input_files
-        self.create_new = create_new # this means new agents are created from existing def
         self.agents = {}
         self.qm_agents = {}
         self.return_data = None
@@ -61,7 +60,9 @@ class AgentManager:
         if 'structured_output' in qm_output:
             dict_output = qm_output['structured_output']
             completed = dict_output.get('completed', False)
+            dprint(f"pulled out the completed value of {completed}")
             qm_instructions = dict_output.get('agent instructions', None)
+            dprint(f"pulled out the agent instructions of {qm_instructions}")
             return completed, qm_instructions
         else:
             # Log an error if the expected output structure is not met
@@ -72,7 +73,7 @@ class AgentManager:
         """ Factory method to instantiate agents. """
         dprint(f"Initialising {agent_type} with input files: {input_files}")
         agent = Agent(client=self.client, file_handler=self.file_handler,
-                      agent_type=agent_type, input_files=input_files, create_new=self.create_new)
+                      agent_type=agent_type, input_files=input_files)
         agent.initialise(qm_id)
         return agent
 

@@ -150,7 +150,7 @@ class Agent:
         file_handler = self.validated.workflow_context.file_handler
         uploaded_assistant_files = []
 
-        if self.user_data.get('input_files'):
+        if self.user_data.get('input_files') and self.user_data['initial_run']:
             for file in self.user_data['input_files']:
                 asst_file = file_handler.create_asst_file_from_local(client, agent_id, file)
                 uploaded_assistant_files.append(asst_file)
@@ -183,7 +183,7 @@ class Agent:
             asst_input_files = None
             dprint("Initialized asst_input_files to None.")
 
-            if unvalidated_data['asst_input_files']:
+            if unvalidated_data['asst_input_files'] and self.user_data['initial_run']:
                 asst_files_valid = AsstFilesModel(
                     client=self.validated.workflow_context.client,
                     agent_id=self.validated.agent_context.agent_id,
