@@ -173,48 +173,51 @@ def clean_insights(companyName):
     return
 
 
-def condense_and_extract(file_id, companyName, json_graph_str, filename, output_queue):
-    cond_prompt = f"Condense the file {file_id}"
+def condense_and_extract(companyName, json_graph_str, file_path, output_queue):
+    cond_prompt = f"Condense the file {file_path}"
     dprint(cond_prompt)
-    cond_agent = Agent(client, file_handler, "condense_agent")
-    dprint(cond_agent.agent_id, cond_agent.description)
-    cond_agent.setup_run(file_id, qm=False)  # not clear we can QM the condense process
-    cond_agent_output = cond_agent.run_agent()
+    # cond_agent = Agent(client, file_handler, "condense_agent")
+    # dprint(cond_agent.agent_id, cond_agent.description)
+    # cond_agent.setup_run(file_id, qm=False)  # not clear we can QM the condense process
+    # cond_agent_output = cond_agent.run_agent()
+    agent_configs = [{'agent_type': "condense_agent"}]
+    agent_manager = AgentManager(client, file_handler, agent_configs, [file_path], create_new=True)
+    agent_manager.run_workflow()
+    agent_dictionary_return = agent_manager.return_dict()
     # dprint(f"condensed agent output = {cond_agent_output}")
     # setup and execute the insight agent with QM in place
-    insight_prompt = (f"Extract the insights about the company {companyName} with info={json_graph_str} "
-                      f"from the file {cond_agent_output}. You will need to know the name of the original sourcedocument"
-                      f" is '{filename}' and today's date is {datetime.today().date()} (these will be recorded in the "
-                      f"output data)")
-    dprint(f"Extract_Insights: insight_prompt = {insight_prompt}")
-    # TODO Agent instance needs updating
-    insight_agent = Agent(client, file_handler, "insight_agent", prompt=insight_prompt)
-    dprint(insight_agent.agent_id, insight_agent.description)
-    insight_agent.setup_run(cond_agent_output, qm=True)  # not clear we can QM the condense process
-    insight_agent_output = insight_agent.run_agent()
-    output_queue.put(insight_agent_output)
-    return insight_agent_output
+    # insight_prompt = (f"Extract the insights about the company {companyName} with info={json_graph_str} "
+    #                   f"from the file {cond_agent_output}. You will need to know the name of the original sourcedocument"
+    #                   f" is '{filename}' and today's date is {datetime.today().date()} (these will be recorded in the "
+    #                   f"output data)")
+    # dprint(f"Extract_Insights: insight_prompt = {insight_prompt}")
+    # # TODO Agent instance needs updating
+    # insight_agent = Agent(client, file_handler, "insight_agent", prompt=insight_prompt)
+    # dprint(insight_agent.agent_id, insight_agent.description)
+    # insight_agent.setup_run(cond_agent_output, qm=True)  # not clear we can QM the condense process
+    # insight_agent_output = insight_agent.run_agent()
+    # output_queue.put(insight_agent_output)
+    return agent_dictionary_return
 
 def extract_insights(sourceDir, companyName, debug, updateGraph):
     # task 1: load company data from graph or from a debug file (if debug == True)
     # TODO code needs to be brought into line with latest changes
     llm_company_data_graph = company_graph.get_company_info(companyName)
     json_graph_str = json.dumps(llm_company_data_graph)
-    if debug:
-        dprint(f"Debug of insights not currently supported")
-        return None
     company_insight_dir = os.path.join(sourceDir, companyName)
     # step 1 : generate a structured extraction of the document
     dprint(f"Company insight Dir is {company_insight_dir}")
-    input_files = file_handler.upload_dir(company_insight_dir, companyName, "insight")
-    dprint(f"input_files is {input_files}")
+    # input_files = file_handler.upload_dir(company_insight_dir, companyName, "insight")
     # Now call the condense agent to get rid of all the junk in the file
     # this is where the parallelism should be
     processes = []
     output_queue = Queue()
-    for file_id, filename in input_files:
-        dprint(f"starting process when file_id is {file_id}")
-        p = Process(target=condense_and_extract, args=(file_id, companyName, json_graph_str, filename, output_queue))
+    file_paths = file_handler.process_and_save_json_files(company_insight_dir)
+
+    for file_path in file_paths:
+    #for file_id, filename in input_files:
+        dprint(f"starting process when file_id is {file_path}")
+        p = Process(target=condense_and_extract, args=(companyName, json_graph_str, file_path, output_queue))
         dprint(f"p = {p}")
         processes.append(p)
         p.start()

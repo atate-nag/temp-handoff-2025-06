@@ -40,14 +40,14 @@ class AgentThread():
             retrieval_limit=retrieval_limit)
         if prompt is None:
             prompt = self.initial_prompt
-        prompt = run.generate_runtime_prompt(
+        run_prompt = run.generate_runtime_prompt(
             prompt,
             input_files=input_files,
             agent_response=agent_response,
             agent_output=agent_output,
             agent_requirements=agent_requirements,
             agent_schema_errors=agent_schema_errors)
-        self.add_message(prompt)
+        self.add_message(run_prompt)
         run.create_run()
         self.runobjs.append(run)
         return run
@@ -249,3 +249,39 @@ class RunObj(BaseModel):
         return prompt
     class Config:
         arbitrary_types_allowed = True  # Allows 'Any' and other arbitrary types
+
+
+def clone_assistant(client, source_assistant_id):
+    # Retrieve the list of assistants
+    my_assistants = client.beta.assistants.list(order="desc",limit=100).data
+    dprint(f"list of assistants is {my_assistants}")
+    # Find the assistant by IDg
+    source_assistant = None
+    for assistant in my_assistants:
+        dprint(f"assistant = {assistant.id} | {source_assistant_id}")
+        if assistant.id == source_assistant_id:
+            dprint(f"match!")
+            source_assistant = assistant
+            break
+
+    if source_assistant is None:
+        print("Assistant not found.")
+        return
+
+    # Prepare the payload for creating a new assistant
+    # Copy all relevant fields except the ID and created_at
+    assistant_data = {
+        "name": "Cloned Agent",
+        "description": source_assistant.description,
+        "model": source_assistant.model,
+        "instructions": source_assistant.instructions,
+        "tools": source_assistant.tools,
+       # "metadata": source_assistant.metadata,
+       #"top_p": source_assistant.top_p,
+       # "temperature": source_assistant.temperature,
+       # "response_format": source_assistant.response_format
+    }
+
+    # Create a new assistant with the copied data
+    new_assistant = client.beta.assistants.create(**assistant_data)
+    return new_assistant

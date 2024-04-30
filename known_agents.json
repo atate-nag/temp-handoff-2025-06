@@ -53,7 +53,7 @@
       }
     },
     "condense_agent": {
-      "agent_id": "asst_AzJOCJFl1D8BKF4oNrge9XF8",
+      "agent_id": "asst_Xhebm6Te1dUhrUS0XjwdrOVr",
       "description": "Condensing Assistant for Json",
       "output_schema": {},
       "prompt" : "Condense the file(s): {INPUT_FILES}"
@@ -183,32 +183,40 @@
       "agent_id": "asst_NoLfJg1BUS4yNuZhurDAedXO",
       "description": "Capabilities Agent",
       "prompt": "Generate the capabilities relevant to the company and insights in the file(s): {INPUT_FILES}",
-      "output_schema" : {
+      "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "capability": { "type": "string" },
-            "value potential": { "type": "integer", "minimum": 1, "maximum": 99 },
-            "scarcity": { "type": "integer", "minimum": 1, "maximum": 99 },
-            "non-replicability": { "type": "integer", "minimum": 1, "maximum": 99 },
-            "irreplaceability": { "type": "integer", "minimum": 1, "maximum": 99 },
-            "evidenced by": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "confidence": { "type": "integer", "minimum": 1, "maximum": 99 }
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "properties": {
+              "capability": { "type": "string" },
+              "value potential": { "type": "integer", "minimum": 1, "maximum": 99 },
+              "scarcity": { "type": "integer", "minimum": 1, "maximum": 99 },
+              "non-replicability": { "type": "integer", "minimum": 1, "maximum": 99 },
+              "irreplaceability": { "type": "integer", "minimum": 1, "maximum": 99 },
+              "evidenced by": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "insight_id": { "type": "string" },
+                    "quote": { "type": "string" }
+                  },
+                  "required": ["insight_id", "quote"]
+                }
+              },
+              "confidence": { "type": "integer", "minimum": 1, "maximum": 99 }
           },
           "required": [
-            "capability",
-            "value potential",
-            "scarcity",
-            "non-replicability",
-            "irreplaceability",
-            "evidenced by",
-            "confidence"
-          ]
+              "capability",
+              "value potential",
+              "scarcity",
+              "non-replicability",
+              "irreplaceability",
+              "evidenced by",
+              "confidence"
+            ]
         }
       }
     },

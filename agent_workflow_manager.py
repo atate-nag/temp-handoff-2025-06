@@ -2,10 +2,11 @@ from agent import Agent
 from debug import dprint
 
 class AgentManager:
-    def __init__(self, client, file_handler, agent_configs, input_files):
+    def __init__(self, client, file_handler, agent_configs, input_files, create_new=False):
         self.client = client
         self.file_handler = file_handler
         self.input_files = input_files
+        self.create_new = create_new # this means new agents are created from existing def
         self.agents = {}
         self.qm_agents = {}
         self.return_data = None
@@ -42,6 +43,8 @@ class AgentManager:
                     qm_agent.reinitialise()
                 else:
                     dprint(f"{agent.agent_type} completed successfully.")
+                    agent.cleanup()
+                    qm_agent.cleanup()
             except Exception as e:
                 dprint(f"Error processing {agent.agent_type}: {str(e)}")
                 break  # Exit the loop due to an unrecoverable error
@@ -69,7 +72,7 @@ class AgentManager:
         """ Factory method to instantiate agents. """
         dprint(f"Initialising {agent_type} with input files: {input_files}")
         agent = Agent(client=self.client, file_handler=self.file_handler,
-                      agent_type=agent_type, input_files=input_files)
+                      agent_type=agent_type, input_files=input_files, create_new=self.create_new)
         agent.initialise(qm_id)
         return agent
 

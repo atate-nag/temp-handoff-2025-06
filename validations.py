@@ -32,6 +32,7 @@ class WorkFlowContextModel(BaseModel):
     file_handler: Any
     agent_type: str = Field()
     qm_id: Optional[str] = None
+    create_new: Optional[bool] = None
     # input_files: List = Field()
     @field_validator('client')
     def check_client_type(cls, v):

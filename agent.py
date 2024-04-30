@@ -4,7 +4,7 @@ from import_files import InputFilesModel, AsstFilesModel
 from data_validation import UnvalidatedData, ValidatedData
 from debug import dprint
 from collections import defaultdict
-from openai_asst import AgentThread
+from openai_asst import AgentThread, clone_assistant
 from agent_state_machine_config import AgentStateMachineConfig
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
@@ -90,12 +90,26 @@ class Agent:
             unvalidated_data = self.unvalidated_data.get_data_for_state('Zero')
             validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
             agent_configs_valid = AgentConfigs.get_agent_details(validated_workflow_context.agent_type)
+            # here if the agent is condigured to generate a new assistant instead of an existing, then it will
+            # need to do so and genearate the agent_id
+
             qm_id = validated_workflow_context.qm_id
 
             agent_context_valid = AgentContextModel(**agent_configs_valid, qm_id=qm_id)
             self.validated.set_data('workflow_context', validated_workflow_context)
             self.validated.set_data('agent_config', agent_configs_valid)
             self.validated.set_data('agent_context', agent_context_valid)
+
+            my_assistant = clone_assistant(
+                self.validated.workflow_context.client ,
+                self.validated.agent_context.agent_id
+            )
+            dprint(f"Agent clone is {my_assistant}")
+            if my_assistant:
+                self.validated.agent_context.agent_id = my_assistant.id
+            else:
+                dprint("Agent clone was not created - Aborting")
+                raise Exception("Agent clone was not created")
             self.validated.set_data('qm_id', qm_id)
             self.agent_type = validated_workflow_context.agent_type
 
@@ -257,6 +271,13 @@ class Agent:
                     prompt = self.validated.agent_context.prompt
                 else:
                     prompt = self.validated.agent_context.instructions
+            # delete some old assistant files to make room
+
+            self.delete_oldest_assistant_files(
+                self.validated.workflow_context.client,
+                self.validated.agent_context.agent_id)
+
+            # generate a new run object for this specific run
 
             run_object = self.validated.agent_thread.new_runobj(
                 parent=self.validated.agent_thread,
@@ -308,7 +329,7 @@ class Agent:
                 # reissue logic will go here
                 dprint(f"Agent did not produce output and will be informed: {instructions}")
                 # TODO cannot act on agent_thread state
-                self.validated.agent_thread.add_message(instructions)
+                # self.validated.agent_thread.add_message(instructions)
                 self.validated.set_data('retrieve_output', None)
                 # need to delete some files here in case we get into a long loop
                 #  of uploading new files
@@ -318,7 +339,7 @@ class Agent:
                     self.validated.agent_context.agent_id)
                 # need to remove the instructions so that they don't
                 # just repeat
-                self.user_data['qm_instructions'] = None
+                self.user_data['qm_instructions'] = instructions
                 self.reissue()
             return True
         except Exception as e:
@@ -420,3 +441,11 @@ class Agent:
 
         # Normalize other fields as needed
         return output
+
+    def cleanup(self):
+        client = self.validated.workflow_context.client
+        agent_id = self.validated.agent_context.agent_id
+        self.delete_oldest_assistant_files(client, agent_id)
+        dprint(f"Deleted old Assistant files on {agent_id}")
+        client.beta.assistants.delete(agent_id)
+        dprint(f"Deleted {agent_id}")

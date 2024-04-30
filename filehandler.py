@@ -96,6 +96,35 @@ class FileHandler:
 
         return openai_file.id
 
+    def process_and_save_json_files(self,path_to_dir):
+        """
+        Converts all non-JSON files in the specified directory to structured JSON format and saves them as JSON files.
+
+        Parameters:
+            path_to_dir (str): The path to the directory containing the files to be processed.
+
+        Returns:
+            List[str]: A list of full paths to the created JSON files.
+        """
+        files = os.listdir(path_to_dir)
+        json_files = []
+
+        for file_name in files:
+            file_path = os.path.join(path_to_dir, file_name)
+            if os.path.isfile(file_path) and not file_name.lower().endswith('.json'):
+                _, file_extension = os.path.splitext(file_name)  # Extract file extension
+                file_format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
+                doc = Rdoc.create(file_path, file_format, "insight")
+                # step 2 : convert to structured format (json)
+                structured_data = doc.build_structured_data()
+                # Create the JSON file path and save the JSON data
+                json_file_path = os.path.splitext(file_path)[0] + '.json'
+                with open(json_file_path, 'w') as json_file:
+                    json.dump(structured_data, json_file)
+                json_files.append(json_file_path)
+
+        return json_files
+
     def upload_dir(self, path_to_dir, company_name, doctype):
         files = [
             f for f in os.listdir(path_to_dir) if os.path.isfile(os.path.join(path_to_dir, f))
