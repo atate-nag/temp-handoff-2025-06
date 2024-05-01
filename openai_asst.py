@@ -23,6 +23,8 @@ class AgentThread():
         dprint(f"created initial thread {self.thread.id}")
         self.last_timestamp = 0
 
+    def runs_made(self):
+        return len(self.runobjs)
 
     def new_runobj(self,
                    parent,

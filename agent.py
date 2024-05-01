@@ -19,6 +19,7 @@ class Agent:
         self.user_data = defaultdict(lambda: None, **kwargs) # defaultdict will add optional arguments to None
         self.last_validated_output = None
         self.agent_type = None
+        self.run_limit = 8   #  should be a workflow parameter
         """
             Each state transition will follow this path:
             before_validation  ->   validation ->  after_validation - > transition 
@@ -277,6 +278,11 @@ class Agent:
                 self.validated.workflow_context.client,
                 self.validated.agent_context.agent_id)
 
+            # check if we have hit the limit of how many runs to make
+
+            if self.validated.agent_thread.runs_made() >= self.run_limit:
+                dprint("Hit the limit, aborting")
+                raise Exception("Hit the limit, aborting")
             # generate a new run object for this specific run
 
             run_object = self.validated.agent_thread.new_runobj(
