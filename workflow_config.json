@@ -47,12 +47,21 @@
       }
     },
     "extractInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
         "debug": false,
         "updateGraph" : true
+      }
+    },
+    "detectTrends": {
+      "enabled": true,
+      "parameters": {
+        "sourceDir": "Files-MARKET/",
+        "industries": "./industries.json",
+        "debug": false,
+        "updateGraph": true
       }
     },
     "displayInsights": {

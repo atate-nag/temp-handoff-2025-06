@@ -70,10 +70,11 @@ def get_step_function(step_name):
         "deleteCapabilities": delete_capabilities,
         "displayCapabilities": display_capabilities,
         "cleanInsights": clean_insights,
-        "deleteInsights": delete_insights,
+        "deleteInsidsghts": delete_insights,
 
         # custom agent implementations
         "extractInsights": extract_insights,
+        "detectTrends": detect_trends,
 
         # generic Agent implementations
         "evaluateCapabilities": generic_agent_run,
@@ -173,7 +174,7 @@ def clean_insights(companyName):
     return
 
 
-def condense_and_extract(companyName, json_graph_file, file_path, output_queue, index):
+def condense_and_extract(json_input_file, file_path, output_queue, index):
     cond_prompt = f"Condense the file {file_path}"
     agent_configs = [{'agent_type': "condense_agent"}]
     agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
@@ -181,54 +182,70 @@ def condense_and_extract(companyName, json_graph_file, file_path, output_queue, 
     agent_dictionary_return = agent_manager.return_dict()
     condense_file = file_handler.write_local_json(f"input_condense_process{index}", json.dumps(agent_dictionary_return))
     agent_configs = [{'agent_type': "insight_agent"}]
-    agent_manager = AgentManager(client, file_handler, agent_configs, [json_graph_file,condense_file])
+    agent_manager = AgentManager(client, file_handler, agent_configs, [json_input_file,condense_file])
     agent_manager.run_workflow()
     agent_dictionary_return = agent_manager.return_dict()
     output_queue.put(agent_dictionary_return)
     return agent_dictionary_return
 
+""" custom workflow executions """
+
 def extract_insights(sourceDir, companyName, debug, updateGraph):
-    # task 1: load company data from graph or from a debug file (if debug == True)
-    # TODO code needs to be brought into line with latest changes
     llm_company_data_graph = company_graph.get_company_info(companyName)
     json_graph_str = json.dumps(llm_company_data_graph)
     dprint(f"company graph is {json_graph_str}")
     company_insight_dir = os.path.join(sourceDir, companyName)
-    # step 1 : generate a structured extraction of the document
     dprint(f"Company insight Dir is {company_insight_dir}")
-    # input_files = file_handler.upload_dir(company_insight_dir, companyName, "insight")
-    # Now call the condense agent to get rid of all the junk in the file
-    # this is where the parallelism should be
     processes = []
     output_queue = Queue()
     file_paths = file_handler.process_and_save_json_files(company_insight_dir)
     dprint(f"file paths are {file_paths}")
     index = 1
     for data_file_path in file_paths:
-    #for file_id, filename in input_files:
         dprint(f"starting process when file_id is {data_file_path}")
         json_graph_file = file_handler.write_local_json(f"input_graph_process{index}", json_graph_str)
-        p = Process(target=condense_and_extract, args=(companyName, json_graph_file, data_file_path, output_queue, index))
+        p = Process(target=condense_and_extract, args= (json_graph_file, data_file_path, output_queue, index))
         dprint(f"p = {p}")
         processes.append(p)
         p.start()
         index += 1
     for p in processes:
         p.join()
-    company_insights = []
+    company_insights_list = []
     while not output_queue.empty():
         result = output_queue.get()
-        company_insights.append(result)
-    dprint(f"company insights are {company_insights}")
-    for id in company_insights:
-        dprint(f"company insight is {id}")
-        # TODO don't need this json.loads anymore
-        insight_content = json.loads(client.files.retrieve_content(id))
-        dprint(f"Main: Company insights extracted: content = {insight_content}")
+        company_insights_list.append(result)
+    dprint(f"company insights are {company_insights_list}")
+    for company_insights in company_insights_list:
         if updateGraph:
-            insight_graph.add_insight(insight_content, companyName)
+            insight_graph.add_insight(company_insights, companyName)
     return
 
+def detect_trends(sourceDir, industries, debug, updateGraph):
+    processes = []
+    output_queue = Queue()
+    file_paths = file_handler.process_and_save_json_files(sourceDir)
+    dprint(f"file paths are {file_paths}")
+    index = 1
+    for data_file_path in file_paths:
+        dprint(f"starting process when file_id is {data_file_path}")
+        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, index))
+        dprint(f"p = {p}")
+        processes.append(p)
+        p.start()
+        index += 1
+    for p in processes:
+        p.join()
+    trends_list = []
+    while not output_queue.empty():
+        result = output_queue.get()
+        trends_list.append(result)
+    dprint(f"trends are {trends_list}")
+    for trends_batch in trends_list:
+        dprint(trends_batch)
+        # if updateGraph:
+        #     insight_graph.add_insight(company_insights, companyName)
+    return
 
 def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun):
     # TODO needs a generic intermediates write adding

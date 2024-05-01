@@ -53,6 +53,32 @@
       },
       "prompt" : "The two input files are {INPUT_FILES}. One has the company basic information, the other has the documents that you will look for insights on the company withi. "
     },
+    "trend_agent": {
+      "agent_id": "asst_JSulLIlSLP1Egw73toHCs3lD",
+      "description": "Structured Trend Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "Trends": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "sourceDocument": { "type": "string" },
+              "extractionDate": { "type": "string" },
+              "categories": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "relevanceScore": { "type": "number", "minimum": 1, "maximum": 99 }
+            },
+            "required": ["name", "description", "sourceDocument", "extractionDate", "categories", "relevanceScore"]
+          }
+        }
+      },
+      "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for insights on the company within, the other is the list of industries "
+    },
     "condense_agent": {
       "agent_id": "asst_Xhebm6Te1dUhrUS0XjwdrOVr",
       "description": "Condensing Assistant for Json",
