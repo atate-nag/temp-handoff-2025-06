@@ -139,7 +139,7 @@ class CompanyGraph(BaseGraph):
                 competitor_data = competitor["data"]
             #         create_company_with_data(companyName, competitor_data)
             # # display competitor graph
-        elif agent_type == "capability_agent":
+        elif agent_type == "capabilities_agent":
             self.add_capability_and_evidence(company_name, dictionary)
         elif agent_type == "recommender_agent":
             self.prune_insights_from_recommendation(company_name, dictionary)
