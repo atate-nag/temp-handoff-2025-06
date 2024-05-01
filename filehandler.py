@@ -96,7 +96,7 @@ class FileHandler:
 
         return openai_file.id
 
-    def process_and_save_json_files(self,path_to_dir):
+    def process_and_save_json_files(self, path_to_dir):
         """
         Converts all non-JSON files in the specified directory to structured JSON format and saves them as JSON files.
 

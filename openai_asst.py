@@ -254,13 +254,10 @@ class RunObj(BaseModel):
 def clone_assistant(client, source_assistant_id):
     # Retrieve the list of assistants
     my_assistants = client.beta.assistants.list(order="desc",limit=100).data
-    dprint(f"list of assistants is {my_assistants}")
     # Find the assistant by IDg
     source_assistant = None
     for assistant in my_assistants:
-        dprint(f"assistant = {assistant.id} | {source_assistant_id}")
         if assistant.id == source_assistant_id:
-            dprint(f"match!")
             source_assistant = assistant
             break
 

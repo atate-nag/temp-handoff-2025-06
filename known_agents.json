@@ -50,7 +50,8 @@
           "additionalProperties": false
         },
         "minItems": 1
-      }
+      },
+      "prompt" : "The two input files are {INPUT_FILES}. One has the company basic information, the other has the documents that you will look for insights on the company withi. "
     },
     "condense_agent": {
       "agent_id": "asst_Xhebm6Te1dUhrUS0XjwdrOVr",
