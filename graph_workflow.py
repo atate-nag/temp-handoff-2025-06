@@ -1,9 +1,7 @@
 import os
 import openai
 from dotenv import load_dotenv
-from datetime import datetime
-from multiprocessing import Process, Queue
-from agent import Agent
+from multiprocessing import Process, Queue, Semaphore
 from agent_workflow_manager import AgentManager
 from debug import dprint
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
@@ -63,7 +61,7 @@ def get_step_function(step_name):
     step_map = {
 
         # administrative routines
-
+        "cleanUp": clean_up,
         "createCompanies": create_companies,
 
         # graph manipulation and display routines
@@ -84,7 +82,7 @@ def get_step_function(step_name):
         "evaluateCapabilities": generic_agent_run,
         "recommendInsightPruning": generic_agent_run,
         "buildCompetitiveEnvironment": generic_agent_run,
-        "cleanUp": clean_up,
+
     }
     return step_map.get(step_name, None)  # Return None if not found
 
@@ -187,19 +185,22 @@ def clean_insights(companyName):
     return
 
 
-def condense_and_extract(json_input_file, file_path, output_queue, agentType, index):
-    cond_prompt = f"Condense the file {file_path}"
-    agent_configs = [{'agent_type': "condense_agent"}]
-    agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
-    agent_manager.run_workflow()
-    agent_dictionary_return = agent_manager.return_dict()
-    condense_file = file_handler.write_local_json(f"input_condense_process{index}", json.dumps(agent_dictionary_return))
-    agent_configs = [{'agent_type': agentType}]
-    agent_manager = AgentManager(client, file_handler, agent_configs, [json_input_file,condense_file])
-    agent_manager.run_workflow()
-    agent_dictionary_return = agent_manager.return_dict()
-    output_queue.put(agent_dictionary_return)
-    return agent_dictionary_return
+def condense_and_extract(json_input_file, file_path, output_queue, agentType, index, semaphore):
+    try:
+        cond_prompt = f"Condense the file {file_path}"
+        agent_configs = [{'agent_type': "condense_agent"}]
+        agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
+        agent_manager.run_workflow()
+        agent_dictionary_return = agent_manager.return_dict()
+        condense_file = file_handler.write_local_json(f"input_condense_process{index}", json.dumps(agent_dictionary_return))
+        agent_configs = [{'agent_type': agentType}]
+        agent_manager = AgentManager(client, file_handler, agent_configs, [json_input_file,condense_file])
+        agent_manager.run_workflow()
+        agent_dictionary_return = agent_manager.return_dict()
+        output_queue.put(agent_dictionary_return)
+    finally:
+        semaphore.release()
+
 
 """ custom workflow executions """
 
@@ -228,7 +229,8 @@ def extract_insights(sourceDir, companyName, debug, updateGraph, agentType):
     while not output_queue.empty():
         result = output_queue.get()
         company_insights_list.append(result)
-    dprint(f"company insights are {company_insights_list}")
+    dprint(f"company insights are {company_insights_list} ")
+    dprint(f"{len(company_insights_list)} processes returned output {len(file_paths)} expected")
     for company_insights in company_insights_list:
         if updateGraph:
             insight_graph.add_insight(company_insights, companyName)
@@ -237,27 +239,36 @@ def extract_insights(sourceDir, companyName, debug, updateGraph, agentType):
 def detect_trends(sourceDir, industries, debug, updateGraph, agentType):
     processes = []
     output_queue = Queue()
+    max_processes = 12  # Setting the limit to the number of cores
+    pool_semaphore = Semaphore(max_processes)  # Create a semaphore object
+
     file_paths = file_handler.process_and_save_json_files(sourceDir)
-    dprint(f"file paths are {file_paths}")
+    print(f"file paths are {file_paths}")
     index = 1
+
     for data_file_path in file_paths:
-        dprint(f"starting process when file_id is {data_file_path}")
-        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, agentType, index))
-        dprint(f"p = {p}")
+        print(f"starting process when file_id is {data_file_path}")
+        pool_semaphore.acquire()  # Acquire a semaphore slot before starting a new process
+        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, agentType, index, pool_semaphore))
+        print(f"p = {p}")
         processes.append(p)
         p.start()
         index += 1
+
     for p in processes:
-        p.join()
+        p.join()  # Wait for all processes to complete
+
     trends_list = []
     while not output_queue.empty():
         result = output_queue.get()
         trends_list.append(result)
-    dprint(f"trends are {trends_list}")
+    print(f"trends are {trends_list}")
+
     for trends_batch in trends_list:
-        dprint(trends_batch)
+        print(trends_batch)
         # if updateGraph:
         #     insight_graph.add_insight(company_insights, companyName)
+
     return
 
 def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun):
@@ -270,7 +281,6 @@ def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun)
         # get the graph data to send to agent
         json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
         file_path = file_handler.write_local_json("graph_upload_",json_graph)
-        # agent_configs = [{'agent_type': 'competition_agent'}, {'agent_type': 'analysis_agent'}]
         agent_configs = [{'agent_type': agentType}]
         agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
         agent_manager.run_workflow()

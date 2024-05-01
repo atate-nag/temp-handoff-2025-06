@@ -63,26 +63,48 @@
       "description": "Structured Trend Agent",
       "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "Trends": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "description": { "type": "string" },
-              "sourceDocument": { "type": "string" },
-              "extractionDate": { "type": "string" },
-              "categories": {
-                "type": "array",
-                "items": { "type": "string" }
+        "type": "object",
+        "properties": {
+          "Trends": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "TrendID": {
+                  "type": "integer"
+                },
+                "TrendName": {
+                  "type": "string"
+                },
+                "Description": {
+                  "type": "string"
+                },
+                "AffectedAreas": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "SectorName": {
+                        "type": "string"
+                      },
+                      "IndustryGroupName": {
+                        "type": "string"
+                      },
+                      "IndustryName": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["SectorName", "IndustryGroupName", "IndustryName"]
+                  }
+                }
               },
-              "relevanceScore": { "type": "number", "minimum": 1, "maximum": 99 }
-            },
-            "required": ["name", "description", "sourceDocument", "extractionDate", "categories", "relevanceScore"]
+              "required": ["TrendID", "TrendName", "Description", "AffectedAreas"]
+            }
           }
-        }
+        },
+        "required": ["Trends"]
       },
-      "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for insights on the company within, the other is the list of industries "
+      "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for insights on the company within, the other is the list of industries. The source document is {DOC_NAME}"
     },
     "condense_agent": {
       "agent_id": "asst_Xhebm6Te1dUhrUS0XjwdrOVr",

@@ -19,7 +19,7 @@ class Agent:
         self.user_data = defaultdict(lambda: None, **kwargs) # defaultdict will add optional arguments to None
         self.last_validated_output = None
         self.agent_type = None
-        self.run_limit = 8   #  should be a workflow parameter
+        self.run_limit = 4   #  should be a workflow parameter
         """
             Each state transition will follow this path:
             before_validation  ->   validation ->  after_validation - > transition 
@@ -169,6 +169,7 @@ class Agent:
             agent_response_file=agent_response_file,
             agent_structured_output=agent_structured_output,
             asst_input_files=uploaded_assistant_files,
+            input_files=self.user_data.get('input_files')
         )
 
     def initialised_to_loaded_validation(self, unvalidated_data):
@@ -224,6 +225,8 @@ class Agent:
                 agent_schema_errors = self.validate_schema(agent_structured_output, self.validated.agent_requirements)
                 dprint(f"agent_schema_errors are {agent_schema_errors}")
 
+            self.validated.set_data('file_paths', unvalidated_data['input_files'])
+
             self.validated.set_data('agent_output_file', agent_output_file)
             dprint("Agent output file set in validated data.")
 
@@ -259,19 +262,21 @@ class Agent:
             # Insert specific validation logic for data pertinent to this transition
             # Validate and create a RunObjModel instance
             prompt = agent_requirements = None
-            # TODO - should qm_instructions and agent_output be
-            #  validated in Initialised state since part of load()?
-            if self.user_data['qm_instructions']:
+            dprint(f"user_data is {self.user_data}")
+            if self.user_data and 'qm_instructions' in self.user_data and self.user_data['qm_instructions']:
                 # we need to give feedback to the agent from the QM
                 prompt = self.user_data['qm_instructions']
                 dprint(f"Due to QM feedback, using the prompt {prompt}")
-            if self.user_data['agent_output']:
+            dprint("Validating agent output")
+            if self.user_data and 'agent_output' in self.user_data and self.user_data['agent_output']:
                 # we need to tell the QM that the agent followed instructions
                 # and that there is a new output file
-                if self.user_data['initial_run']:
+                if 'initial_run' in self.user_data and self.user_data['initial_run']:
                     prompt = self.validated.agent_context.prompt
                 else:
                     prompt = self.validated.agent_context.instructions
+            dprint("delerting assistiant files")
+
             # delete some old assistant files to make room
 
             delete_oldest_assistant_files(
@@ -279,11 +284,13 @@ class Agent:
                 self.validated.agent_context.agent_id)
 
             # check if we have hit the limit of how many runs to make
+            dprint("checking limit is not hit")
 
             if self.validated.agent_thread.runs_made() >= self.run_limit:
                 dprint("Hit the limit, aborting")
-                raise Exception("Hit the limit, aborting")
+                raise Exception
             # generate a new run object for this specific run
+            dprint("generating run object")
 
             run_object = self.validated.agent_thread.new_runobj(
                 parent=self.validated.agent_thread,
@@ -294,8 +301,10 @@ class Agent:
                 agent_requirements=self.validated.agent_requirements,
                 output_schema=self.validated.agent_context.output_schema,
                 agent_schema_errors=self.validated.agent_schema_errors,
-                prompt=prompt
+                prompt=prompt,
+               # file_paths=self.validated.file_paths
             )
+            dprint("setting runobj")
 
             self.validated.set_data('run_object', run_object)
             return True

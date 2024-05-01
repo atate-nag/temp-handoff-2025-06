@@ -38,7 +38,8 @@ class AgentManager:
                 qm_agent.receive_input(agent_output=agent_output, agent_requirements=agent.requirements())
                 qm_agent.load(initial_run=initial_run)
                 qm_output = qm_agent.run()
-                completed, qm_instructions = self.evaluate_qm_output(qm_output)
+                if qm_output:
+                    completed, qm_instructions = self.evaluate_qm_output(qm_output)
                 if not completed:
                     dprint(f"{agent.agent_type} will be rerun with instructions: {qm_instructions}")
                     agent.reinitialise()

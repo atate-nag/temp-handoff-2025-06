@@ -7,7 +7,7 @@ class AgentStateMachineConfig:
         self.permissions['Zero'] = ['workflow_context', 'agent_config', 'agent_context', 'input_files', 'agent_thread',
                                     'agent_id','qm_id']
         self.permissions['Initialised'] = ['asst_input_files', 'agent_output_file', 'agent_response_file',
-                                           'agent_structured_output','agent_requirements', 'agent_schema_errors']
+                                           'agent_structured_output','agent_requirements', 'agent_schema_errors', 'file_paths']
         self.permissions['Loaded'] = ['run_object']
         self.permissions['Running'] = ['retrieve_output']
         self.permissions['Retrieved'] = []

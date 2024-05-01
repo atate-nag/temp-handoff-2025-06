@@ -36,23 +36,33 @@ class AgentThread():
                    agent_requirements,
                    output_schema,
                    agent_schema_errors,
-                   prompt=None):
+                   prompt=None,
+                   file_paths=None):
+        dprint("creating new run")
         run = RunObj(
             parent=parent,
             input_files=input_files,
             retrieval_limit=retrieval_limit)
+        dprint(f"created new run")
         if prompt is None:
             prompt = self.initial_prompt
+        dprint(f"creating new run prompt")
+
         run_prompt = run.generate_runtime_prompt(
             prompt,
             input_files=input_files,
             agent_response=agent_response,
             agent_output=agent_output,
             agent_requirements=agent_requirements,
-            agent_schema_errors=agent_schema_errors)
+            agent_schema_errors=agent_schema_errors,
+            file_paths=file_paths)
+        dprint(f"created new run prompt")
         self.add_message(run_prompt)
         run.create_run()
+        dprint(f"created new run")
         self.runobjs.append(run)
+        dprint(f"appended runobj")
+
         return run
 
     def get_output(self):
@@ -228,17 +238,23 @@ class RunObj(BaseModel):
         return None
 
     def generate_runtime_prompt(self, prompt,input_files=None, agent_response=None,agent_output=None,
-                                agent_requirements=None, agent_schema_errors=None):
+                                agent_requirements=None, agent_schema_errors=None, file_paths=None):
         """
             Generate a prompt using runtime information. Note placeholder values
             appear in the prompt in known_agents.json in the "prompt" field.
         """
+        if file_paths is None:
+            doc_path = ""
+        else:
+            doc_path = input_files[0]
+
         placeholder_values = {
             "INPUT_FILES": input_files,
             "AGENT_RESPONSE": agent_response,
             "AGENT_OUTPUT" : agent_output,
             "AGENT_REQUIREMENTS": agent_requirements,
-            "AGENT_SCHEMA_ERRORS": agent_schema_errors
+            "AGENT_SCHEMA_ERRORS": agent_schema_errors,
+            "DOC_NAME": doc_path
         }
         # Prepare the prompt by replacing placeholders with actual runtime values
         for placeholder, value in placeholder_values.items():
@@ -276,14 +292,17 @@ def clone_assistant(client, source_assistant_id):
         "model": source_assistant.model,
         "instructions": source_assistant.instructions,
         "tools": source_assistant.tools,
-       # "metadata": source_assistant.metadata,
-       #"top_p": source_assistant.top_p,
-       # "temperature": source_assistant.temperature,
-       # "response_format": source_assistant.response_format
     }
 
+    # TODO there is a bug in assistants API, how to set temperature?
+    # modify_data = {
+    #     "temperature": 0.5,
+    #     "top_p": 1.0,
+    #     "response_format": source_assistant.response_format
+    # }
     # Create a new assistant with the copied data
     new_assistant = client.beta.assistants.create(**assistant_data)
+    # my_updated_assistant = client.beta.assistants.update(**modify_data, id=new_assistant.id)
     return new_assistant
 
 def delete_existing_assistant_files(client, agent_id):
