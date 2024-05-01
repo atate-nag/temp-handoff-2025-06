@@ -122,9 +122,9 @@ def update_company_data(dataDir, companyName):
 def clean_up():
     # Aggressive Cleanup of assistants and files
     # except for those and all files
-    # deleted = delete_assistants_clones(client)
+    deleted = delete_assistants_clones(client)
     deleted = deleted_files = None
-    deleted = delete_not_known_assistants(client)
+    # deleted = delete_not_known_assistants(client)
     # deleted_files = delete_files_less_than_1_hour(client)
     # deleted_files = delete_all_uploaded_files(client)
     dprint(f"Deleted {deleted} assistants and {deleted_files} files")
@@ -194,7 +194,7 @@ def condense_and_extract(json_input_file, file_path, output_queue, agentType, in
     agent_manager.run_workflow()
     agent_dictionary_return = agent_manager.return_dict()
     condense_file = file_handler.write_local_json(f"input_condense_process{index}", json.dumps(agent_dictionary_return))
-    agent_configs = [{'agent_type': "agentType"}]
+    agent_configs = [{'agent_type': agentType}]
     agent_manager = AgentManager(client, file_handler, agent_configs, [json_input_file,condense_file])
     agent_manager.run_workflow()
     agent_dictionary_return = agent_manager.return_dict()
