@@ -460,7 +460,10 @@ class InsightGraph(BaseGraph):
             if not isinstance(insight, dict):
                 logging.warning(f"Skipping invalid insight format: {insight}")
                 continue  # Skip this iteration
-
+            elif "insight" not in insight.keys():
+                logging.warning(f"Skipping invalid insight format: {insight}")
+                continue  # Skip this iteration
+            insight = insight.get("insight", {})
             # Ensure 'categories' is a list and 'extractionDate' is properly formatted
             categories = insight.get("categories", [])
             extractionDate = insight.get(
