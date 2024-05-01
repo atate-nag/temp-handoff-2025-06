@@ -38,3 +38,12 @@ class AgentConfigs:
     def _get_known_agents(self):
         return self.get_config('known_agents')
 
+    def list_all_agent_types(self):
+        """Return a list of all known agent types."""
+        known_agents = self._get_known_agents()
+        return list(known_agents.keys()) if known_agents else []
+
+    def get_all_known_agent_ids(self):
+        """Retrieve all known agent IDs from the configuration."""
+        known_agents = self._get_known_agents()
+        return [details['agent_id'] for details in known_agents.values()]

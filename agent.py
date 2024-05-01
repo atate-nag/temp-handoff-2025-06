@@ -4,7 +4,7 @@ from import_files import InputFilesModel, AsstFilesModel
 from data_validation import UnvalidatedData, ValidatedData
 from debug import dprint
 from collections import defaultdict
-from openai_asst import AgentThread, clone_assistant
+from openai_asst import AgentThread, clone_assistant, delete_existing_assistant_files, delete_oldest_assistant_files
 from agent_state_machine_config import AgentStateMachineConfig
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
@@ -139,7 +139,7 @@ class Agent:
         dprint(f"Running transition before state {self.state} to next state")
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.agent_id
-        self.delete_existing_assistant_files(client, agent_id)
+        delete_existing_assistant_files(client, agent_id)
 
     """ Initialised State to Loaded State Transition """
 
@@ -274,7 +274,7 @@ class Agent:
                     prompt = self.validated.agent_context.instructions
             # delete some old assistant files to make room
 
-            self.delete_oldest_assistant_files(
+            delete_oldest_assistant_files(
                 self.validated.workflow_context.client,
                 self.validated.agent_context.agent_id)
 
@@ -340,7 +340,7 @@ class Agent:
                 # need to delete some files here in case we get into a long loop
                 #  of uploading new files
                 #  TODO reissue should not create new files?
-                self.delete_oldest_assistant_files(
+                delete_oldest_assistant_files(
                     self.validated.workflow_context.client,
                     self.validated.agent_context.agent_id)
                 # need to remove the instructions so that they don't
@@ -357,7 +357,7 @@ class Agent:
         current_state = self.state
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.agent_id
-        self.delete_oldest_assistant_files(client, agent_id)
+        delete_oldest_assistant_files(client, agent_id)
         return
 
     def validate_schema(self, data, schema):
@@ -370,63 +370,9 @@ class Agent:
         except ValidationError as e:
             issues.append(f"Schema validation error: {e.message}")
 
-        # if data:
-        #     # Extract fields from the first item assuming all items are similar
-        #     fields_to_check = data[0].keys()
-        #     for field in fields_to_check:
-        #         seen = {}
-        #         for index, item in enumerate(data):
-        #             try:
-        #                 key_value = item[field]
-        #                 if key_value in seen:
-        #                     issues.append(
-        #                         f"Duplicate value for '{field}' found at index {index} and {seen[key_value]}: '{key_value}'")
-        #                 else:
-        #                     seen[key_value] = index
-        #             except KeyError:
-        #                 issues.append(f"Key '{field}' not found in item at index {index}")
+        # TODO add some general code that prevents duplicates
 
         return issues
-
-    def delete_existing_assistant_files(self, client, agent_id):
-        """ Manage existing assistant files in OpenAI """
-        asst_files = client.beta.assistants.files.list(
-            assistant_id=agent_id,
-        )
-        dprint(f"Assistant files: {asst_files}")
-        for asst_file in asst_files.data:
-            try:
-                client.beta.assistants.files.delete(
-                    assistant_id=agent_id,
-                    file_id=asst_file.id
-                )
-                dprint(f"Deleted Assistant file")
-            except Exception as e:
-                dprint(f"Error deleting Assistant file {e}")
-
-    def delete_oldest_assistant_files(self, client, agent_id, max_files=6):
-        """Manage existing assistant files by keeping only the latest 'max_files'."""
-        dprint("delete_oldest_assistant_files")
-        try:
-            # Retrieve list of assistant files
-            asst_files = client.beta.assistants.files.list(
-                assistant_id=agent_id,
-            )
-            dprint(f"Total assistant files: {len(asst_files.data)} on {agent_id}")
-            # Check if the number of files exceeds the maximum allowed
-            if len(asst_files.data) > max_files:
-                sorted_files = sorted(asst_files.data, key=lambda x: x.created_at)
-                files_to_delete = sorted_files[:len(asst_files.data) - max_files]
-
-                # Delete the oldest files
-                for asst_file in files_to_delete:
-                    client.beta.assistants.files.delete(
-                        assistant_id=agent_id,
-                        file_id=asst_file.id
-                    )
-                    dprint(f"Deleted Assistant file-id: {asst_file.id}")
-        except Exception as e:
-            dprint(f"Error managing Assistant files: {e}")
 
     def normalize_agent_output(self, output):
         # Check and convert 'completed' from string 'true'/'false' to Boolean True/False
@@ -451,7 +397,7 @@ class Agent:
     def cleanup(self):
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.agent_id
-        self.delete_oldest_assistant_files(client, agent_id)
+        delete_oldest_assistant_files(client, agent_id)
         dprint(f"Deleted old Assistant files on {agent_id}")
         client.beta.assistants.delete(agent_id)
         dprint(f"Deleted {agent_id}")

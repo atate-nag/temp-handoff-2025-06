@@ -39,26 +39,26 @@
     },
     "extractCondenseData": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
         "debug": false,
-        "updateGraph" : true
+        "updateGraph": true
       }
     },
     "extractInsights": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
         "debug": false,
-        "updateGraph" : true
+        "updateGraph": true
       }
     },
     "detectTrends": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
-        "sourceDir": "Files-MARKET/",
+        "sourceDir": "Files-Market/",
         "industries": "./industries.json",
         "debug": false,
         "updateGraph": true
@@ -66,17 +66,17 @@
     },
     "displayInsights": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
         "companyName": "nag",
-        "relevanceFrom" : 9.2
+        "relevanceFrom": 9.2
       }
     },
-    "recommendInsightPruning" : {
+    "recommendInsightPruning": {
       "enabled": false,
-      "parameters" : {
-        "agentType" : "recommender_agent",
+      "parameters": {
+        "agentType": "recommender_agent",
         "companyName": "nag",
-        "debugRun" : false,
+        "debugRun": false,
         "updateGraph": false
       }
     },
@@ -88,26 +88,29 @@
     },
     "evaluateCapabilities": {
       "enabled": false,
-      "parameters" : {
-        "agentType" : "capabilities_agent",
-        "reportType" : "capability_analysis_report_agent",
+      "parameters": {
+        "agentType": "capabilities_agent",
+        "reportType": "capability_analysis_report_agent",
         "companyName": "nag",
-        "debugRun" : false,
-        "updateGraph" : false
+        "debugRun": false,
+        "updateGraph": false
       }
     },
-    "pruneCapabilities" : {
+    "pruneCapabilities": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
         "companyName": "nag",
         "updateGraph": false
       }
     },
     "displayCapabilities": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
         "companyName": "nag"
       }
+    },
+    "cleanUp": {
+      "enabled": true
     },
     "buildCompetitiveEnvironment": {
       "enabled": false,

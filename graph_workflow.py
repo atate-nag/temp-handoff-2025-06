@@ -9,6 +9,8 @@ from debug import dprint
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
 import json
+from openai_asst import (delete_assistants_clones, delete_all_uploaded_files, delete_not_known_assistants,
+                         delete_files_less_than_1_hour)
 import sys
 
 load_dotenv()
@@ -60,6 +62,8 @@ def get_step_function(step_name):
     """
     step_map = {
 
+        # administrative routines
+
         "createCompanies": create_companies,
 
         # graph manipulation and display routines
@@ -80,6 +84,7 @@ def get_step_function(step_name):
         "evaluateCapabilities": generic_agent_run,
         "recommendInsightPruning": generic_agent_run,
         "buildCompetitiveEnvironment": generic_agent_run,
+        "cleanUp": clean_up,
     }
     return step_map.get(step_name, None)  # Return None if not found
 
@@ -91,11 +96,9 @@ def create_companies(companyName):
     dprint(f"Creating company {companyName}")
     company_graph.create_company_only(companyName)
 
-
 def create_company_with_data(companyName, data):
     company_node_data = map_json_to_company_schema(json.loads(data))
     company_graph.add_company_info(companyName, company_node_data)
-
 
 def update_company_data(dataDir, companyName):
     company_data_dir = os.path.join(dataDir, companyName)
@@ -115,6 +118,15 @@ def update_company_data(dataDir, companyName):
     else:
         dprint(f"No data directory found for {companyName}.")
     return
+
+def clean_up():
+    # Aggressive Cleanup of assistants and files
+    # except for those and all files
+    # deleted = delete_assistants_clones(client)
+    deleted = delete_not_known_assistants(client)
+    deleted_files = delete_files_less_than_1_hour(client)
+    # deleted_files = delete_all_uploaded_files(client)
+    dprint(f"Deleted {deleted} assistants and {deleted_files} files")
 
 def display_insights(companyName, relevanceFrom):
     dprint(

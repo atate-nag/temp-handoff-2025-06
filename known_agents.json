@@ -53,6 +53,11 @@
       },
       "prompt" : "The two input files are {INPUT_FILES}. One has the company basic information, the other has the documents that you will look for insights on the company withi. "
     },
+    "strategy_breakdown": {
+      "agent_id": "asst_15xziegGQTcv4lvn6xPURHWe",
+      "description": "Strategy Problem Breakdown Agent",
+      "prompt" : ""
+    },
     "trend_agent": {
       "agent_id": "asst_JSulLIlSLP1Egw73toHCs3lD",
       "description": "Structured Trend Agent",
