@@ -51,7 +51,7 @@
       "parameters": {
         "agentType" : "insight_agent",
         "companyName": "nag",
-        "sourceDir": "Files-COMPANY/",
+        "sourceDir": "Files-Company/",
         "debug": false,
         "updateGraph": true
       }
@@ -67,7 +67,7 @@
       }
     },
     "displayInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "nag",
         "relevanceFrom": 9.2
