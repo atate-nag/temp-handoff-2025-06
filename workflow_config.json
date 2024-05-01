@@ -47,8 +47,9 @@
       }
     },
     "extractInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
+        "agentType" : "insight_agent",
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
         "debug": false,
@@ -56,7 +57,7 @@
       }
     },
     "detectTrends": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "agentType" : "trend_agent",
         "sourceDir": "Files-WEF/",
@@ -66,7 +67,7 @@
       }
     },
     "displayInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "companyName": "nag",
         "relevanceFrom": 9.2

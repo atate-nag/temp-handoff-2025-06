@@ -194,7 +194,7 @@ def condense_and_extract(json_input_file, file_path, output_queue, agentType, in
     agent_manager.run_workflow()
     agent_dictionary_return = agent_manager.return_dict()
     condense_file = file_handler.write_local_json(f"input_condense_process{index}", json.dumps(agent_dictionary_return))
-    agent_configs = [{'agent_type': "insight_agent"}]
+    agent_configs = [{'agent_type': "agentType"}]
     agent_manager = AgentManager(client, file_handler, agent_configs, [json_input_file,condense_file])
     agent_manager.run_workflow()
     agent_dictionary_return = agent_manager.return_dict()
@@ -203,7 +203,7 @@ def condense_and_extract(json_input_file, file_path, output_queue, agentType, in
 
 """ custom workflow executions """
 
-def extract_insights(sourceDir, companyName, debug, updateGraph):
+def extract_insights(sourceDir, companyName, debug, updateGraph, agentType):
     llm_company_data_graph = company_graph.get_company_info(companyName)
     json_graph_str = json.dumps(llm_company_data_graph)
     dprint(f"company graph is {json_graph_str}")
@@ -217,7 +217,7 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
     for data_file_path in file_paths:
         dprint(f"starting process when file_id is {data_file_path}")
         json_graph_file = file_handler.write_local_json(f"input_graph_process{index}", json_graph_str)
-        p = Process(target=condense_and_extract, args= (json_graph_file, data_file_path, output_queue, index))
+        p = Process(target=condense_and_extract, args= (json_graph_file, data_file_path, output_queue, agentType, index))
         dprint(f"p = {p}")
         processes.append(p)
         p.start()
@@ -242,7 +242,7 @@ def detect_trends(sourceDir, industries, debug, updateGraph, agentType):
     index = 1
     for data_file_path in file_paths:
         dprint(f"starting process when file_id is {data_file_path}")
-        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, index, agentType))
+        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, agentType, index))
         dprint(f"p = {p}")
         processes.append(p)
         p.start()
