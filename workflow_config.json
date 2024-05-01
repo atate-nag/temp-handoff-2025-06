@@ -58,7 +58,8 @@
     "detectTrends": {
       "enabled": true,
       "parameters": {
-        "sourceDir": "Files-Market/",
+        "agentType" : "trend_agent",
+        "sourceDir": "Files-WEF/",
         "industries": "./industries.json",
         "debug": false,
         "updateGraph": true
@@ -87,7 +88,7 @@
       }
     },
     "evaluateCapabilities": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "agentType": "capabilities_agent",
         "reportType": "capability_analysis_report_agent",
@@ -110,7 +111,7 @@
       }
     },
     "cleanUp": {
-      "enabled": true
+      "enabled": false
     },
     "buildCompetitiveEnvironment": {
       "enabled": false,

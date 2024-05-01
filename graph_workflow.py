@@ -123,8 +123,9 @@ def clean_up():
     # Aggressive Cleanup of assistants and files
     # except for those and all files
     # deleted = delete_assistants_clones(client)
+    deleted = deleted_files = None
     deleted = delete_not_known_assistants(client)
-    deleted_files = delete_files_less_than_1_hour(client)
+    # deleted_files = delete_files_less_than_1_hour(client)
     # deleted_files = delete_all_uploaded_files(client)
     dprint(f"Deleted {deleted} assistants and {deleted_files} files")
 
@@ -186,7 +187,7 @@ def clean_insights(companyName):
     return
 
 
-def condense_and_extract(json_input_file, file_path, output_queue, index):
+def condense_and_extract(json_input_file, file_path, output_queue, agentType, index):
     cond_prompt = f"Condense the file {file_path}"
     agent_configs = [{'agent_type': "condense_agent"}]
     agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
@@ -233,7 +234,7 @@ def extract_insights(sourceDir, companyName, debug, updateGraph):
             insight_graph.add_insight(company_insights, companyName)
     return
 
-def detect_trends(sourceDir, industries, debug, updateGraph):
+def detect_trends(sourceDir, industries, debug, updateGraph, agentType):
     processes = []
     output_queue = Queue()
     file_paths = file_handler.process_and_save_json_files(sourceDir)
@@ -241,7 +242,7 @@ def detect_trends(sourceDir, industries, debug, updateGraph):
     index = 1
     for data_file_path in file_paths:
         dprint(f"starting process when file_id is {data_file_path}")
-        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, index))
+        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, index, agentType))
         dprint(f"p = {p}")
         processes.append(p)
         p.start()
