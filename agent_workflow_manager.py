@@ -32,6 +32,9 @@ class AgentManager:
                 agent.receive_input(qm_instructions=qm_instructions)
                 agent.load(initial_run=initial_run)
                 agent_output = agent.run()
+                if agent_output is None:
+                    dprint(f"none returned from operaitonal agent - Aborting")
+                    raise Exception
                 qm_agent.receive_input(agent_output=agent_output, agent_requirements=agent.requirements())
                 qm_agent.load(initial_run=initial_run)
                 qm_output = qm_agent.run()
@@ -45,12 +48,16 @@ class AgentManager:
                     agent.cleanup()
                     qm_agent.cleanup()
             except Exception as e:
-                dprint(f"Error processing {agent.agent_type}: {str(e)}")
-                break  # Exit the loop due to an unrecoverable error
+                dprint(f"Error processing {agent.agent_type}: {str(e)} Aborting")
+                raise Exception
             finally:
                 initial_run = False  # Subsequent runs are not initial anymore
             self.print_state()
-        self.return_data = agent_output.get('structured_output', {}) if qm_output else {}
+            # Ensure agent_output is a dictionary before attempting to use .get on it
+            if agent_output and isinstance(agent_output, dict):
+                self.return_data = agent_output.get('structured_output', {})
+            else:
+                self.return_data = None  # Default to an empty dictionary if agent_output
 
     def evaluate_qm_output(self, qm_output):
         """

@@ -56,7 +56,7 @@
       }
     },
     "detectTrends": {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "sourceDir": "Files-Market/",
         "industries": "./industries.json",
@@ -87,7 +87,7 @@
       }
     },
     "evaluateCapabilities": {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "agentType": "capabilities_agent",
         "reportType": "capability_analysis_report_agent",
