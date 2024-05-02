@@ -47,7 +47,7 @@
       }
     },
     "extractInsights": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "agentType" : "insight_agent",
         "companyName": "nag",
@@ -115,7 +115,7 @@
       "enabled": true
     },
     "buildCompetitiveEnvironment": {
-      "enabled": false,
+      "enabled": true,
       "parameters" : {
         "agentType" : "competition_agent",
         "reportType" : "competitive_analysis_report_agent",

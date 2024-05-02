@@ -61,7 +61,7 @@
     "trend_agent": {
       "agent_id": "asst_JSulLIlSLP1Egw73toHCs3lD",
       "description": "Structured Trend Agent",
-      "output_schema": {
+      "output_schema":{
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {
@@ -73,32 +73,38 @@
                 "TrendID": {
                   "type": "integer"
                 },
-                "TrendName": {
+                "Title": {
                   "type": "string"
                 },
+                "Summary": {
+                  "type": "string",
+                  "minLength": 200
+                },
                 "Description": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 3000
                 },
                 "AffectedAreas": {
                   "type": "array",
                   "items": {
                     "type": "object",
                     "properties": {
-                      "SectorName": {
-                        "type": "string"
+                      "SectorID": {
+                        "type": "integer"
                       },
-                      "IndustryGroupName": {
-                        "type": "string"
+                      "IndustryGroupID": {
+                        "type": "integer"
                       },
-                      "IndustryName": {
-                        "type": "string"
+                      "IndustryID": {
+                        "type": "integer"
                       }
                     },
-                    "required": ["SectorName", "IndustryGroupName", "IndustryName"]
-                  }
+                    "required": ["SectorID", "IndustryGroupID", "IndustryID"]
+                  },
+                  "minItems": 1
                 }
               },
-              "required": ["TrendID", "TrendName", "Description", "AffectedAreas"]
+              "required": ["TrendID", "Title", "Summary", "Description", "AffectedAreas"]
             }
           }
         },
