@@ -215,10 +215,13 @@ def extract_insights(sourceDir, companyName, debug, updateGraph, agentType):
     file_paths = file_handler.process_and_save_json_files(company_insight_dir)
     dprint(f"file paths are {file_paths}")
     index = 1
+    max_processes = 12  # Setting the limit to the number of cores
+    pool_semaphore = Semaphore(max_processes)  # Create a semaphore object
     for data_file_path in file_paths:
         dprint(f"starting process when file_id is {data_file_path}")
         json_graph_file = file_handler.write_local_json(f"input_graph_process{index}", json_graph_str)
-        p = Process(target=condense_and_extract, args= (json_graph_file, data_file_path, output_queue, agentType, index))
+        pool_semaphore.acquire()  # Acquire a semaphore slot before starting a new process
+        p = Process(target=condense_and_extract, args= (json_graph_file, data_file_path, output_queue, agentType, index, pool_semaphore))
         dprint(f"p = {p}")
         processes.append(p)
         p.start()

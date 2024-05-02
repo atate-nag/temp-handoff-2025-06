@@ -47,7 +47,7 @@
       }
     },
     "extractInsights": {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "agentType" : "insight_agent",
         "companyName": "nag",
@@ -57,7 +57,7 @@
       }
     },
     "detectTrends": {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "agentType" : "trend_agent",
         "sourceDir": "Files-WEF/",
