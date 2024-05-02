@@ -61,7 +61,7 @@
     "trend_agent": {
       "agent_id": "asst_JSulLIlSLP1Egw73toHCs3lD",
       "description": "Structured Trend Agent",
-      "output_schema":{
+      "output_schema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {
@@ -82,7 +82,7 @@
                 },
                 "Description": {
                   "type": "string",
-                  "minLength": 3000
+                  "minLength": 1000
                 },
                 "AffectedAreas": {
                   "type": "array",
@@ -99,17 +99,49 @@
                         "type": "integer"
                       }
                     },
-                    "required": ["SectorID", "IndustryGroupID", "IndustryID"]
+                    "required": [
+                      "SectorID",
+                      "IndustryGroupID",
+                      "IndustryID"
+                    ]
+                  },
+                  "minItems": 1
+                },
+                "EvidencedBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "DocumentName": {
+                        "type": "string"
+                      },
+                      "Quote": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "DocumentName",
+                      "Quote"
+                    ]
                   },
                   "minItems": 1
                 }
               },
-              "required": ["TrendID", "Title", "Summary", "Description", "AffectedAreas"]
+              "required": [
+                "TrendID",
+                "Title",
+                "Summary",
+                "Description",
+                "AffectedAreas",
+                "EvidencedBy"
+              ]
             }
           }
         },
-        "required": ["Trends"]
-      },
+        "required": [
+          "Trends"
+        ]
+      }
       "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for insights on the company within, the other is the list of industries. The source document is {DOC_NAME}"
     },
     "condense_agent": {
