@@ -6,7 +6,7 @@ from agent_workflow_manager import AgentManager
 from debug import dprint
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
 from filehandler import FileHandler
-import json
+import json, re
 from openai_asst import (delete_assistants_clones, delete_all_uploaded_files, delete_not_known_assistants,
                          delete_files_less_than_1_hour)
 import sys
@@ -72,7 +72,7 @@ def get_step_function(step_name):
         "deleteCapabilities": delete_capabilities,
         "displayCapabilities": display_capabilities,
         "cleanInsights": clean_insights,
-        "deleteInsidsghts": delete_insights,
+        "deleteInsights": delete_insights,
 
         # custom agent implementations
         "extractInsights": extract_insights,
@@ -82,6 +82,10 @@ def get_step_function(step_name):
         "evaluateCapabilities": generic_agent_run,
         "recommendInsightPruning": generic_agent_run,
         "buildCompetitiveEnvironment": generic_agent_run,
+
+        # temporary
+        "runStrategy": run_strategy,
+        "runStrategyforAll": run_strategy_for_all
 
     }
     return step_map.get(step_name, None)  # Return None if not found
@@ -194,7 +198,7 @@ def condense_and_extract(json_input_file, file_path, output_queue, agentType, in
         agent_dictionary_return = agent_manager.return_dict()
         condense_file = file_handler.write_local_json(f"input_condense_process{index}", json.dumps(agent_dictionary_return))
         agent_configs = [{'agent_type': agentType}]
-        agent_manager = AgentManager(client, file_handler, agent_configs, [json_input_file,condense_file])
+        agent_manager = AgentManager(client, file_handler, agent_configs, [json_input_file, condense_file])
         agent_manager.run_workflow()
         agent_dictionary_return = agent_manager.return_dict()
         output_queue.put(agent_dictionary_return)
@@ -266,13 +270,157 @@ def detect_trends(sourceDir, industries, debug, updateGraph, agentType):
         result = output_queue.get()
         trends_list.append(result)
     print(f"trends are {trends_list}")
-
     for trends_batch in trends_list:
         print(trends_batch)
         # if updateGraph:
         #     insight_graph.add_insight(company_insights, companyName)
 
     return
+def create_json_filename(company_name):
+    """
+    Generates a JSON filename from a company name by normalizing it and adding the appropriate file extension.
+
+    Args:
+    company_name (str): The name of the company.
+
+    Returns:
+    str: A filename based on the company name, suitable for saving as a JSON file.
+    """
+    # Normalize the string: convert to lowercase
+    normalized_name = company_name.lower()
+
+    # Remove special characters and replace spaces with underscores
+    filename = re.sub(r'[^a-z0-9 ]', '', normalized_name)  # Remove anything not a letter, number, or space
+    filename = filename.replace(' ', '_')  # Replace spaces with underscores
+
+    # Add the .json extension
+    filename += '.json'
+
+    return filename
+
+
+import json
+import os
+
+
+def run_strategy_for_all(problemsFile):
+    returns = []
+    dprint("running all strategies")
+    try:
+        if os.path.exists(problemsFile):
+            with open(problemsFile, 'r') as file:
+                problem_statements = json.load(file)
+                company_names = list(problem_statements.keys())  # Get all company names from the JSON keys
+        else:
+            print(f"No problem statements file found. Exiting.")
+            return
+
+        for companyName in company_names:
+            statement = problem_statements.get(companyName, "")
+            file_path = file_handler.write_local_json("problem_companyName", statement)
+            agent_configs = [{'agent_type': "problem_agent"}]
+            agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
+            agent_manager.run_workflow()
+            agent_problem_return = agent_manager.return_dict()
+            print(f"Problem agent has returned for {companyName}: {agent_problem_return}")
+            breakdown_path = file_handler.write_local_json("breakdown", json.dumps(agent_problem_return))
+            # Run the report generation based on the breakdown
+            agent_configs = [{'agent_type': "planning_agent"}]
+            planning_manager = AgentManager(client, file_handler, agent_configs, [breakdown_path])
+            planning_manager.run_workflow()
+            planning_dictionary_return = planning_manager.return_dict()
+            returns.append(planning_dictionary_return)
+            print(f"Report generator has returned for {companyName}: {planning_dictionary_return}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+    for return_company in returns:
+        dprint(return_company)
+
+def run_strategy(agent1, companyName, problemsFile):
+
+        with open(problemsFile, 'r') as file:
+            problem_statements = json.load(file)
+            # Retrieve the problem statement for the given company name
+            statement = ""
+        if companyName in problem_statements:
+            statement = problem_statements[companyName]
+        else:
+            dprint(f"Problem statement not found for the specified company {companyName}.")
+        file_path = file_handler.write_local_json("problem_companyName",statement)
+        agent_configs = [{'agent_type': "problem_agent"}]
+        agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
+        agent_manager.run_workflow()
+        agent_problem_return = agent_manager.return_dict()
+        dprint(f"Agent file has returned {agent_problem_return}")
+        breakdown_path = file_handler.write_local_json("breakdown", json.dumps(agent_problem_return))
+
+        directory = './outputs/wbs/'
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        co_data_path = os.path.join(directory, f"{companyName}.json")
+        # DEBUG code
+        trends_path = "./trends.json"
+        # co_data_path = "outputs/wbs/JPMorgan Chase.json"
+
+        # co_data_file_path = file_handler.local_json_read("./exxon_mobil.json")
+        # # co_path = create_json_filename(companyName)
+        # # file_handler.write_local_json("company_data", company_data)
+        # #
+        # agent_configs = [{'agent_type': "ingestion_agent"}]
+        # ingestion_manager = AgentManager(client, file_handler, agent_configs, [co_data_path,breakdown_path, trends_path])
+        # ingestion_manager.run_workflow()
+        # ingestion_dictionary_return = agent_manager.return_dict()
+        # dprint(f"Agent file has returned {ingestion_dictionary_return}")
+        #
+        # ingestion_path = file_handler.write_local_json("ingestion",json.dumps(ingestion_dictionary_return))
+        agent_configs = [{'agent_type': "scenario_agent"}]
+        scenarios_manager = AgentManager(client, file_handler, agent_configs,
+                                     [ co_data_path, breakdown_path])
+        scenarios_manager.run_workflow()
+        scenarios_return = agent_manager.return_dict()
+        scenarios_path = file_handler.write_local_json("scenarios_",json.dumps(scenarios_return))
+
+
+        agent_configs = [{'agent_type': "frameworks_agent"}]
+        frameworks_manager = AgentManager(client, file_handler, agent_configs,
+                                     [co_data_path, breakdown_path])
+        frameworks_manager.run_workflow()
+        frameworks_dictionary_return = frameworks_manager.return_dict()
+        frameworks_file_path = file_handler.write_local_json("frameworks_file",json.dumps(frameworks_dictionary_return))
+        # DEBUG files
+        # ingestion_path = "./exxon_data_assessment.json"
+        # frameworks_path = "./exxon_frameworks.json"
+        # scenarios_path = "./exxon_scenarios.json"
+        agent_configs = [{'agent_type': "planning_agent"}]
+        planning_manager = AgentManager(client, file_handler, agent_configs,
+                                     [breakdown_path, co_data_path,frameworks_file_path,scenarios_path ])
+        planning_manager.run_workflow()
+        planning_dictionary_return = planning_manager.return_dict()
+        dprint(f"Agent file has returned {planning_dictionary_return}")
+        dprint(f"Final output is {json.dumps(planning_dictionary_return, indent=4)}")
+        print_formatted_text(planning_dictionary_return)
+
+
+def print_formatted_text(data):
+    # Define the sections and titles for clarity
+    sections = {
+        'Background': "Background",
+        'ProblemContext': "Problem in More Context",
+        'CompanyAnalysis': "Analysis of the Question Given Company Information",
+        'FrameworkApplication': "Application of Strategic Frameworks",
+        'ScenarioAnalysis': "Scenario Analysis and Utility Scores",
+        'ActionPlan': "Action Plan Development",
+        'RiskMitigation': "Risk Mitigation",
+        'Conclusions': "Conclusions and Summary"
+    }
+
+    # Loop through each section and print with headers
+    for key, title in sections.items():
+        print(f"{title}:\n{'=' * len(title)}\n{data[key]}\n")
+
+# Example usage
+
+
 
 def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun):
     # TODO needs a generic intermediates write adding

@@ -83,6 +83,7 @@ class FileHandler:
         return openai_file.id
 
     def direct_upload_file(self, file_path):
+
         with open(file_path, "rb") as file:
             openai_file = self.client.files.create(
                 file=file,

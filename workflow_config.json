@@ -6,6 +6,20 @@
         "companyName": "nag"
       }
     },
+    "runStrategy" : {
+      "enabled": false,
+      "parameters": {
+        "companyName": "Kroger",
+        "agent1" : "problem_agent",
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
+    "runStrategyforAll" : {
+      "enabled": true,
+      "parameters": {
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
     "updateCompanyData": {
       "enabled": false,
       "parameters": {
@@ -59,8 +73,8 @@
     "detectTrends": {
       "enabled": false,
       "parameters": {
-        "agentType" : "trend_agent",
-        "sourceDir": "Files-WEF/",
+        "agentType" : "trends_agent",
+        "sourceDir": "Files-Market-Technology/",
         "industries": "./industries.json",
         "debug": false,
         "updateGraph": true
@@ -115,7 +129,7 @@
       "enabled": true
     },
     "buildCompetitiveEnvironment": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
         "agentType" : "competition_agent",
         "reportType" : "competitive_analysis_report_agent",

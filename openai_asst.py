@@ -287,7 +287,7 @@ def clone_assistant(client, source_assistant_id):
     # Prepare the payload for creating a new assistant
     # Copy all relevant fields except the ID and created_at
     assistant_data = {
-        "name": "Cloned Agent",
+        "name": "Adrian Cloned Agent",
         "description": source_assistant.description,
         "model": source_assistant.model,
         "instructions": source_assistant.instructions,
@@ -413,7 +413,7 @@ def delete_assistants_clones(client):
         assistants = client.beta.assistants.list(limit=100)
         dprint(f"Number of assistants is {len(assistants.data)}")
         for ass in assistants.data:
-            if ass.name == "Cloned Agent":
+            if ass.name == "Adrian Cloned Agent":
                 dprint(f"Assistant with name {ass.name}")
                 client.beta.assistants.delete(assistant_id=ass.id)
                 print(f"Deleted ass: {ass.id}, created at {ass.created_at}")

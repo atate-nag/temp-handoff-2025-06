@@ -1,5 +1,334 @@
 {
   "known_agents": {
+    "problem_agent": {
+      "agent_id" : "asst_93usKeg6v8VEr88jJC8z5tXs",
+      "description": "Problem Statement Breakdown Agent",
+      "output_schema": {},
+      "prompt" : "Provide the problem break-down for the following problem statement in the file(s): {INPUT_FILES}"
+    },
+       "problem_agent_strong": {
+      "agent_id" : "asst_93usKeg6v8VEr88jJC8z5tXs",
+      "description": "Problem Statement Breakdown Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company": {
+            "type": "string",
+            "description": "Name of the company involved in the strategic problem."
+          },
+          "problem_statement": {
+            "type": "string",
+            "description": "Full text of the strategic problem statement."
+          },
+          "main_strategic_challenge": {
+            "type": "string",
+            "description": "A concise description of the main strategic challenge faced by the company."
+          },
+          "key_questions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of key strategic questions derived from the problem statement that need addressing."
+          },
+          "mapping_to_products_markets_competitors_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Descriptions of how the strategic challenge and questions map to the company's products, markets, competitors, and capabilities."
+          },
+          "strategic_frameworks" : {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What strategic frameworks can be employed to help answer this question?"
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of potential strategic scenarios that the company might consider to address the challenges identified."
+          }
+        },
+        "required": [
+          "company",
+          "problem_statement",
+          "main_strategic_challenge",
+          "key_questions",
+          "mapping_to_products_markets_competitors_capabilities",
+          "strategic_frameworks",
+          "scenarios"
+        ]
+      },
+      "prompt" : "Provide the problem break-down for the following problem statement in the file(s): {INPUT_FILES}"
+    },
+    "ingestion_agent": {
+    "agent_id" : "asst_Q48GriKRtkYl7PzgoJptNx0z",
+    "description": "Data Ingestion Agent",
+    "output_schema": {},
+    "prompt" : "The details of the strategic problem break-down, the company information and the trends are in the 3 input files : {INPUT_FILES}. Perform the data ingestion and synthesis to produce the desired outputs according to the schema provided."
+    },
+    "ingestion_strict_agent": {
+    "agent_id" : "asst_Q48GriKRtkYl7PzgoJptNx0z",
+    "description": "Data Ingestion Agent",
+    "output_schema": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "company": {
+      "type": "string"
+    },
+    "data_assessment": {
+      "type": "object",
+      "properties": {
+        "data_availability": {
+          "type": "string"
+        },
+        "data_relevance": {
+          "type": "string"
+        },
+        "data_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trends": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "trend_title": {
+                "type": "string"
+              },
+              "affected_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "significance": {
+                "type": "string"
+              }
+            },
+            "required": ["trend_title", "affected_by", "significance"]
+          }
+        },
+        "key_questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": {
+                "type": "string"
+              },
+              "data_sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "adequacy_rating": {
+                "type": "string"
+              },
+              "action_items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["question", "data_sources", "adequacy_rating", "action_items"]
+          }
+        }
+      },
+      "required": ["data_availability", "data_relevance", "data_gaps", "trends", "key_questions"]
+    }
+  },
+  "required": ["company", "data_assessment"]
+},
+    "prompt" : "The details of the strategic problem break-down, the company information and the trends are in the 3 input files : {INPUT_FILES}. Perform the data ingestion and synthesis to produce the desired outputs according to the schema provided."
+    },
+    "scenario_agent": {
+    "agent_id" : "asst_eogpOJEgu8ugFkDO8fgrPOs9",
+    "description": "Scenario Agent",
+    "output_schema": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "ProblemStatement": {
+      "type": "string"
+    },
+    "Scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ScenarioID": { "type": "string" },
+          "Description": { "type": "string" },
+          "TrendsReferenced": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "Cost": { "type": "number" },
+          "OpportunityCost": { "type": "number" },
+          "ValueGain": { "type": "number" },
+          "Risk": { "type": "number" },
+          "RiskAversionLambda": { "type": "number" },
+          "UtilityScore": { "type": "number" }
+        },
+        "required": [
+          "ScenarioID",
+          "Description",
+          "TrendsReferenced",
+          "Cost",
+          "OpportunityCost",
+          "ValueGain",
+          "Risk",
+          "RiskAversionLambda",
+          "UtilityScore"
+        ]
+      }
+    },
+    "UtilityAssessment": {
+      "type": "object",
+      "properties": {
+        "ParameterRequirements": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "RequestedBy": { "type": "string" }
+      },
+      "required": ["ParameterRequirements", "RequestedBy"]
+    },
+    "Prioritization": {
+      "type": "string"
+    },
+    "Plans": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ProblemStatement",
+    "Scenarios",
+    "UtilityAssessment",
+    "Prioritization",
+    "Plans"
+  ]
+},
+    "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
+    },
+    "frameworks_agent": {
+    "agent_id" : "asst_GKlcpySNgUvbBlzueLAzmBv9",
+    "description": "Frameworks Agent",
+    "output_schema": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "ProblemStatement": {
+      "type": "string"
+    },
+    "StrategicFrameworks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "FrameworkType": { "type": "string" },
+          "Analysis": {
+            "type": "object",
+            "properties": {
+              "Strengths": { "type": "array", "items": { "type": "string" } },
+              "Weaknesses": { "type": "array", "items": { "type": "string" } },
+              "Opportunities": { "type": "array", "items": { "type": "string" } },
+              "Threats": { "type": "array", "items": { "type": "string" } },
+              "Political": { "type": "array", "items": { "type": "string" } },
+              "Economic": { "type": "array", "items": { "type": "string" } },
+              "Social": { "type": "array", "items": { "type": "string" } },
+              "Technological": { "type": "array", "items": { "type": "string" } },
+              "Legal": { "type": "array", "items": { "type": "string" } },
+              "Environmental": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "FrameworkType",
+          "Analysis"
+        ]
+      }
+    }
+  },
+  "required": [
+    "ProblemStatement",
+    "StrategicFrameworks"
+  ]
+},
+    "prompt" : "Perform the strategic analysis for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
+    },
+    "planning_agent": {
+    "agent_id" : "asst_W43zgWnHdSJPzMTps0jqO6cJ",
+    "description": "Planning Agent",
+    "output_schema": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "Background": {
+      "type": "string",
+      "minLength": 200
+    },
+    "ProblemContext": {
+      "type": "string",
+      "minLength": 400
+    },
+    "CompanyAnalysis": {
+      "type": "string",
+      "minLength": 800,
+      "description": "Analysis includes costs, risks, capability strengths, and criticality of the problem."
+    },
+    "FrameworkApplication": {
+      "type": "string",
+      "minLength": 500,
+      "description": "Application of strategic frameworks to the problem analysis."
+    },
+    "ScenarioAnalysis": {
+      "type": "string",
+      "minLength": 500,
+      "description": "Description of scenarios, utility scores, and their support for strategic decisions."
+    },
+    "ActionPlan": {
+      "type": "string",
+      "minLength": 500,
+      "description": "Detailed action plan for the company to address the problem statement."
+    },
+    "RiskMitigation": {
+      "type": "string",
+      "minLength": 300,
+      "description": "Risks associated with the action plan and strategies to mitigate them."
+    },
+    "Conclusions": {
+      "type": "string",
+      "minLength": 300,
+      "description": "Conclusions and summary of the overall analysis and recommendations."
+    }
+  },
+  "required": [
+    "Background",
+    "ProblemContext",
+    "CompanyAnalysis",
+    "FrameworkApplication",
+    "ScenarioAnalysis",
+    "ActionPlan",
+    "RiskMitigation",
+    "Conclusions"
+  ]
+},
+
+    "prompt" : "Perform the strategic summarisation and report for the problem as described in the problem breakdown,data assessment, sceanrios and frameworks, in files: {INPUT_FILES}"
+    },
     "insight_agent": {
       "agent_id": "asst_iYvVBX1aaxu3KBgSEvIAZFEb",
       "description": "Structured Extraction Agent",
@@ -51,14 +380,14 @@
         },
         "minItems": 1
       },
-      "prompt" : "The two input files are {INPUT_FILES}. One has the company basic information, the other has the documents that you will look for insights on the company withi. "
+      "prompt" : "The two input files are {INPUT_FILES}. One has the company basic information, the other has the documents that you will look for insights on the company within."
     },
     "strategy_breakdown": {
       "agent_id": "asst_15xziegGQTcv4lvn6xPURHWe",
       "description": "Strategy Problem Breakdown Agent",
       "prompt" : ""
     },
-    "trend_agent": {
+    "trends_agent": {
       "agent_id": "asst_JSulLIlSLP1Egw73toHCs3lD",
       "description": "Structured Trend Agent",
       "output_schema": {
@@ -141,8 +470,8 @@
         "required": [
           "Trends"
         ]
-      }
-      "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for insights on the company within, the other is the list of industries. The source document is {DOC_NAME}"
+      },
+      "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for insights on the company within, the other is the list of industries."
     },
     "condense_agent": {
       "agent_id": "asst_Xhebm6Te1dUhrUS0XjwdrOVr",
@@ -436,10 +765,6 @@
           "required": ["companyName", "reportDate", "overview", "keyCompetitors", "marketTrends", "recommendations"]
         },
       "prompt": "Write the Competitive Analysis Report based on the compamy information and competitor information contained in the input files {INPUT_FILES}"
-    },
-    "trends_agent": {
-      "agent_id": "asst_ripeR7nhZq822ek0PwDM31Fs",
-      "description": "Trends Agent"
     },
     "actions_agent": {
       "agent_id": "asst_ACUyLQAjjCii40BRs9sBPout",
