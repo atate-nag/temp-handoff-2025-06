@@ -23,6 +23,20 @@ with open("workflow_config.json", "r") as file:
     config = json.load(file)
 workflow_config = config["workflow"]
 
+gics_mapping = {
+    10: "Energy",
+    15: "Materials",
+    20: "Industrials",
+    25: "Consumer Discretionary",
+    30: "Consumer Staples",
+    35: "Health Care",
+    40: "Financials",
+    45: "Information Technology",
+    50: "Communication Services",
+    55: "Utilities",
+    60: "Real Estate"
+}
+
 # global company_graph, insight_graph, file_handler
 
 file_handler = FileHandler(client)
@@ -188,7 +202,6 @@ def clean_insights(companyName):
     insight_graph.remove_non_integer_ids()
     return
 
-
 def condense_and_extract(json_input_file, file_path, output_queue, agentType, index, semaphore):
     try:
         cond_prompt = f"Condense the file {file_path}"
@@ -204,7 +217,6 @@ def condense_and_extract(json_input_file, file_path, output_queue, agentType, in
         output_queue.put(agent_dictionary_return)
     finally:
         semaphore.release()
-
 
 """ custom workflow executions """
 
@@ -243,39 +255,78 @@ def extract_insights(sourceDir, companyName, debug, updateGraph, agentType):
             insight_graph.add_insight(company_insights, companyName)
     return
 
+def delete_trend(trend_name):
+    delete_criteria = {'Title': trend_name}
+    company_graph.delete_trends(delete_criteria)
+
+
 def detect_trends(sourceDir, industries, debug, updateGraph, agentType):
+    # Trend categories, including PESTLE and GICS
+    # trend_categories = ['Political', 'Economic', 'Society', 'Technology', 'Legal', 'Environment']
+    trend_categories = ['Technology', 'Legal', 'Environment']
+    trend_categories = []
+    # GICS mapping as a dictionary
+    gics_mapping = {
+        # 10: "Energy",
+        # 15: "Materials",
+        # 20: "Industrials",
+        25: "Consumer Discretionary",
+        # 30: "Consumer Staples",
+        # 35: "Health Care",
+        # 40: "Financials",
+        # 45: "Information Technology",
+        # 50: "Communication Services",
+        # 55: "Utilities",
+        # 60: "Real Estate"
+    }
+
+    trend_categories.extend([f"{gics_id}. {gics_name}" for gics_id, gics_name in gics_mapping.items()])
     processes = []
     output_queue = Queue()
-    max_processes = 12  # Setting the limit to the number of cores
+    max_processes = 24  # Setting the limit to 2x the number of cores
     pool_semaphore = Semaphore(max_processes)  # Create a semaphore object
 
-    file_paths = file_handler.process_and_save_json_files(sourceDir)
-    print(f"file paths are {file_paths}")
-    index = 1
+    # Iterate through each trend category to find and process files in each subdirectory
+    for category in trend_categories:
+        processes = []
+        output_queue = Queue()
+        category_dir = os.path.join(sourceDir, category)  # Use subdirectory for each category
 
-    for data_file_path in file_paths:
-        print(f"starting process when file_id is {data_file_path}")
-        pool_semaphore.acquire()  # Acquire a semaphore slot before starting a new process
-        p = Process(target=condense_and_extract, args=(industries, data_file_path, output_queue, agentType, index, pool_semaphore))
-        print(f"p = {p}")
-        processes.append(p)
-        p.start()
-        index += 1
+        if not os.path.exists(category_dir):
+            os.makedirs(category_dir)
+            print(f"Directory {category_dir} created.")
 
-    for p in processes:
-        p.join()  # Wait for all processes to complete
+        file_paths = file_handler.process_and_save_json_files(category_dir)
+        print(f"File paths in {category_dir} are {file_paths}")
+        index = 1
 
-    trends_list = []
-    while not output_queue.empty():
-        result = output_queue.get()
-        trends_list.append(result)
-    print(f"trends are {trends_list}")
-    for trends_batch in trends_list:
-        print(trends_batch)
-        # if updateGraph:
-        #     insight_graph.add_insight(company_insights, companyName)
+        for data_file_path in file_paths:
+            print(f"Starting process for file {data_file_path} in category {category}")
+            pool_semaphore.acquire()  # Acquire a semaphore slot before starting a new process
+            p = Process(target=condense_and_extract,
+                        args=(industries, data_file_path, output_queue, agentType, index, pool_semaphore))
+            processes.append(p)
+            p.start()
+            index += 1
 
-    return
+        # Wait for all processes to complete
+        for p in processes:
+            p.join()
+
+        # Collect results from the output queue
+        trends_list = []
+        while not output_queue.empty():
+            result = output_queue.get()
+            trends_list.append(result)
+
+        print(f"All trends: {trends_list}")
+        for trend_dict in trends_list:
+            for trend in trend_dict['Trends']:
+                company_graph.add_trend(trend,category)
+
+    return trends_list
+
+
 def create_json_filename(company_name):
     """
     Generates a JSON filename from a company name by normalizing it and adding the appropriate file extension.
@@ -298,11 +349,46 @@ def create_json_filename(company_name):
 
     return filename
 
-
-import json
-import os
-
-
+def get_gics_code_and_name(company_name):
+    company_to_gics = {
+        "Tesla": 25,
+        "McKesson": 35,
+        "Elevance_Health": 35,
+        "Costco_Wholesale": 30,
+        "Marathon_Petroleum": 10,
+        "Exxon_Mobil": 10,
+        "Valero_Energy": 10,
+        "Chevron": 10,
+        "Alphabet": 50,
+        "CVS_Health": 35,
+        "Walmart": 30,
+        "Cardinal_Health": 35,
+        "Berkshire_Hathaway": 40,
+        "JPMorgan_Chase": 40,
+        "AmerisourceBergen": 35,
+        "ConocoPhillips": 10,
+        "AT&T": 50,
+        "Amazon": 25,
+        "Kroger": 30,
+        "UnitedHealth_Group": 35,
+        "Apple": 45
+    }
+    gics_mapping = {
+        10: "Energy",
+        15: "Materials",
+        20: "Industrials",
+        25: "Consumer Discretionary",
+        30: "Consumer Staples",
+        35: "Health Care",
+        40: "Financials",
+        45: "Information Technology",
+        50: "Communication Services",
+        55: "Utilities",
+        60: "Real Estate"
+    }
+    gics_code = company_to_gics.get(company_name, None)
+    gics_name = gics_mapping.get(gics_code, "") if gics_code else ""
+    return gics_code, gics_name
 def run_strategy_for_all(problemsFile):
     returns = []
     dprint("running all strategies")
@@ -344,24 +430,58 @@ def run_strategy(agent1, companyName, problemsFile):
             statement = ""
         if companyName in problem_statements:
             statement = problem_statements[companyName]
+            dprint(f"statement: {statement}")
         else:
             dprint(f"Problem statement not found for the specified company {companyName}.")
-        file_path = file_handler.write_local_json("problem_companyName",statement)
-        agent_configs = [{'agent_type': "problem_agent"}]
-        agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
-        agent_manager.run_workflow()
-        agent_problem_return = agent_manager.return_dict()
-        dprint(f"Agent file has returned {agent_problem_return}")
-        breakdown_path = file_handler.write_local_json("breakdown", json.dumps(agent_problem_return))
+        problem_data =     { "problem_statement": statement }
+        problem_file_path = file_handler.write_local_json(f"problem_{companyName}",json.dumps(problem_data))
+        gics_code, gics_name = get_gics_code_and_name(companyName)
+        dprint("gics_code: ", gics_code)
 
-        directory = './outputs/wbs/'
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        co_data_path = os.path.join(directory, f"{companyName}.json")
+        trends_dict = company_graph.get_trends_json(gics_code, gics_name)
+        trends_file_path = f"./Intermediates/local_trends.json"
+
+        with open(trends_file_path, 'w') as f:
+            json.dump(trends_dict, f)
+        dprint(f"trends are {trends_dict}")
+
+        company_full_data = company_graph.dump_company_graph_to_json(companyName)
+        company_file_path = file_handler.write_local_json(f"company_data_{companyName}",company_full_data)
+
+        agent_configs = [{'agent_type': "scenario_agent"}]
+        scenarios_manager = AgentManager(client, file_handler, agent_configs,
+                                     [ problem_file_path, trends_file_path, company_file_path])
+        scenarios_manager.run_workflow()
+        scenarios_return = scenarios_manager.return_dict()
+        scenarios_response = scenarios_manager.return_response
+        scenarios_return_file = file_handler.write_local_json(f"scenarios_return_{companyName}",json.dumps(scenarios_return))
+        response_dict = { "response_text" : scenarios_response}
+        scenarios_response_file = file_handler.write_local_json(f"scenarios_response_{companyName}",json.dumps(response_dict))
+
+        agent_configs = [{'agent_type': "reporting_agent"}]
+        reporting_manager = AgentManager(client, file_handler, agent_configs,
+                                         [scenarios_response_file, scenarios_return_file, trends_file_path])
+        reporting_manager.run_workflow()
+        reporting_return = reporting_manager.return_dict()
+        reporting_response = reporting_manager.return_response
+
+        dprint(f"reporting_return: {json.dumps(reporting_return)}")
+
+        # agent_configs = [{'agent_type': "problem_agent"}]
+        # agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
+        # agent_manager.run_workflow()
+        # agent_problem_return = agent_manager.return_dict()
+        # dprint(f"Agent file has returned {agent_problem_return}")
+        # breakdown_path = file_handler.write_local_json("breakdown", json.dumps(agent_problem_return))
+        # directory = './outputs/wbs/'
+        # if not os.path.exists(directory):
+        #     os.makedirs(directory)
+        # co_data_path = os.path.join(directory, f"{companyName}.json")
+
         # DEBUG code
-        trends_path = "./trends.json"
+        # trends_path = "./trends.json"
+        # get all trends from the graph.
         # co_data_path = "outputs/wbs/JPMorgan Chase.json"
-
         # co_data_file_path = file_handler.local_json_read("./exxon_mobil.json")
         # # co_path = create_json_filename(companyName)
         # # file_handler.write_local_json("company_data", company_data)
@@ -373,32 +493,32 @@ def run_strategy(agent1, companyName, problemsFile):
         # dprint(f"Agent file has returned {ingestion_dictionary_return}")
         #
         # ingestion_path = file_handler.write_local_json("ingestion",json.dumps(ingestion_dictionary_return))
-        agent_configs = [{'agent_type': "scenario_agent"}]
-        scenarios_manager = AgentManager(client, file_handler, agent_configs,
-                                     [ co_data_path, breakdown_path])
-        scenarios_manager.run_workflow()
-        scenarios_return = agent_manager.return_dict()
-        scenarios_path = file_handler.write_local_json("scenarios_",json.dumps(scenarios_return))
-
-
-        agent_configs = [{'agent_type': "frameworks_agent"}]
-        frameworks_manager = AgentManager(client, file_handler, agent_configs,
-                                     [co_data_path, breakdown_path])
-        frameworks_manager.run_workflow()
-        frameworks_dictionary_return = frameworks_manager.return_dict()
-        frameworks_file_path = file_handler.write_local_json("frameworks_file",json.dumps(frameworks_dictionary_return))
-        # DEBUG files
-        # ingestion_path = "./exxon_data_assessment.json"
-        # frameworks_path = "./exxon_frameworks.json"
-        # scenarios_path = "./exxon_scenarios.json"
-        agent_configs = [{'agent_type': "planning_agent"}]
-        planning_manager = AgentManager(client, file_handler, agent_configs,
-                                     [breakdown_path, co_data_path,frameworks_file_path,scenarios_path ])
-        planning_manager.run_workflow()
-        planning_dictionary_return = planning_manager.return_dict()
-        dprint(f"Agent file has returned {planning_dictionary_return}")
-        dprint(f"Final output is {json.dumps(planning_dictionary_return, indent=4)}")
-        print_formatted_text(planning_dictionary_return)
+        # json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
+        #
+        # json_graph_path = file_handler.write_local_json("company_graph",json_graph)
+        #
+        # agent_configs = [{'agent_type': "scenario_agent"}]
+        # scenarios_manager = AgentManager(client, file_handler, agent_configs,
+        #                              [ json_graph_path, breakdown_path])
+        # scenarios_manager.run_workflow()
+        # scenarios_return = agent_manager.return_dict()
+        # scenarios_path = file_handler.write_local_json("scenarios_",json.dumps(scenarios_return))
+        #
+        # agent_configs = [{'agent_type': "frameworks_agent"}]
+        # frameworks_manager = AgentManager(client, file_handler, agent_configs,
+        #                              [json_graph_path, breakdown_path])
+        # frameworks_manager.run_workflow()
+        # frameworks_dictionary_return = frameworks_manager.return_dict()
+        # frameworks_file_path = file_handler.write_local_json("frameworks_file",json.dumps(frameworks_dictionary_return))
+        #
+        # agent_configs = [{'agent_type': "planning_agent"}]
+        # planning_manager = AgentManager(client, file_handler, agent_configs,
+        #                              [breakdown_path, json_graph_path,frameworks_file_path,scenarios_path ])
+        # planning_manager.run_workflow()
+        # planning_dictionary_return = planning_manager.return_dict()
+        # dprint(f"Agent file has returned {planning_dictionary_return}")
+        # dprint(f"Final output is {json.dumps(planning_dictionary_return, indent=4)}")
+        # print_formatted_text(planning_dictionary_return)
 
 
 def print_formatted_text(data):

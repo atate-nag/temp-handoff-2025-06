@@ -7,15 +7,15 @@
       }
     },
     "runStrategy" : {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
-        "companyName": "Kroger",
+        "companyName": "Tesla",
         "agent1" : "problem_agent",
         "problemsFile" : "./problem_statements.json"
       }
     },
     "runStrategyforAll" : {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "problemsFile" : "./problem_statements.json"
       }
@@ -48,7 +48,7 @@
     "dumpCompanyGraph": {
       "enabled": false,
       "parameters": {
-        "companyName": "nag"
+        "companyName": "Tesla"
       }
     },
     "extractCondenseData": {
@@ -57,7 +57,7 @@
         "companyName": "nag",
         "sourceDir": "Files-COMPANY/",
         "debug": false,
-        "updateGraph": true
+        "updateGraph": false
       }
     },
     "extractInsights": {
@@ -67,17 +67,21 @@
         "companyName": "nag",
         "sourceDir": "Files-Company/",
         "debug": false,
-        "updateGraph": true
+        "updateGraph": false
       }
+    },
+    "loadTrends": {
+      "enabled": false,
+      "parameters": {}
     },
     "detectTrends": {
       "enabled": false,
       "parameters": {
         "agentType" : "trends_agent",
-        "sourceDir": "Files-Market-Technology/",
+        "sourceDir": "Files-Trends",
         "industries": "./industries.json",
         "debug": false,
-        "updateGraph": true
+        "updateGraph": false
       }
     },
     "displayInsights": {
@@ -122,7 +126,7 @@
     "displayCapabilities": {
       "enabled": false,
       "parameters": {
-        "companyName": "nag"
+        "companyName": "Tesla"
       }
     },
     "cleanUp": {

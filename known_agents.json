@@ -1,12 +1,50 @@
 {
   "known_agents": {
+    "reporting_agent": {
+    "agent_id" : "asst_Pt4INSUnDmsp77nRhlreuxQ3",
+    "description": "Final Reporting Agent",
+    "output_schema":
+  {"$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "problem_outline": {
+      "type": "string",
+      "description": "Outline the problem with as much context and detail as possible (minimum 1000 words).",
+      "minLength": 5000
+    },
+    "detailed_analysis": {
+      "type": "string",
+      "description": "Detailed analysis showing the entire reasoning that the agent has performed, including subtleties, deviations, contingencies, and real numbers with calculations (minimum 5000 words).",
+      "minLength": 25000
+    },
+    "prioritization": {
+      "type": "string",
+      "description": "Prioritization of the company's actions based on previous scenarios and utilities, providing the answer to the original problem statement (minimum 2000 words).",
+      "minLength": 10000
+    },
+    "barriers_risks_challenges": {
+      "type": "string",
+      "description": "Description of the barriers, risks, and challenges the company will face when implementing the suggested approach, including what the company should monitor for changes that may affect the plan (minimum 2000 words).",
+      "minLength": 10000
+    }
+  },
+  "required": [
+    "problem_outline",
+    "detailed_analysis",
+    "prioritization",
+    "barriers_risks_challenges"
+  ]
+},
+    "prompt" : "Perform the detailed analytical report for the problem, as revealed by the files: {INPUT_FILES}"
+    },
+
     "problem_agent": {
       "agent_id" : "asst_93usKeg6v8VEr88jJC8z5tXs",
       "description": "Problem Statement Breakdown Agent",
       "output_schema": {},
       "prompt" : "Provide the problem break-down for the following problem statement in the file(s): {INPUT_FILES}"
     },
-       "problem_agent_strong": {
+    "problem_agent_strong": {
       "agent_id" : "asst_93usKeg6v8VEr88jJC8z5tXs",
       "description": "Problem Statement Breakdown Agent",
       "output_schema": {
@@ -154,73 +192,74 @@
     "prompt" : "The details of the strategic problem break-down, the company information and the trends are in the 3 input files : {INPUT_FILES}. Perform the data ingestion and synthesis to produce the desired outputs according to the schema provided."
     },
     "scenario_agent": {
-    "agent_id" : "asst_eogpOJEgu8ugFkDO8fgrPOs9",
-    "description": "Scenario Agent",
-    "output_schema": {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "ProblemStatement": {
-      "type": "string"
-    },
-    "Scenarios": {
-      "type": "array",
-      "items": {
+      "agent_id" : "asst_MNum20JxBoYMqxcIXpQ49MfW",
+      "description": "Scenario Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {
-          "ScenarioID": { "type": "string" },
-          "Description": { "type": "string" },
-          "TrendsReferenced": {
-            "type": "array",
-            "items": { "type": "string" }
+          "ProblemStatement": {
+            "type": "string"
           },
-          "Cost": { "type": "number" },
-          "OpportunityCost": { "type": "number" },
-          "ValueGain": { "type": "number" },
-          "Risk": { "type": "number" },
-          "RiskAversionLambda": { "type": "number" },
-          "UtilityScore": { "type": "number" }
+          "Scenarios": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ScenarioID": { "type": "string" },
+                "Description": { "type": "string" },
+                "TrendsReferenced": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "minItems": 1
+                },
+                "Cost": { "type": "number" },
+                "OpportunityCost": { "type": "number" },
+                "ValueGain": { "type": "number" },
+                "Risk": { "type": "number" },
+                "RiskAversionLambda": { "type": "number" },
+                "UtilityScore": { "type": "number" }
+              },
+              "required": [
+                "ScenarioID",
+                "Description",
+                "TrendsReferenced",
+                "Cost",
+                "OpportunityCost",
+                "ValueGain",
+                "Risk",
+                "RiskAversionLambda",
+                "UtilityScore"
+              ]
+            }
+          },
+          "UtilityAssessment": {
+            "type": "object",
+            "properties": {
+              "ParameterRequirements": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "RequestedBy": { "type": "string" }
+            },
+            "required": ["ParameterRequirements", "RequestedBy"]
+          },
+          "Prioritization": {
+            "type": "string"
+          },
+          "Analysis": {
+            "type": "string"
+          }
         },
         "required": [
-          "ScenarioID",
-          "Description",
-          "TrendsReferenced",
-          "Cost",
-          "OpportunityCost",
-          "ValueGain",
-          "Risk",
-          "RiskAversionLambda",
-          "UtilityScore"
+          "ProblemStatement",
+          "Scenarios",
+          "UtilityAssessment",
+          "Prioritization",
+          "Analysis"
         ]
-      }
-    },
-    "UtilityAssessment": {
-      "type": "object",
-      "properties": {
-        "ParameterRequirements": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "RequestedBy": { "type": "string" }
       },
-      "required": ["ParameterRequirements", "RequestedBy"]
-    },
-    "Prioritization": {
-      "type": "string"
-    },
-    "Plans": {
-      "type": "string"
-    }
-  },
-  "required": [
-    "ProblemStatement",
-    "Scenarios",
-    "UtilityAssessment",
-    "Prioritization",
-    "Plans"
-  ]
-},
-    "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
+      "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
     },
     "frameworks_agent": {
     "agent_id" : "asst_GKlcpySNgUvbBlzueLAzmBv9",
@@ -278,55 +317,37 @@
   "properties": {
     "Background": {
       "type": "string",
-      "minLength": 200
+      "description": "Describe the company given the basic information. Provide recent performance information where this is known. Introduce some aspect of the problem statement.",
+      "minLength": 1800
     },
-    "ProblemContext": {
+    "StrategicProblem": {
       "type": "string",
-      "minLength": 400
+      "description": "State in detail the problem statement and why this is so critical for the company. Refer directly to products, markets, challenges and trends. Be precise and cite your reasoning.",
+      "minLength": 3600
     },
-    "CompanyAnalysis": {
+    "Analysis": {
       "type": "string",
-      "minLength": 800,
-      "description": "Analysis includes costs, risks, capability strengths, and criticality of the problem."
+      "description": "The deep analysis leveraging both the quantitative and qualitative model. Refer to costs, risks, capability strengths and relative strengths of scenarios. Use the provided numerical data to back up the arguments. Refer to the strategic frameworks that have been applied - how do they illustrate the problem and guide towards a solution to it?",
+      "minLength": 6000
     },
-    "FrameworkApplication": {
+    "Priorities": {
       "type": "string",
-      "minLength": 500,
-      "description": "Application of strategic frameworks to the problem analysis."
-    },
-    "ScenarioAnalysis": {
-      "type": "string",
-      "minLength": 500,
-      "description": "Description of scenarios, utility scores, and their support for strategic decisions."
+      "description": "Assess whether any of the provided scenarios should represent a strategic priority for the company. This  should primarily draw on the analysis that has been performed around scenarios. What do the scenarios and the utility scores generated say about the priorities of the company, and how does that relate to the original problem statement?. Refer to trends that may override the strategic decision. Be honest about the severity of the specific problem given other challenges and trends - is this a highest priority that the company MUST engage with? What are the risks to the application of this strategy and how could they be mitigated?",
+      ",minLength": 3000
     },
     "ActionPlan": {
       "type": "string",
-      "minLength": 500,
-      "description": "Detailed action plan for the company to address the problem statement."
+      "description": "Develop a clear action plan of how the company should organise in order to address the problem statement. Cite as many real-world concerns and how they can be navigated.",
+      "minLength": 2400
     },
-    "RiskMitigation": {
+    "ConclusionsAndSummary": {
       "type": "string",
-      "minLength": 300,
-      "description": "Risks associated with the action plan and strategies to mitigate them."
-    },
-    "Conclusions": {
-      "type": "string",
-      "minLength": 300,
-      "description": "Conclusions and summary of the overall analysis and recommendations."
+      "description": "Conclusions and summary",
+      "minLength": 2400
     }
   },
-  "required": [
-    "Background",
-    "ProblemContext",
-    "CompanyAnalysis",
-    "FrameworkApplication",
-    "ScenarioAnalysis",
-    "ActionPlan",
-    "RiskMitigation",
-    "Conclusions"
-  ]
+  "required": ["Background", "StrategicProblem", "Analysis", "Priorities", "ActionPlan", "ConclusionsAndSummary"]
 },
-
     "prompt" : "Perform the strategic summarisation and report for the problem as described in the problem breakdown,data assessment, sceanrios and frameworks, in files: {INPUT_FILES}"
     },
     "insight_agent": {
@@ -390,7 +411,7 @@
     "trends_agent": {
       "agent_id": "asst_JSulLIlSLP1Egw73toHCs3lD",
       "description": "Structured Trend Agent",
-      "output_schema": {
+      "output_schema":    {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {
@@ -418,20 +439,20 @@
                   "items": {
                     "type": "object",
                     "properties": {
-                      "SectorID": {
-                        "type": "integer"
+                      "SectorName": {
+                        "type": "string"
                       },
-                      "IndustryGroupID": {
-                        "type": "integer"
+                      "IndustryGroupName": {
+                        "type": "string"
                       },
-                      "IndustryID": {
-                        "type": "integer"
+                      "IndustryName": {
+                        "type": "string"
                       }
                     },
                     "required": [
-                      "SectorID",
-                      "IndustryGroupID",
-                      "IndustryID"
+                      "SectorName",
+                      "IndustryGroupName",
+                      "IndustryName"
                     ]
                   },
                   "minItems": 1
@@ -471,7 +492,7 @@
           "Trends"
         ]
       },
-      "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for insights on the company within, the other is the list of industries."
+      "prompt" : "The two input files are {INPUT_FILES}. One is the document that you will look for trends within, the other is the list of industries."
     },
     "condense_agent": {
       "agent_id": "asst_Xhebm6Te1dUhrUS0XjwdrOVr",

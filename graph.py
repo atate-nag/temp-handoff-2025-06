@@ -6,7 +6,12 @@ import uuid
 import json
 import logging
 import neo4j
+import logging
 from neo4j import GraphDatabase
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def run_query_and_summarize(session, query, parameters=None):
     try:
@@ -42,7 +47,7 @@ def run_query_and_summarize(session, query, parameters=None):
 class BaseGraph:
     def __init__(self, uri, user, password):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
-
+        self.database_name = "new"
     def close(self):
         self.driver.close()
 
@@ -214,29 +219,47 @@ class CompanyGraph(BaseGraph):
         return result.single()
 
     def dump_company_graph_to_json(self, company_name):
-        """dumps the whole company graph to json including all fields of the insight nodes. This is useful for
-        printing and debugging but is probably overkill to agents. Instead,  use the
-        dump_company_insight_graph_to_json method to send more selective information to agents
-        """
         with self.driver.session() as session:
-            # Example Cypher query to retrieve a company, its insights, and relationships
             result = session.run(
                 """
                 MATCH (i:Insight)-[r:PROVIDES_INSIGHT_ON]->(c:Company {name: $company_name})
-                RETURN c AS company, collect(i) AS insights, collect(type(r)) AS relationships
-            """,
+                OPTIONAL MATCH (c)-[:POSSESSES]->(cap:Capability)
+                RETURN c AS company, collect(DISTINCT i) AS insights, collect(DISTINCT type(r)) AS relationships, collect(DISTINCT cap) AS capabilities, collect(DISTINCT ID(i)) AS insightIDs
+                """,
                 company_name=company_name,
             )
 
-            # Assuming only one company node is targeted ( TODO support more companies also later?)
             record = result.single()
             if record:
-                # Construct a dict structure for the company and its insights
                 graph_data = {
                     "company": record["company"]._properties,
-                    "insights": [insight._properties for insight in record["insights"]],
+                    "capabilities": [
+                        {
+                            "elementId": capability["elementId"],
+                            "id": capability["id"],
+                            "confidence": capability["confidence"],
+                            "evidencedBy": capability["evidenceBy"],
+                            "irreplaceability": capability["irreplaceability"],
+                            "name": capability["name"],
+                            "nonReplicability": capability["nonReplicability"],
+                            "scarcity": capability["scarcity"],
+                            "uuid": capability["uuid"],
+                            "valuePotential": capability["valuePotential"],
+                        } for capability in record["capabilities"] if capability is not None
+                    ],
+                    "insights": [
+                        {
+                            "id": insight_id,
+                            "categories": insight["categories"],
+                            "description": insight["description"],
+                            "extractionDate": insight["extractionDate"],
+                            "relevanceScore": insight["relevanceScore"],
+                            "source": insight["source"],
+                            "source_from_file": insight["source_from_file"],
+                            "source_location_from_file": insight["source_location_from_file"],
+                        } for insight, insight_id in zip(record["insights"], record["insightIDs"]) if insight is not None
+                    ],
                 }
-                # Serialize to JSON
                 json_data = json.dumps(graph_data, indent=4)
                 return json_data
             else:
@@ -400,6 +423,105 @@ class CompanyGraph(BaseGraph):
         result = tx.run(query, capability_name=capability_name, insight_id=insight_id)
         return result.single()
 
+    def add_trend(self, trend, category):
+        with self.driver.session() as session:
+            summary = session.write_transaction(self._create_trend_node, trend, category)
+            logger.info(f"Nodes created: {summary.counters.nodes_created}")
+            logger.info(f"Nodes deleted: {summary.counters.nodes_deleted}")
+            logger.info(f"Relationships created: {summary.counters.relationships_created}")
+            logger.info(f"Relationships deleted: {summary.counters.relationships_deleted}")
+            logger.info(f"Properties set: {summary.counters.properties_set}")
+            logger.info(f"Labels added: {summary.counters.labels_added}")
+            logger.info(f"Labels removed: {summary.counters.labels_removed}")
+
+    @staticmethod
+    def _create_trend_node(tx, trend, category):
+        unique_id = str(uuid.uuid4())
+        trend['TrendID'] = unique_id
+        logger.info(f"Creating trend with TrendID: {unique_id}")
+        logger.info(f"Trend data: {json.dumps(trend, indent=2)}")
+
+        trend_query = """
+               MERGE (t:Trend {TrendID: $TrendID})
+               ON CREATE SET 
+                   t.Title = $Title,
+                   t.Summary = $Summary,
+                   t.Description = $Description,
+                   t.Category = $Category,
+                   t.AffectedAreas = $AffectedAreas,
+                   t.EvidencedBy = $EvidencedBy
+               RETURN t
+               """
+
+        affected_areas_json = json.dumps(trend['AffectedAreas'])
+        evidenced_by_json = json.dumps(trend['EvidencedBy'])
+
+        result = tx.run(trend_query,
+                        TrendID=trend['TrendID'],
+                        Title=trend['Title'],
+                        Summary=trend['Summary'],
+                        Description=trend['Description'],
+                        Category=category,
+                        AffectedAreas=affected_areas_json,
+                        EvidencedBy=evidenced_by_json)
+
+        summary = result.consume()
+        return summary
+    def get_all_trends(self):
+        with self.driver.session() as session:
+            result = session.run("MATCH (t:Trend) RETURN t")
+            trends = []
+            for record in result:
+                trend_node = record["t"]
+                trends.append(dict(trend_node))
+            return trends
+
+    def get_trends(self, gics_code, gics_name):
+        gics_category = f"{gics_code}. {gics_name}"
+        dprint("gics_category", gics_category)
+        query = """
+        MATCH (t:Trend)
+        WHERE t.Category = $gics_category OR t.Category IN ['Political', 'Economic', 'Social', 'Technological', 'Legal', 'Environmental']
+        RETURN t
+        """
+        with self.driver.session() as session:
+            results = session.run(query, gics_category=gics_category)
+            return [record["t"] for record in results]
+
+    def get_trends_json(self, gics_code, gics_name):
+        gics_category = f"{gics_code}. {gics_name}"
+        print(f"Fetching trends for GICS category: {gics_category}")  # Debugging log
+        query = """
+        MATCH (t:Trend)
+        WHERE t.Category = $gics_category OR t.Category IN ['Political', 'Economic', 'Social', 'Technological', 'Legal', 'Environmental']
+        RETURN t
+        """
+        with self.driver.session() as session:
+            results = session.run(query, gics_category=gics_category)
+            trends = [record["t"]._properties for record in results]
+            return {"trends": trends}
+
+    def delete_trends(self, criteria):
+        with self.driver.session() as session:
+            summary = session.write_transaction(self._delete_trend_nodes, criteria)
+            logger.info(f"Nodes deleted: {summary.counters.nodes_deleted}")
+            logger.info(f"Relationships deleted: {summary.counters.relationships_deleted}")
+
+    @staticmethod
+    def _delete_trend_nodes(tx, criteria):
+        logger.info(f"Deleting trends with criteria: {json.dumps(criteria, indent=2)}")
+
+        delete_query = """
+        MATCH (t:Trend)
+        WHERE """ + ' AND '.join([f"t.{key} = ${key}" for key in criteria.keys()]) + """
+        DETACH DELETE t
+        RETURN count(t) AS deleted_count
+        """
+
+        result = tx.run(delete_query, **criteria)
+        summary = result.consume()
+        logger.info(f"Deleted {summary.counters.nodes_deleted} nodes")
+        return summary
 
 class InsightGraph(BaseGraph):
     def __init__(self, uri, user, password):

@@ -19,7 +19,7 @@ class Agent:
         self.user_data = defaultdict(lambda: None, **kwargs) # defaultdict will add optional arguments to None
         self.last_validated_output = None
         self.agent_type = None
-        self.run_limit = 4   #  should be a workflow parameter
+        self.run_limit = 7   #  should be a workflow parameter
         """
             Each state transition will follow this path:
             before_validation  ->   validation ->  after_validation - > transition 
@@ -29,6 +29,7 @@ class Agent:
         self.state_machine = AgentStateMachineConfig().setup(self)
         dprint(f"State machine = {self.state_machine}")
         self.permissions = AgentStateMachineConfig().permissions
+        self.agent_response = None
 
     def initialise(self, qm_id=None):
         self.user_data['qm_id'] = qm_id
@@ -304,6 +305,7 @@ class Agent:
                 prompt=prompt,
                # file_paths=self.validated.file_paths
             )
+            # TODO temporary fix, please remove
             dprint("setting runobj")
 
             self.validated.set_data('run_object', run_object)
@@ -318,6 +320,7 @@ class Agent:
         """ Actions to prepare for the 'Running2Retreived' state transition. """
         dprint("Preparing for the Running state")
         self.validated.agent_thread.retrieve(qm_id=self.validated.qm_id)
+        self.agent_response = self.validated.agent_thread.full_response
 
     def running_to_retrieved_validation(self, unvalidated_data):
         """ Validate data when transitioning from 'Running' to 'Retrieved'. """

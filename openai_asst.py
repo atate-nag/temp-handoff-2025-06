@@ -23,6 +23,7 @@ class AgentThread():
         self.thread = self.client.beta.threads.create()
         dprint(f"created initial thread {self.thread.id}")
         self.last_timestamp = 0
+        self.full_response = []
 
     def runs_made(self):
         return len(self.runobjs)
@@ -93,6 +94,7 @@ class AgentThread():
             f"output_file_Run{self.runobjs[-1].id}",
         )
         agent_response = self.get_new_messages()
+        self.full_response.append(agent_response)
         asst_file_response = self.file_handler.txt_to_asst_file(
             self.client,
             agent_response,
@@ -422,7 +424,6 @@ def delete_assistants_clones(client):
         print(f"An error occurred: {e}")
     assistants = client.beta.assistants.list(limit=100)
     dprint(f"Number of assistants is now {len(assistants.data)}")
-
 
 def delete_all_uploaded_files(client):
     # Calculate the cutoff date

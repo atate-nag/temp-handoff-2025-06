@@ -57,6 +57,7 @@ class AgentManager:
             # Ensure agent_output is a dictionary before attempting to use .get on it
             if agent_output and isinstance(agent_output, dict):
                 self.return_data = agent_output.get('structured_output', {})
+                self.return_response = agent.agent_response
             else:
                 self.return_data = None  # Default to an empty dictionary if agent_output
 
@@ -87,6 +88,7 @@ class AgentManager:
 
     def return_dict(self):
         return self.return_data
+
 
     def print_state(self):
         """ Print the current state of all agents and QM agents. """
