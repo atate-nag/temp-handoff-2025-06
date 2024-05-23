@@ -37,8 +37,6 @@ gics_mapping = {
     60: "Real Estate"
 }
 
-# global company_graph, insight_graph, file_handler
-
 file_handler = FileHandler(client)
 company_graph = CompanyGraph(uri, user, password)
 insight_graph = InsightGraph(uri, user, password)
