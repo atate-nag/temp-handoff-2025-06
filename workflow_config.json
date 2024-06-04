@@ -7,10 +7,18 @@
       }
     },
     "runStrategy" : {
+      "enabled": false,
+      "parameters": {
+        "companyName": "Valero_Energy",
+        "debug" : false,
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
+    "runTask" : {
       "enabled": true,
       "parameters": {
-        "companyName": "Tesla",
-        "agent1" : "problem_agent",
+        "companyName": "Valero_Energy",
+        "debug" : false,
         "problemsFile" : "./problem_statements.json"
       }
     },

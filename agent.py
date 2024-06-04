@@ -140,7 +140,7 @@ class Agent:
         dprint(f"Running transition before state {self.state} to next state")
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.agent_id
-        delete_existing_assistant_files(client, agent_id)
+        #delete_existing_assistant_files(client, agent_id)
 
     """ Initialised State to Loaded State Transition """
 
@@ -154,6 +154,7 @@ class Agent:
 
         if self.user_data.get('input_files') and self.user_data['initial_run']:
             for file in self.user_data['input_files']:
+                dprint(f"UPLOADING file {file}")
                 asst_file = file_handler.create_asst_file_from_local(client, agent_id, file)
                 uploaded_assistant_files.append(asst_file)
 
@@ -276,13 +277,13 @@ class Agent:
                     prompt = self.validated.agent_context.prompt
                 else:
                     prompt = self.validated.agent_context.instructions
-            dprint("delerting assistiant files")
+            dprint("deleting assistiant files")
 
             # delete some old assistant files to make room
 
-            delete_oldest_assistant_files(
-                self.validated.workflow_context.client,
-                self.validated.agent_context.agent_id)
+            # delete_oldest_assistant_files(
+            #     self.validated.workflow_context.client,
+            #     self.validated.agent_context.agent_id)
 
             # check if we have hit the limit of how many runs to make
             dprint("checking limit is not hit")
@@ -342,8 +343,8 @@ class Agent:
                 return True
             else:
                 instructions = ("No valid structured JSON was detected in your response or "
-                                "in an output file that you have indicated was present. Please "
-                                "regenerate your response and try again.")
+                                "in an output file that you have indicated was present. Do not repeat the task, but please "
+                                "print the output in JSON format and provide the file location")
                 # reissue logic will go here
                 dprint(f"Agent did not produce output and will be informed: {instructions}")
                 # TODO cannot act on agent_thread state
@@ -352,9 +353,9 @@ class Agent:
                 # need to delete some files here in case we get into a long loop
                 #  of uploading new files
                 #  TODO reissue should not create new files?
-                delete_oldest_assistant_files(
-                    self.validated.workflow_context.client,
-                    self.validated.agent_context.agent_id)
+                # delete_oldest_assistant_files(
+                #     self.validated.workflow_context.client,
+                #     self.validated.agent_context.agent_id)
                 # need to remove the instructions so that they don't
                 # just repeat
                 self.user_data['qm_instructions'] = instructions
@@ -369,7 +370,7 @@ class Agent:
         current_state = self.state
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.agent_id
-        delete_oldest_assistant_files(client, agent_id)
+        #delete_oldest_assistant_files(client, agent_id)
         return
 
     def validate_schema(self, data, schema):
@@ -409,7 +410,7 @@ class Agent:
     def cleanup(self):
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.agent_id
-        delete_oldest_assistant_files(client, agent_id)
+        #delete_oldest_assistant_files(client, agent_id)
         dprint(f"Deleted old Assistant files on {agent_id}")
         client.beta.assistants.delete(agent_id)
         dprint(f"Deleted {agent_id}")

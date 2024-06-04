@@ -40,6 +40,26 @@ class AgentThread():
                    prompt=None,
                    file_paths=None):
         dprint("creating new run")
+        file_ids = []
+
+        if input_files:
+            file_ids.extend(input_files)
+
+        if agent_response:
+            file_ids.append(agent_response)
+
+        if agent_output:
+            file_ids.append(agent_output)
+
+        if file_ids:
+            my_updated_assistant = self.client.beta.assistants.update(
+                self.agent_id,
+                tool_resources={
+                    "code_interpreter": {
+                        "file_ids": file_ids
+                    }
+                }
+            )
         run = RunObj(
             parent=parent,
             input_files=input_files,
@@ -106,13 +126,14 @@ class AgentThread():
             agent_response,
             asst_file_agent_output,
             f"_runobj{self.runobjs[-1].id}")
+        dprint(f"structured_output: {structured_output}")
         if structured_output is None:
             dprint(f"No JSON in responses, need to reissue")
             self.output_dict = None
             self.returnobjs.append(None)
             return None
         # TODO structured_output could be too large to be passed in a dict and
-        #  should be a new assistant_file ?
+        # should be a new assistant_file ?
         self.output_dict = {
             'run_obj': self.runobjs[-1],
             'response_file': asst_file_response.id,
@@ -120,6 +141,7 @@ class AgentThread():
             'structured_output': structured_output
         }
         self.returnobjs.append(self.output_dict)
+        dprint(f"output dict is {self.output_dict}, returning it")
         return self.output_dict
 
     def add_message(self, instructions, input_files=None):
@@ -189,7 +211,7 @@ class RunObj(BaseModel):
             openai_run = client.beta.threads.runs.create(
                 thread_id=self.parent.thread.id,
                 assistant_id=self.parent.agent_id,
-                model="gpt-4-turbo-preview",
+                #model="gpt-4-turbo-preview",
                 tools=[{"type": "code_interpreter"}],
             )
             self.set_openai_run(openai_run)
@@ -228,7 +250,7 @@ class RunObj(BaseModel):
                 print(f"Assistant status: {retrieve.status}")
                 if retrieve.status == "completed":
                     return retrieve
-                elif retrieve.status in ["failed", "expired"]:
+                elif retrieve.status in ["failed", "incomplete","expired"]:
                     print(f"Run {run_id} failed.")
                     return None
                 time.sleep(5)
@@ -249,7 +271,6 @@ class RunObj(BaseModel):
             doc_path = ""
         else:
             doc_path = input_files[0]
-
         placeholder_values = {
             "INPUT_FILES": input_files,
             "AGENT_RESPONSE": agent_response,
@@ -291,11 +312,14 @@ def clone_assistant(client, source_assistant_id):
     assistant_data = {
         "name": "Adrian Cloned Agent",
         "description": source_assistant.description,
-        "model": source_assistant.model,
+        "model": "gpt-4o",
         "instructions": source_assistant.instructions,
-        "tools": source_assistant.tools,
+         "tools": [{"type": "code_interpreter"}],
+        "temperature": source_assistant.temperature,
+        "top_p": source_assistant.top_p,
     }
-
+    # model = "gpt-4o",
+    #tools = [{"type": "code_interpreter"}]
     # TODO there is a bug in assistants API, how to set temperature?
     # modify_data = {
     #     "temperature": 0.5,
@@ -304,7 +328,16 @@ def clone_assistant(client, source_assistant_id):
     # }
     # Create a new assistant with the copied data
     new_assistant = client.beta.assistants.create(**assistant_data)
-    # my_updated_assistant = client.beta.assistants.update(**modify_data, id=new_assistant.id)
+    # # copy any uploaded files to the new assistant
+    #
+    # my_updated_assistant = client.beta.assistants.update(
+    #     new_assistant.id,
+    #     tool_resources={
+    #         "code_interpreter": {
+    #             "file_ids": source_assistant.tool_resources.code_interpreter.file_ids
+    #         }
+    #     }
+    # )    # my_updated_assistant = client.beta.assistants.update(**modify_data, id=new_assistant.id)
     return new_assistant
 
 def delete_existing_assistant_files(client, agent_id):

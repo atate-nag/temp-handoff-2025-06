@@ -58,11 +58,11 @@ class FileHandler:
                 file=local_file,
                 purpose="assistants"
             )
-            asst_file = client.beta.assistants.files.create(
-                assistant_id=assistant,
-                file_id=uploaded_file.id
-            )
-            return asst_file
+            # asst_file = client.beta.assistants.files.create(
+            #     assistant_id=assistant,
+            #     file_id=uploaded_file.id
+            # )
+            return uploaded_file
 
     def direct_upload_txt(self, data, tag):
         # Check if file already exists locally and has been uploaded
@@ -287,28 +287,29 @@ class FileHandler:
 
     def create_asst_file_from_local(self, client, assistant, file):
         # first upload the file
-        uploaded_file = self.direct_upload_file(file)
-        try:
-            asst_file = client.beta.assistants.files.create(
-                assistant_id=assistant,
-                file_id=uploaded_file
-            )
-            return asst_file.id
-        except Exception as e:
-            dprint(f"Failed to create assistant file due to {e}")
-            return None
+        return self.direct_upload_file(file)
+        # try:
+        #     asst_file = client.beta.assistants.files.create(
+        #         assistant_id=assistant,
+        #         file_id=uploaded_file
+        #     )
+        #     return asst_file.id
+        # except Exception as e:
+        #     dprint(f"Failed to create assistant file due to {e}")
+        #     return None
 
     def create_asst_file_from_id(self, client, assistant, file):
-        try:
-            asst_file = client.beta.assistants.files.create(
-                assistant_id=assistant,
-                file_id=file
-            )
-            dprint("assistant file", asst_file)
-            return asst_file.id
-        except Exception as e:
-            dprint(f"Failed to create assistant file due to {e}")
-            return None
+        return file
+        # try:
+        #     asst_file = client.beta.assistants.files.create(
+        #         assistant_id=assistant,
+        #         file_id=file
+        #     )
+        #     dprint("assistant file", asst_file)
+        #     return asst_file.id
+        # except Exception as e:
+        #     dprint(f"Failed to create assistant file due to {e}")
+        #     return None
 
     def import_data_files_and_upload(self, client, data_dir, document_type="data"):
         # import all the files in the given directory and optionally write intermediates
@@ -396,10 +397,12 @@ class FileHandler:
         Retrieves the content from a file, annotations or set of messages.
         """
         # TODO make this more intelligent - get the best JSON from either
+        dprint(f"output file is {output_file}")
         if output_file:
             json_data = self.retrieve_file_content_dict(client, agent_id, output_file)
             if json_data:
                 return json_data
+        dprint(f"going to json extraction")
         json_data = self.extract_json_from_response_text(response_str)
         if json_data:
             return json_data
@@ -518,57 +521,60 @@ class FileHandler:
             given an asst-file-id, return the JSON file content
             TODO should be in filehandler?
         """
-        asst_file = client.beta.assistants.files.retrieve(
-            assistant_id=agent_id,
-            file_id=file.id
-        )
-        content = client.files.retrieve_content(asst_file.id)
-        return content
+        # asst_file = client.beta.assistants.files.retrieve(
+        #     assistant_id=agent_id,
+        #     file_id=file.id
+        # )
+        # content = client.files.retrieve_content(asst_file.id)
+        return client.files.content(file)
+        # return content
 
     def retrieve_file_content_dict(self, client, agent_id, file):
         """
             given an asst-file-id, return the JSON file content
             TODO should be in filehandler?
         """
-        asst_file = client.beta.assistants.files.retrieve(
-            assistant_id=agent_id,
-            file_id=file
-        )
-        content = client.files.retrieve_content(asst_file.id)
+        # asst_file = client.beta.assistants.files.retrieve(
+        #     assistant_id=agent_id,
+        #     file_id=file
+        # )
+        content = client.files.retrieve_content(file)
         return json.loads(content)
 
     def list_asst_files(self, client, agent_id):
-        asst_files = client.beta.assistants.files.list(
-            assistant_id=agent_id,
-            order="asc"
-        )
-        return asst_files
+        pass
+        # asst_files = client.beta.assistants.files.list(
+        #     assistant_id=agent_id,
+        #     order="asc"
+        # )
+        # return asst_files
     def delete_asst_files(self, client, agent_id):
         """
         delete all assistant files on this assistant
         TODO: a bug means that this will always throw an error
         """
-        asst_files = self.list_asst_files(client, agent_id)
-        print(f"Assistant files: {asst_files}")
-        for asst_file in asst_files:
-            retries = 3
-            while retries > 0:
-                try:
-                    print(f"Attempting to delete Assistant file-id: {asst_file.id}")
-                    client.beta.assistants.files.delete(
-                        assistant_id=agent_id,
-                        file_id=asst_file.id
-                    )
-                    print(f"Successfully deleted Assistant file-id: {asst_file.id}")
-                    break
-                except openai.OpenAIError as e:
-                    print(f"Error deleting file-id {asst_file.id}: {str(e)}")
-                    if retries > 1:
-                        print("Retrying...")
-                        time.sleep(5)  # Wait a bit before retrying
-                    else:
-                        print("Final attempt failed.")
-                retries -= 1
+        pass
+        # asst_files = self.list_asst_files(client, agent_id)
+        # print(f"Assistant files: {asst_files}")
+        # for asst_file in asst_files:
+        #     retries = 3
+        #     while retries > 0:
+        #         try:
+        #             print(f"Attempting to delete Assistant file-id: {asst_file.id}")
+        #             client.beta.assistants.files.delete(
+        #                 assistant_id=agent_id,
+        #                 file_id=asst_file.id
+        #             )
+        #             print(f"Successfully deleted Assistant file-id: {asst_file.id}")
+        #             break
+        #         except openai.OpenAIError as e:
+        #             print(f"Error deleting file-id {asst_file.id}: {str(e)}")
+        #             if retries > 1:
+        #                 print("Retrying...")
+        #                 time.sleep(5)  # Wait a bit before retrying
+        #             else:
+        #                 print("Final attempt failed.")
+        #         retries -= 1
 def retrieve_file_annotation(client, thread):
     """
     Retrieves the file-id from "annotations" which is where the agents should store it

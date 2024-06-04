@@ -1,43 +1,50 @@
 {
   "known_agents": {
+    "strategic_problem_agent": {
+    "agent_id" : "asst_kgj88ISeWJVS8fifQeFoAecj",
+    "description": "Strategic problem Agent",
+    "output_schema": {},
+    "prompt" : "Answer the strategic problem and write the final report. The input files are {INPUT_FILES}"
+    },
     "reporting_agent": {
     "agent_id" : "asst_Pt4INSUnDmsp77nRhlreuxQ3",
     "description": "Final Reporting Agent",
-    "output_schema":
-  {"$schema": "http://json-schema.org/draft-07/schema#",
+    "output_schema": {},
+    "prompt" : "Perform the detailed analytical report for the problem, as revealed by the files: {INPUT_FILES}"
+    },
+    "reporting_agent_strong": {
+    "agent_id" : "asst_Pt4INSUnDmsp77nRhlreuxQ3",
+    "description": "Final Reporting Agent",
+    "output_schema": {"$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "problem_outline": {
+    "introduction": {
       "type": "string",
-      "description": "Outline the problem with as much context and detail as possible (minimum 1000 words).",
-      "minLength": 5000
+      "description": "Outline the problem with as much context and detail as possible (minimum 1000 words)."
     },
     "detailed_analysis": {
       "type": "string",
-      "description": "Detailed analysis showing the entire reasoning that the agent has performed, including subtleties, deviations, contingencies, and real numbers with calculations (minimum 5000 words).",
-      "minLength": 25000
+      "description": "Detailed analysis showing the entire reasoning that the agent has performed, including subtleties, deviations, contingencies, and real numbers with calculations (minimum 5000 words)."
     },
     "prioritization": {
       "type": "string",
-      "description": "Prioritization of the company's actions based on previous scenarios and utilities, providing the answer to the original problem statement (minimum 2000 words).",
-      "minLength": 10000
+      "description": "Prioritization of the company's actions based on previous scenarios and utilities, providing the answer to the original problem statement (minimum 2000 words)."
     },
     "barriers_risks_challenges": {
       "type": "string",
-      "description": "Description of the barriers, risks, and challenges the company will face when implementing the suggested approach, including what the company should monitor for changes that may affect the plan (minimum 2000 words).",
-      "minLength": 10000
+      "description": "Description of the barriers, risks, and challenges the company will face when implementing the suggested approach, including what the company should monitor for changes that may affect the plan (minimum 2000 words)."
     }
   },
   "required": [
-    "problem_outline",
+    "introduction",
     "detailed_analysis",
     "prioritization",
     "barriers_risks_challenges"
   ]
 },
+
     "prompt" : "Perform the detailed analytical report for the problem, as revealed by the files: {INPUT_FILES}"
     },
-
     "problem_agent": {
       "agent_id" : "asst_93usKeg6v8VEr88jJC8z5tXs",
       "description": "Problem Statement Breakdown Agent",
@@ -194,118 +201,240 @@
     "scenario_agent": {
       "agent_id" : "asst_MNum20JxBoYMqxcIXpQ49MfW",
       "description": "Scenario Agent",
+      "output_schema": {},
+      "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
+    },
+    "scenario_agent_strong": {
+      "agent_id" : "asst_MNum20JxBoYMqxcIXpQ49MfW",
+      "description": "Scenario Agent",
       "output_schema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "ProblemStatement": {
+        "type": "string"
+      },
+      "ProblemStatementBreakdown": {
         "type": "object",
         "properties": {
-          "ProblemStatement": {
-            "type": "string"
-          },
-          "Scenarios": {
+          "MainTask": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "ScenarioID": { "type": "string" },
-                "Description": { "type": "string" },
-                "TrendsReferenced": {
-                  "type": "array",
-                  "items": { "type": "string" },
-                  "minItems": 1
-                },
-                "Cost": { "type": "number" },
-                "OpportunityCost": { "type": "number" },
-                "ValueGain": { "type": "number" },
-                "Risk": { "type": "number" },
-                "RiskAversionLambda": { "type": "number" },
-                "UtilityScore": { "type": "number" }
-              },
-              "required": [
-                "ScenarioID",
-                "Description",
-                "TrendsReferenced",
-                "Cost",
-                "OpportunityCost",
-                "ValueGain",
-                "Risk",
-                "RiskAversionLambda",
-                "UtilityScore"
-              ]
+              "type": "string"
             }
           },
-          "UtilityAssessment": {
-            "type": "object",
-            "properties": {
-              "ParameterRequirements": {
-                "type": "array",
-                "items": { "type": "string" }
-              },
-              "RequestedBy": { "type": "string" }
-            },
-            "required": ["ParameterRequirements", "RequestedBy"]
+          "MainObjective": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "Prioritization": {
-            "type": "string"
+          "ConstraintsRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "Analysis": {
-            "type": "string"
+          "InformationContext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Definitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Concepts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
-          "ProblemStatement",
-          "Scenarios",
-          "UtilityAssessment",
-          "Prioritization",
-          "Analysis"
+          "MainTask",
+          "MainObjective",
+          "ConstraintsRequirements",
+          "InformationContext",
+          "Definitions",
+          "Concepts"
         ]
       },
+      "Scenarios": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "ScenarioID": { "type": "string" },
+            "Description": { "type": "string" },
+            "TrendsReferenced": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            },
+            "Cost": { "type": "number" },
+            "OpportunityCost": { "type": "number" },
+            "ValueGain": { "type": "number" },
+            "Risk": { "type": "number" },
+            "RiskAversionLambda": { "type": "number" },
+            "UtilityScore": { "type": "number" }
+          },
+          "required": [
+            "ScenarioID",
+            "Description",
+            "TrendsReferenced",
+            "Cost",
+            "OpportunityCost",
+            "ValueGain",
+            "Risk",
+            "RiskAversionLambda",
+            "UtilityScore"
+          ]
+        }
+      },
+      "UtilityAssessment": {
+        "type": "object",
+        "properties": {
+          "ParameterRequirements": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "RequestedBy": { "type": "string" }
+        },
+        "required": ["ParameterRequirements", "RequestedBy"]
+      },
+      "Prioritization": {
+        "type": "string"
+      },
+      "Analysis": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "ProblemStatement",
+      "ProblemStatementBreakdown",
+      "Scenarios",
+      "UtilityAssessment",
+      "Prioritization",
+      "Analysis"
+    ]
+  },
       "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
     },
     "frameworks_agent": {
     "agent_id" : "asst_GKlcpySNgUvbBlzueLAzmBv9",
     "description": "Frameworks Agent",
-    "output_schema": {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "ProblemStatement": {
-      "type": "string"
+      "output_schema": {},
+    "prompt" : "Perform the strategic analysis for the problem as described in the problem statement, trend data and detailed company data in {INPUT_FILES}"
     },
-    "StrategicFrameworks": {
-      "type": "array",
-      "items": {
+    "frameworks_agent_strong": {
+    "agent_id" : "asst_GKlcpySNgUvbBlzueLAzmBv9",
+    "description": "Frameworks Agent",
+      "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "ProblemStatement": {
+        "type": "string"
+      },
+      "ProblemStatementBreakdown": {
         "type": "object",
         "properties": {
-          "FrameworkType": { "type": "string" },
-          "Analysis": {
-            "type": "object",
-            "properties": {
-              "Strengths": { "type": "array", "items": { "type": "string" } },
-              "Weaknesses": { "type": "array", "items": { "type": "string" } },
-              "Opportunities": { "type": "array", "items": { "type": "string" } },
-              "Threats": { "type": "array", "items": { "type": "string" } },
-              "Political": { "type": "array", "items": { "type": "string" } },
-              "Economic": { "type": "array", "items": { "type": "string" } },
-              "Social": { "type": "array", "items": { "type": "string" } },
-              "Technological": { "type": "array", "items": { "type": "string" } },
-              "Legal": { "type": "array", "items": { "type": "string" } },
-              "Environmental": { "type": "array", "items": { "type": "string" } }
-            },
-            "additionalProperties": false
+          "MainTask": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "MainObjective": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ConstraintsRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "InformationContext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Definitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Concepts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
-          "FrameworkType",
-          "Analysis"
+          "MainTask",
+          "MainObjective",
+          "ConstraintsRequirements",
+          "InformationContext",
+          "Definitions",
+          "Concepts"
         ]
+      },
+      "StrategicFrameworks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "NameOfStrategicFramework": { "type": "string" },
+            "Description": { "type": "string" },
+            "TrendsReferenced": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "NameOfStrategicFramework",
+            "Description",
+            "TrendsReferenced"
+          ]
+        }
+      },
+      "Prioritization": {
+        "type": "string"
+      },
+      "Analysis": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "NameOfStrategicFramework": { "type": "string" },
+            "AnalysisDetails": { "type": "string" }
+          },
+          "required": [
+            "NameOfStrategicFramework",
+            "AnalysisDetails"
+          ]
+        }
       }
-    }
+    },
+    "required": [
+      "ProblemStatement",
+      "ProblemStatementBreakdown",
+      "StrategicFrameworks",
+      "Prioritization",
+      "Analysis"
+    ]
   },
-  "required": [
-    "ProblemStatement",
-    "StrategicFrameworks"
-  ]
-},
     "prompt" : "Perform the strategic analysis for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
     },
     "planning_agent": {
@@ -688,6 +817,33 @@
       },
       "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}. Please perform your 5-stage QM process using this data as input",
       "instructions": "The agent followed your instructions, the new response is in the file : {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}. Additionally, the following errors were detected when comparing the agent's output against the provided schema: {AGENT_SCHEMA_ERRORS}. Please repeat all of your 5 QM stages, using the same process on the new data."
+    },
+    "qm_assessor_agent": {
+      "agent_id": "asst_PCLnIP0dzqXtgeQhWcxhUTY4",
+      "description": "QM Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean",
+            "description": "Indicates whether the task is completed."
+          },
+          "agent instructions": {
+            "type": "string",
+            "description": "Instructions for the agent."
+          }
+        },
+        "required": [
+          "completed",
+          "agent instructions",
+          "file id"
+        ],
+        "additionalProperties": false,
+        "description": "Schema for validating agent output."
+      },
+      "prompt": "Assess the quality of the agent's attempt to solve the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The exemplar file is in {INPUT_FILES}. Please perform your QM process using the exemplar file as a baseline.",
+      "instructions": "The agent followed your instructions, the new response is in the file : {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}. Please re-score the agent's work and advise."
     },
     "competitive_analysis_report_agent": {
       "agent_id": "asst_M8PwuNAQx8URyqhDrBHobJtj",

@@ -1,5 +1,5 @@
 import os
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 from multiprocessing import Process, Queue, Semaphore
 from agent_workflow_manager import AgentManager
@@ -9,15 +9,20 @@ from filehandler import FileHandler
 import json, re
 from openai_asst import (delete_assistants_clones, delete_all_uploaded_files, delete_not_known_assistants,
                          delete_files_less_than_1_hour)
+from doc_converter import StrategicReportGenerator
 import sys
+import concurrent.futures
 
 load_dotenv()
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), default_headers={"OpenAI-Beta": "assistants=v1"})
+#client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), default_headers={"OpenAI-Beta": "assistants=v2"})
+client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
 # setup neo4j database
 
 uri = "bolt://localhost:7687"
 user = os.getenv("NEO4J_USER")
 password = os.getenv("NEO4J_PASSWORD")
+database = "new"
+
 # Load the workflow configuration
 with open("workflow_config.json", "r") as file:
     config = json.load(file)
@@ -97,7 +102,10 @@ def get_step_function(step_name):
 
         # temporary
         "runStrategy": run_strategy,
-        "runStrategyforAll": run_strategy_for_all
+        "runStrategyforAll": run_strategy_for_all,
+
+        # general tasks
+        "runTask": run_task,
 
     }
     return step_map.get(step_name, None)  # Return None if not found
@@ -388,40 +396,37 @@ def get_gics_code_and_name(company_name):
     gics_name = gics_mapping.get(gics_code, "") if gics_code else ""
     return gics_code, gics_name
 def run_strategy_for_all(problemsFile):
-    returns = []
-    dprint("running all strategies")
-    try:
-        if os.path.exists(problemsFile):
-            with open(problemsFile, 'r') as file:
-                problem_statements = json.load(file)
-                company_names = list(problem_statements.keys())  # Get all company names from the JSON keys
-        else:
-            print(f"No problem statements file found. Exiting.")
-            return
+    # companies = [
+    #     'Tesla', 'McKesson', 'Elevance_Health', 'Costco_Wholesale', 'Marathon_Petroleum',
+    #     'Exxon_Mobil', 'Valero_Energy', 'Chevron', 'Alphabet', 'CVS_Health', 'Walmart',
+    #     'Cardinal_Health', 'Berkshire_Hathaway', 'JPMorgan_Chase', 'AmerisourceBergen',
+    #     'ConocoPhillips', 'AT&T', 'Amazon', 'Kroger', 'UnitedHealth_Group', 'Apple'
+    # ]
 
-        for companyName in company_names:
-            statement = problem_statements.get(companyName, "")
-            file_path = file_handler.write_local_json("problem_companyName", statement)
-            agent_configs = [{'agent_type': "problem_agent"}]
-            agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
-            agent_manager.run_workflow()
-            agent_problem_return = agent_manager.return_dict()
-            print(f"Problem agent has returned for {companyName}: {agent_problem_return}")
-            breakdown_path = file_handler.write_local_json("breakdown", json.dumps(agent_problem_return))
-            # Run the report generation based on the breakdown
-            agent_configs = [{'agent_type': "planning_agent"}]
-            planning_manager = AgentManager(client, file_handler, agent_configs, [breakdown_path])
-            planning_manager.run_workflow()
-            planning_dictionary_return = planning_manager.return_dict()
-            returns.append(planning_dictionary_return)
-            print(f"Report generator has returned for {companyName}: {planning_dictionary_return}")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-    for return_company in returns:
-        dprint(return_company)
+    companies = ['Berkshire_Hathaway']
 
-def run_strategy(agent1, companyName, problemsFile):
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        futures = {executor.submit(run_strategy, company, False, problemsFile): company for company in companies}
+        for future in concurrent.futures.as_completed(futures):
+            company = futures[future]
+            try:
+                future.result()
+                dprint(f"Strategy for {company} completed successfully.")
+            except Exception as e:
+                dprint(f"Strategy for {company} generated an exception: {e}")
 
+
+def run_strategy(companyName, debug, problemsFile):
+    dprint(f"debug is {debug}")
+    if debug:
+        dprint(f"debug is not true but not false?")
+        company_file_path = f"./Intermediates/local_company_data_{companyName}.json"
+        problem_file_path = f"./Intermediates/local_problem_{companyName}.json"
+        trends_file_path = f"./Intermediates/local_trends.json"
+        scenarios_return_file = f"./Intermediates/local_scenarios_return_{companyName}.json"
+        scenarios_response_file = f"./Intermediates/local_scenarios_response_{companyName}.json"
+        frameworks_file_path =f"./Intermediates/local_frameworks_file_{companyName}.json"
+    else:
         with open(problemsFile, 'r') as file:
             problem_statements = json.load(file)
             # Retrieve the problem statement for the given company name
@@ -431,24 +436,21 @@ def run_strategy(agent1, companyName, problemsFile):
             dprint(f"statement: {statement}")
         else:
             dprint(f"Problem statement not found for the specified company {companyName}.")
-        problem_data =     { "problem_statement": statement }
+
+        problem_data = { "problem_statement": statement }
+        dprint(f"problem_data: {problem_data}")
         problem_file_path = file_handler.write_local_json(f"problem_{companyName}",json.dumps(problem_data))
+        dprint(f"problem_file_path: {problem_file_path}")
         gics_code, gics_name = get_gics_code_and_name(companyName)
         dprint("gics_code: ", gics_code)
-
-        trends_dict = company_graph.get_trends_json(gics_code, gics_name)
         trends_file_path = f"./Intermediates/local_trends.json"
-
-        with open(trends_file_path, 'w') as f:
-            json.dump(trends_dict, f)
-        dprint(f"trends are {trends_dict}")
-
         company_full_data = company_graph.dump_company_graph_to_json(companyName)
+        dprint(f"company_full_data: {company_full_data}")
         company_file_path = file_handler.write_local_json(f"company_data_{companyName}",company_full_data)
 
         agent_configs = [{'agent_type': "scenario_agent"}]
         scenarios_manager = AgentManager(client, file_handler, agent_configs,
-                                     [ problem_file_path, trends_file_path, company_file_path])
+                                     [ problem_file_path, company_file_path],use_qm_agents=False)
         scenarios_manager.run_workflow()
         scenarios_return = scenarios_manager.return_dict()
         scenarios_response = scenarios_manager.return_response
@@ -456,68 +458,35 @@ def run_strategy(agent1, companyName, problemsFile):
         response_dict = { "response_text" : scenarios_response}
         scenarios_response_file = file_handler.write_local_json(f"scenarios_response_{companyName}",json.dumps(response_dict))
 
-        agent_configs = [{'agent_type': "reporting_agent"}]
-        reporting_manager = AgentManager(client, file_handler, agent_configs,
-                                         [scenarios_response_file, scenarios_return_file, trends_file_path])
-        reporting_manager.run_workflow()
-        reporting_return = reporting_manager.return_dict()
-        reporting_response = reporting_manager.return_response
+        company_file_path = f"./Intermediates/local_company_data_{companyName}.json"
+        agent_configs = [{'agent_type': "frameworks_agent"}]
+        frameworks_manager = AgentManager(client, file_handler, agent_configs,
+                                     [problem_file_path, trends_file_path, company_file_path],
+                                          use_qm_agents=False)
+        frameworks_manager.run_workflow()
+        frameworks_dictionary_return = frameworks_manager.return_dict()
+        frameworks_file_path = file_handler.write_local_json(f"frameworks_file_{companyName}",json.dumps(frameworks_dictionary_return))
 
-        dprint(f"reporting_return: {json.dumps(reporting_return)}")
+    agent_configs = [{'agent_type': "reporting_agent"}]
+    reporting_manager = AgentManager(client, file_handler, agent_configs,
+                                     [scenarios_response_file, scenarios_return_file,frameworks_file_path], use_qm_agents=False)
+    reporting_manager.run_workflow()
+    reporting_return = reporting_manager.return_dict()
 
-        # agent_configs = [{'agent_type': "problem_agent"}]
-        # agent_manager = AgentManager(client, file_handler, agent_configs, [file_path])
-        # agent_manager.run_workflow()
-        # agent_problem_return = agent_manager.return_dict()
-        # dprint(f"Agent file has returned {agent_problem_return}")
-        # breakdown_path = file_handler.write_local_json("breakdown", json.dumps(agent_problem_return))
-        # directory = './outputs/wbs/'
-        # if not os.path.exists(directory):
-        #     os.makedirs(directory)
-        # co_data_path = os.path.join(directory, f"{companyName}.json")
+    reporting_response = reporting_manager.return_response
 
-        # DEBUG code
-        # trends_path = "./trends.json"
-        # get all trends from the graph.
-        # co_data_path = "outputs/wbs/JPMorgan Chase.json"
-        # co_data_file_path = file_handler.local_json_read("./exxon_mobil.json")
-        # # co_path = create_json_filename(companyName)
-        # # file_handler.write_local_json("company_data", company_data)
-        # #
-        # agent_configs = [{'agent_type': "ingestion_agent"}]
-        # ingestion_manager = AgentManager(client, file_handler, agent_configs, [co_data_path,breakdown_path, trends_path])
-        # ingestion_manager.run_workflow()
-        # ingestion_dictionary_return = agent_manager.return_dict()
-        # dprint(f"Agent file has returned {ingestion_dictionary_return}")
-        #
-        # ingestion_path = file_handler.write_local_json("ingestion",json.dumps(ingestion_dictionary_return))
-        # json_graph = company_graph.dump_company_insight_graph_to_json(companyName)
-        #
-        # json_graph_path = file_handler.write_local_json("company_graph",json_graph)
-        #
-        # agent_configs = [{'agent_type': "scenario_agent"}]
-        # scenarios_manager = AgentManager(client, file_handler, agent_configs,
-        #                              [ json_graph_path, breakdown_path])
-        # scenarios_manager.run_workflow()
-        # scenarios_return = agent_manager.return_dict()
-        # scenarios_path = file_handler.write_local_json("scenarios_",json.dumps(scenarios_return))
-        #
-        # agent_configs = [{'agent_type': "frameworks_agent"}]
-        # frameworks_manager = AgentManager(client, file_handler, agent_configs,
-        #                              [json_graph_path, breakdown_path])
-        # frameworks_manager.run_workflow()
-        # frameworks_dictionary_return = frameworks_manager.return_dict()
-        # frameworks_file_path = file_handler.write_local_json("frameworks_file",json.dumps(frameworks_dictionary_return))
-        #
-        # agent_configs = [{'agent_type': "planning_agent"}]
-        # planning_manager = AgentManager(client, file_handler, agent_configs,
-        #                              [breakdown_path, json_graph_path,frameworks_file_path,scenarios_path ])
-        # planning_manager.run_workflow()
-        # planning_dictionary_return = planning_manager.return_dict()
-        # dprint(f"Agent file has returned {planning_dictionary_return}")
-        # dprint(f"Final output is {json.dumps(planning_dictionary_return, indent=4)}")
-        # print_formatted_text(planning_dictionary_return)
+    dprint(f"reporting_return: {json.dumps(reporting_return)}")
 
+    report_path = f"./Strategic Reports/{companyName}_strategic_report.json"
+    # Open the file in binary mode for writing; encode the text to bytes
+    with open(report_path, "w") as file:
+        file.write(json.dumps(reporting_return))
+
+    template_path = './Strategic Reports/'
+    reports_path = './Strategic Reports/'
+    template_name = 'report_template.docx'
+    generator = StrategicReportGenerator(template_path, reports_path, template_name)
+    generator.generate_report(companyName)
 
 def print_formatted_text(data):
     # Define the sections and titles for clarity
@@ -536,9 +505,39 @@ def print_formatted_text(data):
     for key, title in sections.items():
         print(f"{title}:\n{'=' * len(title)}\n{data[key]}\n")
 
-# Example usage
-
-
+def run_task(companyName, debug, problemsFile):
+    if debug:
+        pass
+    else:
+        with open(problemsFile, 'r') as file:
+            problem_statements = json.load(file)
+            # Retrieve the problem statement for the given company name
+            statement = ""
+        if companyName in problem_statements:
+            statement = problem_statements[companyName]
+            dprint(f"statement: {statement}")
+        else:
+            dprint(f"Problem statement not found for the specified company {companyName}.")
+        problem_data = {"problem_statement": statement}
+        dprint(f"problem_data: {problem_data}")
+        problem_file_path = file_handler.write_local_json(f"problem_{companyName}", json.dumps(problem_data))
+        dprint(f"problem_file_path: {problem_file_path}")
+        gics_code, gics_name = get_gics_code_and_name(companyName)
+        dprint("gics_code: ", gics_code)
+        trends_file_path = f"./Intermediates/local_trends.json"
+        company_full_data = company_graph.dump_company_graph_to_json(companyName)
+        company_file_path = file_handler.write_local_json(f"company_data_{companyName}", company_full_data)
+        exemplar_path = f"/Users/adrian/Documents/Strategic Reports/pick/Marathon_petroleum_strategic_report.docx"
+        agent_configs = [{'agent_type': "strategic_problem_agent"}]
+        agent_manager = AgentManager(client, file_handler, agent_configs,
+                                     [problem_file_path, trends_file_path, company_file_path],
+                                     use_qm_agents=True,
+                                     qm_inputs=[exemplar_path],
+                                     )
+        agent_manager.run_workflow()
+        agent_dictionary_return = agent_manager.return_dict()
+        dprint(f"Agent file has returned {agent_dictionary_return}")
+        dprint(f"agent_dict={agent_dictionary_return}")
 
 def generic_agent_run(agentType, reportType, companyName, updateGraph, debugRun):
     # TODO needs a generic intermediates write adding
