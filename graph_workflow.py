@@ -19,7 +19,7 @@ load_dotenv()
 client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
 # setup neo4j database
 
-uri = "bolt://localhost:7687"
+uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
 password = os.getenv("NEO4J_PASSWORD")
 database = os.getenv("NEO4J_DATABASE")

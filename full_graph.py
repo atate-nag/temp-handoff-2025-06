@@ -14,7 +14,7 @@ OPENAI_ENDPOINT = os.getenv('OPENAI_ENDPOINT')
 OPENAI_EMBEDDINGS_URL = os.getenv('OPENAI_EMBEDDINGS_URL')
 OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL')
 
-rag_graph = RAG_graph('bolt://localhost:7687', user, "lele59000", 'nag',OPENAI_API_KEY,OPENAI_EMBEDDINGS_URL)
+rag_graph = RAG_graph('bolt://localhost:7687', user, password, database,OPENAI_API_KEY,OPENAI_EMBEDDINGS_URL)
 
 def remove_attribute(subgraph,attribute):
     for key, value in subgraph.items():
