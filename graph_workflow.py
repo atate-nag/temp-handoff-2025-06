@@ -511,7 +511,7 @@ def run_strategy_for_all(problemsFile):
             except Exception as e:
                 dprint(f"Strategy for {company} generated an exception: {e}")
 
-@retry(number_of_retry=3)
+@retry(number_of_retry=5)
 def run_strategy(companyName, debug, problemsFile):
     dprint(f"debug is {debug}")
     if debug:
@@ -532,6 +532,7 @@ def run_strategy(companyName, debug, problemsFile):
             dprint(f"statement: {statement}")
         else:
             dprint(f"Problem statement not found for the specified company {companyName}.")
+        company_name = companyName
         companyName = companyName.replace(" ", "_").replace(".", "").replace("'", "")
         problem_data = { "problem_statement": statement }
         dprint(f"problem_data: {problem_data}")
@@ -593,6 +594,7 @@ def run_strategy(companyName, debug, problemsFile):
         file.write(json.dumps(reporting_return))
         
     markdown = dict_to_markdown(reporting_return)
+    markdown = '# ' + company_name + ' Strategic Report\n\n' + markdown
     with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
         file.write(markdown)
 
