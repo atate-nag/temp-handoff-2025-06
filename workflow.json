@@ -20,7 +20,7 @@
       }
     },
     "runStrategy" : {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "Phillips 66",
         "debug" : false,
@@ -36,7 +36,7 @@
       }
     },
     "runStrategyforAll" : {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "problemsFile" : "./problem_statements.json"
       }

@@ -358,28 +358,74 @@ def create_json_filename(company_name):
 
 def get_gics_code_and_name(company_name):
     company_to_gics = {
-        "Tesla": 25,
-        "McKesson": 35,
-        "Elevance_Health": 35,
-        "Costco_Wholesale": 30,
-        "Marathon_Petroleum": 10,
-        "Exxon_Mobil": 10,
-        "Valero_Energy": 10,
-        "Chevron": 10,
-        "Alphabet": 50,
-        "CVS_Health": 35,
-        "Walmart": 30,
-        "Cardinal_Health": 35,
-        "Berkshire_Hathaway": 40,
-        "JPMorgan_Chase": 40,
-        "AmerisourceBergen": 35,
-        "ConocoPhillips": 10,
-        "AT&T": 50,
-        "Amazon": 25,
-        "Kroger": 30,
-        "UnitedHealth_Group": 35,
-        "Apple": 45,
-        "Phillips_66": 10,
+        "Tesla": [25],
+        "McKesson": [35],
+        "Elevance_Health": [35],
+        "Costco_Wholesale": [30],
+        "Marathon_Petroleum": [10],
+        "Exxon_Mobil": [10],
+        "Valero_Energy": [10],
+        "Chevron": [10],
+        "Alphabet": [50],
+        "CVS_Health": [35],
+        "Walmart": [30],
+        "Cardinal_Health": [35],
+        "Berkshire_Hathaway": [40],
+        "JPMorgan_Chase": [40],
+        "AmerisourceBergen": [35],
+        "ConocoPhillips": [10],
+        "AT&T": [50],
+        "Amazon": [25],
+        "Kroger": [30],
+        "UnitedHealth_Group": [35],
+        "Apple": [45],
+        "Phillips_66": [10],
+        "Ford Motor": [25],
+        "Home Depot": [25],
+        "General Motors": [25],
+        "Centene": [35],
+        "Verizon Communications": [35],
+        "Walgreens Boots Alliance": [30],
+        "Fannie Mae": [40],
+        "Comcast": [50],
+        "Meta Platforms": [50],
+        "Bank of America": [40],
+        "Target": [30],
+        "Dell Technologies": [45],
+        "Archer Daniels Midland": [30],
+        "Citigroup": [40],
+        "United Parcel Service": [20],
+        "Pfizer": [35],
+        "Lowe's": [20],
+        "Johnson & Johnson": [35],
+        "FedEx": [20],
+        "Humana": [35],
+        "Energy Transfer": [10],
+        "State Farm Insurance": [40],
+        "Freddie Mac": [],
+        "PepsiCo": [30],
+        "Wells Fargo": [40],
+        "Walt Disney": [50],
+        "Procter & Gamble": [30],
+        "General Electric": [20],
+        "Albertsons": [30],
+        "MetLife": [40],
+        "Goldman Sachs Group": [40],
+        "Sysco": [30],
+        "Raytheon Technologies": [20],
+        "Boeing": [20],
+        "StoneX Group": [],
+        "Lockheed Martin": [20],
+        "Morgan Stanley": [40],
+        "Intel": [45],
+        "HP": [45],
+        "TD Synnex": [45],
+        "International Business Machines": [45],
+        "HCA Healthcare": [35],
+        "Prudential Financial": [40],
+        "Caterpillar": [20],
+        "Merck": [35],
+        "World Fuel Services": [10]
     }
     gics_mapping = {
         10: "Energy",
@@ -395,7 +441,7 @@ def get_gics_code_and_name(company_name):
         60: "Real Estate"
     }
     gics_code = company_to_gics.get(company_name, None)
-    gics_name = gics_mapping.get(gics_code, "") if gics_code else ""
+    gics_name = [gics_mapping.get(g_code, "") if g_code else "" for g_code in gics_code]
     return gics_code, gics_name
 def run_strategy_for_all(problemsFile):
     # companies = [
@@ -405,7 +451,54 @@ def run_strategy_for_all(problemsFile):
     #     'ConocoPhillips', 'AT&T', 'Amazon', 'Kroger', 'UnitedHealth_Group', 'Apple'
     # ]
 
-    companies = ['Berkshire_Hathaway']
+    companies = [
+    "Ford Motor",
+    "Home Depot",
+    "General Motors",
+    "Centene",
+    "Verizon Communications",
+    "Walgreens Boots Alliance",
+    "Fannie Mae",
+    "Comcast",
+    "Meta Platforms",
+    "Bank of America",
+    "Target",
+    "Dell Technologies",
+    "Archer Daniels Midland",
+    "Citigroup",
+    "United Parcel Service",
+    "Pfizer",
+    "Lowe's",
+    "Johnson & Johnson",
+    "FedEx",
+    "Humana",
+    "Energy Transfer",
+    "State Farm Insurance",
+    "Freddie Mac",
+    "PepsiCo",
+    "Wells Fargo",
+    "Walt Disney",
+    "Procter & Gamble",
+    "General Electric",
+    "Albertsons",
+    "MetLife",
+    "Goldman Sachs Group",
+    "Sysco",
+    "Raytheon Technologies",
+    "Boeing",
+    "StoneX Group",
+    "Lockheed Martin",
+    "Morgan Stanley",
+    "Intel",
+    "HP",
+    "TD Synnex",
+    "International Business Machines",
+    "HCA Healthcare",
+    "Prudential Financial",
+    "Caterpillar",
+    "Merck",
+    "World Fuel Services"
+]
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = {executor.submit(run_strategy, company, False, problemsFile): company for company in companies}
@@ -448,7 +541,9 @@ def run_strategy(companyName, debug, problemsFile):
         # trends_file_path = f"./Intermediates/local_trends.json"
         # company_full_data = company_graph.dump_company_graph_to_json(companyName)
         company_full_data = dump_company_graph_to_plain_txt(companyName)
-        trends = get_trends_from_gics_code(['00','45'])
+        gics_code, gics_name = get_gics_code_and_name(companyName)
+        trends = get_trends_from_gics_code(gics_code)
+        
         trends_file_path = file_handler.write_local_txt(f"company_trends_{companyName}",trends)
         dprint(f"company_full_data: {company_full_data}")
         # company_file_path = file_handler.write_local_json(f"company_data_{companyName}",company_full_data)
