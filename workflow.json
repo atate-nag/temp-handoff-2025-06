@@ -22,7 +22,7 @@
     "runStrategy" : {
       "enabled": true,
       "parameters": {
-        "companyName": "NAG",
+        "companyName": "Phillips 66",
         "debug" : false,
         "problemsFile" : "./problem_statements.json"
       }

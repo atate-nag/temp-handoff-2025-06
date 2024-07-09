@@ -274,17 +274,17 @@ def detect_trends(sourceDir, industries, debug, updateGraph, agentType):
     trend_categories = []
     # GICS mapping as a dictionary
     gics_mapping = {
-        # 10: "Energy",
-        # 15: "Materials",
-        # 20: "Industrials",
+        10: "Energy",
+        15: "Materials",
+        20: "Industrials",
         25: "Consumer Discretionary",
-        # 30: "Consumer Staples",
-        # 35: "Health Care",
-        # 40: "Financials",
-        # 45: "Information Technology",
-        # 50: "Communication Services",
-        # 55: "Utilities",
-        # 60: "Real Estate"
+        30: "Consumer Staples",
+        35: "Health Care",
+        40: "Financials",
+        45: "Information Technology",
+        50: "Communication Services",
+        55: "Utilities",
+        60: "Real Estate"
     }
 
     trend_categories.extend([f"{gics_id}. {gics_name}" for gics_id, gics_name in gics_mapping.items()])
@@ -378,7 +378,8 @@ def get_gics_code_and_name(company_name):
         "Amazon": 25,
         "Kroger": 30,
         "UnitedHealth_Group": 35,
-        "Apple": 45
+        "Apple": 45,
+        "Phillips_66": 10,
     }
     gics_mapping = {
         10: "Energy",
@@ -437,7 +438,7 @@ def run_strategy(companyName, debug, problemsFile):
             dprint(f"statement: {statement}")
         else:
             dprint(f"Problem statement not found for the specified company {companyName}.")
-
+        companyName = companyName.replace(" ", "_").replace(".", "").replace("'", "")
         problem_data = { "problem_statement": statement }
         dprint(f"problem_data: {problem_data}")
         problem_file_path = file_handler.write_local_json(f"problem_{companyName}",json.dumps(problem_data))

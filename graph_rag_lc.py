@@ -590,10 +590,7 @@ class RAG_graph:
         filters +\
         """
         RETURN DISTINCT nodes;"""
-        # print('---------------')
-        # print(query)
-        # print('---------------')
-        
+
         return self.kg.query(query)[0]['nodes']
     
    
