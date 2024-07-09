@@ -15,7 +15,8 @@ class AgentManager:
         dprint(f"input_files: {input_files}")
         for agent_config in agent_configs:
             if self.use_qm_agents:
-                qm_agent = self.create_agent('qm_assessor_agent', qm_inputs)
+                # qm_agent = self.create_agent('qm_assessor_agent', qm_inputs)
+                qm_agent = self.create_agent('full_graph_qm_agent', qm_inputs)
                 self.qm_agents[agent_config['agent_type']] = qm_agent
             operational_agent = self.create_agent(agent_config['agent_type'], input_files, qm_id=qm_agent.get_id() if self.use_qm_agents else None)
             self.agents[agent_config['agent_type']] = operational_agent

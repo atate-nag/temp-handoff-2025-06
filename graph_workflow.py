@@ -5,11 +5,12 @@ from multiprocessing import Process, Queue, Semaphore
 from agent_workflow_manager import AgentManager
 from debug import dprint
 from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
+from full_graph import dump_company_graph_to_plain_txt, get_trends_from_gics_code
 from filehandler import FileHandler
 import json, re
 from openai_asst import (delete_assistants_clones, delete_all_uploaded_files, delete_not_known_assistants,
                          delete_files_less_than_1_hour)
-from doc_converter import StrategicReportGenerator
+# from doc_converter import StrategicReportGenerator
 import sys
 import concurrent.futures
 
@@ -21,10 +22,10 @@ client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
 uri = "bolt://localhost:7687"
 user = os.getenv("NEO4J_USER")
 password = os.getenv("NEO4J_PASSWORD")
-database = "new"
+database = os.getenv("NEO4J_DATABASE")
 
 # Load the workflow configuration
-with open("workflow_config.json", "r") as file:
+with open("workflow.json", "r") as file:
     config = json.load(file)
 workflow_config = config["workflow"]
 
@@ -43,8 +44,8 @@ gics_mapping = {
 }
 
 file_handler = FileHandler(client)
-company_graph = CompanyGraph(uri, user, password)
-insight_graph = InsightGraph(uri, user, password)
+company_graph = CompanyGraph(uri, user, password, database_name=database)
+insight_graph = InsightGraph(uri, user, password, database_name=database)
 
 def execute_workflow():
     dprint("Enabled workflow steps:")
@@ -147,7 +148,7 @@ def clean_up():
     deleted = delete_assistants_clones(client)
     deleted = deleted_files = None
     # deleted = delete_not_known_assistants(client)
-    # deleted_files = delete_files_less_than_1_hour(client)
+    deleted_files = delete_files_less_than_1_hour(client)
     # deleted_files = delete_all_uploaded_files(client)
     dprint(f"Deleted {deleted} assistants and {deleted_files} files")
 
@@ -420,12 +421,12 @@ def run_strategy(companyName, debug, problemsFile):
     dprint(f"debug is {debug}")
     if debug:
         dprint(f"debug is not true but not false?")
-        company_file_path = f"./Intermediates/local_company_data_{companyName}.json"
-        problem_file_path = f"./Intermediates/local_problem_{companyName}.json"
-        trends_file_path = f"./Intermediates/local_trends.json"
-        scenarios_return_file = f"./Intermediates/local_scenarios_return_{companyName}.json"
-        scenarios_response_file = f"./Intermediates/local_scenarios_response_{companyName}.json"
-        frameworks_file_path =f"./Intermediates/local_frameworks_file_{companyName}.json"
+        # company_file_path = f"./Intermediates/local_company_data_{companyName}.json"
+        # problem_file_path = f"./Intermediates/local_problem_{companyName}.json"
+        # trends_file_path = f"./Intermediates/local_trends.json"
+        # scenarios_return_file = f"./Intermediates/local_scenarios_return_{companyName}.json"
+        # scenarios_response_file = f"./Intermediates/local_scenarios_response_{companyName}.json"
+        # frameworks_file_path =f"./Intermediates/local_frameworks_file_{companyName}.json"
     else:
         with open(problemsFile, 'r') as file:
             problem_statements = json.load(file)
@@ -442,15 +443,21 @@ def run_strategy(companyName, debug, problemsFile):
         problem_file_path = file_handler.write_local_json(f"problem_{companyName}",json.dumps(problem_data))
         dprint(f"problem_file_path: {problem_file_path}")
         gics_code, gics_name = get_gics_code_and_name(companyName)
-        dprint("gics_code: ", gics_code)
-        trends_file_path = f"./Intermediates/local_trends.json"
-        company_full_data = company_graph.dump_company_graph_to_json(companyName)
+        # dprint("gics_code: ", gics_code)
+        # trends_file_path = f"./Intermediates/local_trends.json"
+        # company_full_data = company_graph.dump_company_graph_to_json(companyName)
+        company_full_data = dump_company_graph_to_plain_txt(companyName)
+        trends = get_trends_from_gics_code(['00','45'])
+        trends_file_path = file_handler.write_local_txt(f"company_trends_{companyName}",trends)
         dprint(f"company_full_data: {company_full_data}")
-        company_file_path = file_handler.write_local_json(f"company_data_{companyName}",company_full_data)
+        # company_file_path = file_handler.write_local_json(f"company_data_{companyName}",company_full_data)
+        company_file_path = file_handler.write_local_txt(f"company_data_{companyName}",company_full_data)
 
-        agent_configs = [{'agent_type': "scenario_agent"}]
+        agent_configs = [{'agent_type': "full_graph_scenario_agent"}]
+        for path in [problem_file_path, trends_file_path, company_file_path]:
+            print(f"Path: {path}")
         scenarios_manager = AgentManager(client, file_handler, agent_configs,
-                                     [ problem_file_path, company_file_path],use_qm_agents=False)
+                                     [ problem_file_path, trends_file_path, company_file_path],use_qm_agents=True)
         scenarios_manager.run_workflow()
         scenarios_return = scenarios_manager.return_dict()
         scenarios_response = scenarios_manager.return_response
@@ -458,18 +465,24 @@ def run_strategy(companyName, debug, problemsFile):
         response_dict = { "response_text" : scenarios_response}
         scenarios_response_file = file_handler.write_local_json(f"scenarios_response_{companyName}",json.dumps(response_dict))
 
-        company_file_path = f"./Intermediates/local_company_data_{companyName}.json"
-        agent_configs = [{'agent_type': "frameworks_agent"}]
+        # company_file_path = f"./Intermediates/local_company_data_{companyName}.json"
+        agent_configs = [{'agent_type': "full_graph_frameworks_agent"}]
+        for path in [problem_file_path, trends_file_path, company_file_path]:
+            print(f"Path: {path}")
         frameworks_manager = AgentManager(client, file_handler, agent_configs,
                                      [problem_file_path, trends_file_path, company_file_path],
-                                          use_qm_agents=False)
+                                          use_qm_agents=True)
+   
         frameworks_manager.run_workflow()
         frameworks_dictionary_return = frameworks_manager.return_dict()
         frameworks_file_path = file_handler.write_local_json(f"frameworks_file_{companyName}",json.dumps(frameworks_dictionary_return))
 
+    print(f"agent_type: reporting_agent")
     agent_configs = [{'agent_type': "reporting_agent"}]
+    for path in [scenarios_response_file, scenarios_return_file,frameworks_file_path, trends_file_path]:
+        print(f"Path: {path}")
     reporting_manager = AgentManager(client, file_handler, agent_configs,
-                                     [scenarios_response_file, scenarios_return_file,frameworks_file_path], use_qm_agents=False)
+                                     [scenarios_response_file, scenarios_return_file,frameworks_file_path, trends_file_path], use_qm_agents=True)
     reporting_manager.run_workflow()
     reporting_return = reporting_manager.return_dict()
 
@@ -485,8 +498,8 @@ def run_strategy(companyName, debug, problemsFile):
     template_path = './Strategic Reports/'
     reports_path = './Strategic Reports/'
     template_name = 'report_template.docx'
-    generator = StrategicReportGenerator(template_path, reports_path, template_name)
-    generator.generate_report(companyName)
+    # generator = StrategicReportGenerator(template_path, reports_path, template_name)
+    # generator.generate_report(companyName)
 
 def print_formatted_text(data):
     # Define the sections and titles for clarity

@@ -43,9 +43,9 @@ def run_query_and_summarize(session, query, parameters=None):
         print(f"Error executing query: {e.message}")
 
 class BaseGraph:
-    def __init__(self, uri, user, password):
+    def __init__(self, uri, user, password, database_name="new"):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
-        self.database_name = "new"
+        self.database_name = database_name
 
     def close(self):
         self.driver.close()
@@ -500,8 +500,9 @@ class CompanyGraph(BaseGraph):
         return summary
 
 class InsightGraph(BaseGraph):
-    def __init__(self, uri, user, password):
+    def __init__(self, uri, user, password, database_name="new"):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        self.database_name = database_name
 
     def close(self):
         self.driver.close()

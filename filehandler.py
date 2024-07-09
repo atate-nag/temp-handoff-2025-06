@@ -4,6 +4,7 @@ import openai
 import re
 from dochandler import Rdoc
 from debug import dprint
+from utility import dict_to_plain_text
 import time
 
 class FileHandler:
@@ -51,9 +52,12 @@ class FileHandler:
         # local_file = self.write_local_file(tag, text)
         # asst_file = self.create_asst_file_from_local(client, assistant, local_file)
         # return asst_file
+        print(f"\n******\nUploading text to assistant file {text}\n******\n")
+        
         with open(f"debug_{tag}.json", "w") as file:
             file.write(text)
         with open(f"debug_{tag}.json", "rb") as local_file:
+            print(local_file)
             uploaded_file = client.files.create(
                 file=local_file,
                 purpose="assistants"
@@ -255,6 +259,15 @@ class FileHandler:
         # TODO - pass dictionary data not a string?
         # sdata is already a serialised json string
         file_path = f"./Intermediates/local_{tag}.json"
+        # Open the file in binary mode for writing; encode the text to bytes
+        with open(file_path, "w") as file:
+            file.write(data)
+        return file_path
+    @staticmethod
+    def write_local_txt(tag, data):
+        # TODO - pass dictionary data not a string?
+        # sdata is already a serialised json string
+        file_path = f"./Intermediates/local_{tag}.txt"
         # Open the file in binary mode for writing; encode the text to bytes
         with open(file_path, "w") as file:
             file.write(data)

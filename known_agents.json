@@ -198,6 +198,12 @@
 },
     "prompt" : "The details of the strategic problem break-down, the company information and the trends are in the 3 input files : {INPUT_FILES}. Perform the data ingestion and synthesis to produce the desired outputs according to the schema provided."
     },
+    "full_graph_scenario_agent": {
+      "agent_id" : "asst_MBsq9HjftJSIMeE54RLkEQT2",
+      "description": "Scenario Agent",
+      "output_schema": {},
+      "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
+    },
     "scenario_agent": {
       "agent_id" : "asst_MNum20JxBoYMqxcIXpQ49MfW",
       "description": "Scenario Agent",
@@ -324,6 +330,12 @@
   },
       "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
     },
+    "full_graph_frameworks_agent": {
+      "agent_id" : "asst_FsNGA3T3mrCtmh1SZVVahpCC",
+      "description": "Frameworks Agent",
+        "output_schema": {},
+      "prompt" : "Perform the strategic analysis for the problem as described in the problem statement, trend data and detailed company data in {INPUT_FILES}"
+      },
     "frameworks_agent": {
     "agent_id" : "asst_GKlcpySNgUvbBlzueLAzmBv9",
     "description": "Frameworks Agent",
@@ -790,6 +802,33 @@
             ]
         }
       }
+    },
+    "full_graph_qm_agent": {
+      "agent_id": "asst_gmjdG8irB4hnRQOREKRj1p98",
+      "description": "QM Agent",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean",
+            "description": "Indicates whether the task is completed."
+          },
+          "agent instructions": {
+            "type": "string",
+            "description": "Instructions for the agent."
+          }
+        },
+        "required": [
+          "completed",
+          "agent instructions",
+          "file id"
+        ],
+        "additionalProperties": false,
+        "description": "Schema for validating agent output."
+      },
+      "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}. Please perform your 5-stage QM process using this data as input",
+      "instructions": "The agent followed your instructions, the new response is in the file : {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}. Additionally, the following errors were detected when comparing the agent's output against the provided schema: {AGENT_SCHEMA_ERRORS}. Please repeat all of your 5 QM stages, using the same process on the new data."
     },
     "qm_agent": {
       "agent_id": "asst_49YnOtEIzaLI8scAJsiqLw8G",

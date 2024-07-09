@@ -19,7 +19,7 @@ class Agent:
         self.user_data = defaultdict(lambda: None, **kwargs) # defaultdict will add optional arguments to None
         self.last_validated_output = None
         self.agent_type = None
-        self.run_limit = 7   #  should be a workflow parameter
+        self.run_limit = 10   #  should be a workflow parameter
         """
             Each state transition will follow this path:
             before_validation  ->   validation ->  after_validation - > transition 
@@ -34,6 +34,7 @@ class Agent:
     def initialise(self, qm_id=None):
         self.user_data['qm_id'] = qm_id
         self.initial_trigger(self.unvalidated_data)
+        
 
     def load(self, initial_run, agent_output=None, qm_instructions=None,agent_requirements=None):
         self.user_data['initial_run'] = initial_run
