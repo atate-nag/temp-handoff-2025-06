@@ -403,7 +403,7 @@ def get_gics_code_and_name(company_name):
         "Humana": [35],
         "Energy Transfer": [10],
         "State Farm Insurance": [40],
-        "Freddie Mac": [],
+        "Freddie Mac": [40],
         "PepsiCo": [30],
         "Wells Fargo": [40],
         "Walt Disney": [50],
@@ -415,7 +415,7 @@ def get_gics_code_and_name(company_name):
         "Sysco": [30],
         "Raytheon Technologies": [20],
         "Boeing": [20],
-        "StoneX Group": [],
+        "StoneX Group": [40],
         "Lockheed Martin": [20],
         "Morgan Stanley": [40],
         "Intel": [45],
@@ -441,7 +441,9 @@ def get_gics_code_and_name(company_name):
         55: "Utilities",
         60: "Real Estate"
     }
+    print(f"company_name: {company_name}")
     gics_code = company_to_gics.get(company_name, None)
+    print(f"gics_code: {gics_code}")
     gics_name = [gics_mapping.get(g_code, "") if g_code else "" for g_code in gics_code]
     return gics_code, gics_name
 def run_strategy_for_all(problemsFile):
@@ -456,51 +458,52 @@ def run_strategy_for_all(problemsFile):
     "Ford Motor",
     "Home Depot",
     "General Motors",
-    "Centene",
+    # "Centene",
     "Verizon Communications",
     "Walgreens Boots Alliance",
     "Fannie Mae",
-    "Comcast",
-    "Meta Platforms",
-    "Bank of America",
-    "Target",
-    "Dell Technologies",
-    "Archer Daniels Midland",
-    "Citigroup",
-    "United Parcel Service",
-    "Pfizer",
-    "Lowe's",
-    "Johnson & Johnson",
-    "FedEx",
-    "Humana",
-    "Energy Transfer",
-    "State Farm Insurance",
-    "Freddie Mac",
-    "PepsiCo",
-    "Wells Fargo",
-    "Walt Disney",
-    "Procter & Gamble",
-    "General Electric",
-    "Albertsons",
-    "MetLife",
-    "Goldman Sachs Group",
-    "Sysco",
-    "Raytheon Technologies",
-    "Boeing",
-    "StoneX Group",
-    "Lockheed Martin",
-    "Morgan Stanley",
-    "Intel",
-    "HP",
-    "TD Synnex",
-    "International Business Machines",
-    "HCA Healthcare",
-    "Prudential Financial",
-    "Caterpillar",
-    "Merck",
-    "World Fuel Services"
+    # # "Comcast",
+    # "Meta Platforms",
+    # "Bank of America",
+    # # "Target",
+    # "Dell Technologies",
+    # "Archer Daniels Midland",
+    # # "Citigroup",
+    # "United Parcel Service",
+    # "Pfizer",
+    # "Lowe's",
+    # "Johnson & Johnson",
+    # # "FedEx",
+    # # "Humana",
+    # "Energy Transfer",
+    # "State Farm Insurance",
+    # "Freddie Mac",
+    # # "PepsiCo",
+    # "Wells Fargo",
+    # "Walt Disney",
+    # "Procter & Gamble",
+    # "General Electric",
+    # # "Albertsons",
+    # # "MetLife",
+    # "Goldman Sachs Group",
+    # # "Sysco",
+    # "Raytheon Technologies",
+    # # "Boeing",
+    # "StoneX Group",
+    # "Lockheed Martin",
+    # "Morgan Stanley",
+    # # "Intel",
+    # # "HP",
+    # "TD Synnex",
+    # "International Business Machines",
+    # "HCA Healthcare",
+    # "Prudential Financial",
+    # # "Caterpillar",
+    # # "Merck",
+    # "World Fuel Services"
 ]
-
+    
+    
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = {executor.submit(run_strategy, company, False, problemsFile): company for company in companies}
         for future in concurrent.futures.as_completed(futures):
@@ -538,12 +541,13 @@ def run_strategy(companyName, debug, problemsFile):
         dprint(f"problem_data: {problem_data}")
         problem_file_path = file_handler.write_local_json(f"problem_{companyName}",json.dumps(problem_data))
         dprint(f"problem_file_path: {problem_file_path}")
-        gics_code, gics_name = get_gics_code_and_name(companyName)
+        gics_code, gics_name = get_gics_code_and_name(company_name)
+        print(f"gics_code: {gics_code}")
         # dprint("gics_code: ", gics_code)
         # trends_file_path = f"./Intermediates/local_trends.json"
         # company_full_data = company_graph.dump_company_graph_to_json(companyName)
         company_full_data = dump_company_graph_to_plain_txt(companyName)
-        gics_code, gics_name = get_gics_code_and_name(companyName)
+        # gics_code, gics_name = get_gics_code_and_name(companyName)
         trends = get_trends_from_gics_code(gics_code)
         
         trends_file_path = file_handler.write_local_txt(f"company_trends_{companyName}",trends)
