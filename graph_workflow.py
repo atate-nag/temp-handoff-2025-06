@@ -13,6 +13,7 @@ from openai_asst import (delete_assistants_clones, delete_all_uploaded_files, de
 # from doc_converter import StrategicReportGenerator
 import sys
 import concurrent.futures
+from utility import dict_to_plain_text, json_to_markdown, dict_to_markdown, retry
 
 load_dotenv()
 #client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), default_headers={"OpenAI-Beta": "assistants=v2"})
@@ -510,7 +511,7 @@ def run_strategy_for_all(problemsFile):
             except Exception as e:
                 dprint(f"Strategy for {company} generated an exception: {e}")
 
-
+@retry(number_of_retry=3)
 def run_strategy(companyName, debug, problemsFile):
     dprint(f"debug is {debug}")
     if debug:
@@ -590,6 +591,10 @@ def run_strategy(companyName, debug, problemsFile):
     # Open the file in binary mode for writing; encode the text to bytes
     with open(report_path, "w") as file:
         file.write(json.dumps(reporting_return))
+        
+    markdown = dict_to_markdown(reporting_return)
+    with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
+        file.write(markdown)
 
     template_path = './Strategic Reports/'
     reports_path = './Strategic Reports/'
