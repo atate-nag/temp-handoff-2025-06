@@ -46,9 +46,11 @@ class AgentThread():
             file_ids.extend(input_files)
 
         if agent_response:
+            print("agent_response to pass to run is: ", agent_response)
             file_ids.append(agent_response)
 
         if agent_output:
+            print("agent_output to pass to run is: ", agent_output)
             file_ids.append(agent_output)
 
         if file_ids:
@@ -115,7 +117,7 @@ class AgentThread():
         )
         agent_response = self.get_new_messages()
         self.full_response.append(agent_response)
-        print(f"agent response is: \n***********\n{agent_response}\n***********\n")
+        #print(f"agent response is: \n***********\n{agent_response}\n***********\n")
         try:
             asst_file_response = self.file_handler.txt_to_asst_file(
                 self.client,
@@ -148,6 +150,7 @@ class AgentThread():
         }
         self.returnobjs.append(self.output_dict)
         dprint(f"output dict is {self.output_dict}, returning it")
+        print(f"output dict is {self.output_dict}, returning it")
         return self.output_dict
 
     def add_message(self, instructions, input_files=None):
@@ -253,11 +256,11 @@ class RunObj(BaseModel):
                 retrieve = client.beta.threads.runs.retrieve(
                     thread_id=thread_id, run_id=run_id
                 )
-                print(f"Assistant status: {retrieve.status}")
+                dprint(f"Assistant status: {retrieve.status}")
                 if retrieve.status == "completed":
                     return retrieve
                 elif retrieve.status in ["failed", "incomplete","expired"]:
-                    print(f"Run {run_id} failed.")
+                    dprint(f"Run {run_id} failed.")
                     return "Run {run_id} failed."
                 time.sleep(5)
             except Exception as e:
@@ -316,7 +319,7 @@ def clone_assistant(client, source_assistant_id):
     # Prepare the payload for creating a new assistant
     # Copy all relevant fields except the ID and created_at
     assistant_data = {
-        "name": "Leo Cloned Agent",
+        "name": "Adrian Cloned Agent",
         "description": source_assistant.description,
         "model": 'gpt-4o',#'gpt-3.5-turbo', #"gpt-4o",
         "instructions": source_assistant.instructions,
@@ -454,7 +457,7 @@ def delete_assistants_clones(client):
         assistants = client.beta.assistants.list(limit=100)
         dprint(f"Number of assistants is {len(assistants.data)}")
         for ass in assistants.data:
-            if ass.name == "Leo Cloned Agent":
+            if ass.name == "Adrian Cloned Agent":
                 dprint(f"Assistant with name {ass.name}")
                 client.beta.assistants.delete(assistant_id=ass.id)
                 print(f"Deleted ass: {ass.id}, created at {ass.created_at}")

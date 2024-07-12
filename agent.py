@@ -38,6 +38,7 @@ class Agent:
 
     def load(self, initial_run, agent_output=None, qm_instructions=None,agent_requirements=None):
         self.user_data['initial_run'] = initial_run
+        # TODO the following assignments may be outmoded due to receive_input
         if agent_output:
             self.user_data['agent_output'] = agent_output
         if qm_instructions:
@@ -49,17 +50,20 @@ class Agent:
     def receive_input(self, agent_output=None, qm_instructions=None, agent_requirements=None):
         if agent_output:
             self.user_data['agent_output'] = agent_output
+            print("receive input: set agent output to ",agent_output)
         if qm_instructions:
             self.user_data['qm_instructions'] = qm_instructions
+            print("receive input: set qm_instructions to ",qm_instructions)
+
         if agent_requirements:
             self.user_data['agent_requirements'] = agent_requirements
 
     def reissue(self):
         self.reissue_trigger(self.unvalidated_data)
 
-
     def run(self):
         self.run_trigger(self.unvalidated_data)
+        print("run after running - retrieve_output is ",self.validated.retrieve_output)
         return self.validated.retrieve_output
 
     def retrieve(self):
@@ -160,6 +164,7 @@ class Agent:
                 uploaded_assistant_files.append(asst_file)
 
         agent_response_file = agent_output_file = agent_structured_output = None
+        print("doing the agent output stuff")
         if self.user_data.get('agent_output'):
             output = self.user_data['agent_output']
             agent_response_file = output['response_file']
@@ -197,6 +202,8 @@ class Agent:
 
                 asst_input_files = unvalidated_data['asst_input_files']
                 dprint("Assigned assistant files to asst_input_files.")
+            else:
+                asst_input_files = None
 
             self.validated.set_data('asst_input_files', asst_input_files)
             dprint("Assistant input files data set in validated data store.")
@@ -332,7 +339,10 @@ class Agent:
             # Insert specific validation logic for data pertinent to this transition
             # did the run produce the right outputs and response?
             raw_output_dict = self.validated.agent_thread.get_output()
+
             dprint(f"raw output from agent = {raw_output_dict}")
+            print(f"running_to_retrieved_validation: raw output from agent = {raw_output_dict}")
+
             # if not, it will get reissued
             # TODO validate output_dict
             # TODO Much of the following is not validation logic - move to after
@@ -341,6 +351,8 @@ class Agent:
                 output_dict = self.normalize_agent_output(raw_output_dict)
                 self.validated.set_data('retrieve_output', output_dict)
                 dprint("Good JSON output - validating state")
+                print("running_to_retrieved_validation: Good JSON output - validating state")
+
                 return True
             else:
                 instructions = ("No valid structured JSON was detected in your response or "
@@ -365,6 +377,15 @@ class Agent:
         except Exception as e:
             dprint(f"Validation error during Running to Retrieved transition: {e}")
             return False
+
+    def before_reinitialise(self, unvalidated_data):
+        # erase the old files that were used last time
+        print("before reinitialise: resetting hte validated data")
+        self.validated.set_data('asst_input_files', None)
+        self.validated.set_data('file_paths', None)
+        self.validated.set_data('agent_output_file', None)
+        self.validated.set_data('agent_response_file', None)
+        self.validated.set_data('agent_structured_output', None)
 
     def after_validation_running_to_retrieved(self, unvalidated_data):
         """ Execute AFTER validation but before state transition"""

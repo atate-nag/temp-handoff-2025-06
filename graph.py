@@ -8,8 +8,8 @@ import logging
 import neo4j
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
 
 def run_query_and_summarize(session, query, parameters=None):
     try:

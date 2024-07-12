@@ -41,6 +41,6 @@ class AgentStateMachineConfig:
         # Transition to handle successful completion
         self.machine.add_transition('mark_complete', 'Retrieved','Completed', after='clean_up')
         self.machine.add_transition('reissue_trigger', 'Running', 'Loaded', after='run_trigger')
-        self.machine.add_transition('reinitialise', 'Retrieved', 'Initialised')
+        self.machine.add_transition('reinitialise','Retrieved', 'Initialised',prepare='before_reinitialise')
 
         return self.machine
