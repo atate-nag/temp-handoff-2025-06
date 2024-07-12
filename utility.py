@@ -1,5 +1,6 @@
 import re
 from functools import wraps
+import json
 
 
 def clean_text(text):
@@ -36,7 +37,7 @@ def dict_to_plain_text(data, indent_level=0):
             else:
                 plain_text += f"{indent}{key}: {value}\n\n"
         plain_text += "\n"
-                
+
     elif isinstance(data, list):
         for item in data:
             if isinstance(item, dict) or isinstance(item, list):
@@ -65,6 +66,7 @@ def json_to_markdown(json_obj):
 
     return markdown
 
+
 def dict_to_markdown(data):
     markdown = ""
     for key, value in data.items():
@@ -76,6 +78,7 @@ def dict_to_markdown(data):
         else:
             markdown += f"{value}\n\n"
     return markdown
+
 
 def retry(number_of_retry=3):
     def retry_outer(fn):
@@ -92,3 +95,23 @@ def retry(number_of_retry=3):
         return retry_inner
 
     return retry_outer
+
+
+def unescape_string(value):
+    if isinstance(value, str):
+        return json.loads(f'"{value}"')  # This will unescape the string
+    return value
+
+
+def process_dict(d):
+    for key, value in d.items():
+        if isinstance(value, str):
+            d[key] = unescape_string(value)
+        elif isinstance(value, dict):
+            d[key] = process_dict(value)
+        elif isinstance(value, list):
+            d[key] = [
+                unescape_string(item) if isinstance(item, str) else item
+                for item in value
+            ]
+    return d
