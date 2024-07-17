@@ -45,6 +45,12 @@
 
     "prompt" : "Perform the detailed analytical report for the problem, as revealed by the files: {INPUT_FILES}"
     },
+    "full_graph_reporting_agent": {
+    "agent_id" : "asst_eS7XZdkDewHarsETkEV9SIsN",
+    "description": "Final Reporting Agent",
+    "output_schema": {},
+    "prompt" : "Perform the detailed analytical report for the problem, as revealed by the files: {INPUT_FILES}"
+    },
     "problem_agent": {
       "agent_id" : "asst_93usKeg6v8VEr88jJC8z5tXs",
       "description": "Problem Statement Breakdown Agent",

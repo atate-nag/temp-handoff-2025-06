@@ -127,3 +127,24 @@ def get_trends_from_gics_code(gics_code, problem_statement):
     subgraph = filter_trends(subgraph, problem_statement)
     # return dict_to_plain_text('')
     return subgraph
+
+def save_curated_trend_data(company_name, gics_code, problem_statement, trend_data):
+    query = """
+    MATCH (c:Company {name: '%s'})
+    MERGE (ctd:CuratedTrendData {gics_code: '%s', problem_statement: '%s'})
+    SET ctd.trend_data = '%s', ctd.last_updated = datetime()
+    MERGE (c)-[:HAS_CURATED_TREND]->(ctd)
+    """ % (company_name, gics_code, problem_statement, json.dumps(trend_data).replace("'", "\\'"))
+    rag_graph.kg.query(query)
+
+
+def get_curated_trend_data(company_name, gics_code, problem_statement):
+    query = """
+    MATCH (c:Company {name: '%s'})-[:HAS_CURATED_TREND]->(ctd:CuratedTrendData)
+    WHERE ctd.gics_code = '%s' AND ctd.problem_statement = '%s'
+    RETURN ctd.trend_data AS trend_data, ctd.last_updated AS last_updated
+    """ % (company_name, gics_code, problem_statement)
+    result = rag_graph.kg.query(query)
+    if result:
+        return json.loads(result[0]['trend_data'])
+    return None

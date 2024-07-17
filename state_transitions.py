@@ -4,7 +4,6 @@ from transitions import Machine
 from abc import ABC, abstractmethod
 from agent_context import AgentContext
 from agent_configs import AgentConfigs
-import logging
 
 # Set up logging
 from abc import ABC, abstractmethod

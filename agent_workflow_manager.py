@@ -38,7 +38,7 @@ class AgentManager:
                 agent.load(initial_run=initial_run)
                 agent_output = agent.run()
                 self.agent_output = agent_output
-                print(f"agent_output in manager is : {agent_output}")
+                #print(f"agent_output in manager is : {agent_output}")
                 if agent_output is None:
                     dprint(f"none returned from operational agent - Aborting")
                     raise Exception
@@ -82,7 +82,7 @@ class AgentManager:
         Evaluate the QM output to decide if the operational agent's output has passed the required conditions,
         extract any instructions for re-running the agent, and determine if the workflow should continue or the agent needs to be rerun.
         """
-        print("evaluate_qm_output: the output to assess is : ", qm_output)
+        #print("evaluate_qm_output: the output to assess is : ", qm_output)
         if 'structured_output' in qm_output:
             dict_output = qm_output['structured_output']
             completed = dict_output.get('completed', False)

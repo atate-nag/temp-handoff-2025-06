@@ -79,7 +79,7 @@ class Agent:
         if agent_output:
             self.user_data["agent_output"] = agent_output
             self.user_data['agent_output'] = agent_output
-            print("receive input: set agent output to ",agent_output)
+            #print("receive input: set agent output to ",agent_output)
         if qm_instructions:
             self.user_data["qm_instructions"] = qm_instructions
             self.user_data['qm_instructions'] = qm_instructions
@@ -93,7 +93,6 @@ class Agent:
 
     def run(self):
         self.run_trigger(self.unvalidated_data)
-        print("run after running - retrieve_output is ",self.validated.retrieve_output)
         return self.validated.retrieve_output
 
     def retrieve(self):
@@ -398,7 +397,7 @@ class Agent:
             # did the run produce the right outputs and response?
             raw_output_dict = self.validated.agent_thread.get_output()
 
-            print(f"running_to_retrieved_validation: raw output from agent = {raw_output_dict}")
+            #print(f"running_to_retrieved_validation: raw output from agent = {raw_output_dict}")
 
             # dprint(f"raw output from agent = {raw_output_dict}")
             # if not, it will get reissued
@@ -440,7 +439,7 @@ class Agent:
             dprint(f"Validation error during Running to Retrieved transition: {e}")
             return False
 
-    def before_reinitialise(self, unvalidated_data):
+    def before_reinitialise(self):
         # erase the old files that were used last time
         print("before reinitialise: resetting hte validated data")
         self.validated.set_data('asst_input_files', None)

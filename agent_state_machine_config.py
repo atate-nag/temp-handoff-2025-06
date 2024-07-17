@@ -24,7 +24,13 @@ class AgentStateMachineConfig:
         ]
         self.permissions["Loaded"] = ["run_object"]
         self.permissions["Running"] = ["retrieve_output"]
-        self.permissions["Retrieved"] = []
+        self.permissions["Retrieved"] = ["asst_input_files",
+            "agent_output_file",
+            "agent_response_file",
+            "agent_structured_output",
+            "agent_requirements",
+            "agent_schema_errors",
+            "file_paths"]
 
     def setup(self, agent):
         self.machine = Machine(model=agent, states=agent.states, initial="Zero")

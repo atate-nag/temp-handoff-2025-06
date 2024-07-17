@@ -2,7 +2,6 @@ import inspect
 
 # Global debug flag
 DEBUG = True
-
 def dprint(*args, **kwargs):
     if DEBUG:
         caller_frame = inspect.currentframe().f_back

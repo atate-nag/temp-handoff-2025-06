@@ -1,153 +1,34 @@
 {
   "workflow": {
     "cleanUp": {
-      "enabled": true
+      "enabled": false
     },
-    "evaluateCapabilities": {
+    "getTrends" : {
       "enabled": false,
       "parameters": {
-        "agentType": "capabilities_agent",
-        "reportType": "capability_analysis_report_agent",
-        "companyName": "NAG",
-        "debugRun": false,
-        "updateGraph": true
+        "companyName": "Citigroup",
+        "problemsFile" : "./problem_statements.json"
       }
     },
-    "createCompanies": {
+     "runFrameworks" : {
       "enabled": false,
       "parameters": {
-        "companyName": "nag"
+        "companyName": "Citigroup",
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
+    "runScenarios" : {
+      "enabled": false,
+      "parameters": {
+        "companyName": "Citigroup",
+        "problemsFile" : "./problem_statements.json"
       }
     },
     "runStrategy" : {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Phillips 66",
-        "debug" : false,
-        "problemsFile" : "./problem_statements.json"
-      }
-    },
-    "runTask" : {
-      "enabled": false,
-      "parameters": {
-        "companyName": "NAG",
-        "debug" : true,
-        "problemsFile" : "./problem_statements.json"
-      }
-    },
-    "runStrategyforAll" : {
       "enabled": true,
       "parameters": {
+        "companyName": "Citigroup",
         "problemsFile" : "./problem_statements.json"
-      }
-    },
-    "updateCompanyData": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag",
-        "dataDir": "Files-DATA/"
-      }
-    },
-    "deleteInsights": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag"
-      }
-    },
-    "cleanInsights": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag"
-      }
-    },
-    "deleteCompany": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag"
-      }
-    },
-    "dumpCompanyGraph": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Tesla"
-      }
-    },
-    "extractCondenseData": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag",
-        "sourceDir": "Files-COMPANY/",
-        "debug": false,
-        "updateGraph": false
-      }
-    },
-    "extractInsights": {
-      "enabled": false,
-      "parameters": {
-        "agentType" : "insight_agent",
-        "companyName": "nag",
-        "sourceDir": "Files-Company/",
-        "debug": false,
-        "updateGraph": false
-      }
-    },
-    "loadTrends": {
-      "enabled": false,
-      "parameters": {}
-    },
-    "detectTrends": {
-      "enabled": false,
-      "parameters": {
-        "agentType" : "trends_agent",
-        "sourceDir": "Files-Trends",
-        "industries": "./industries.json",
-        "debug": false,
-        "updateGraph": false
-      }
-    },
-    "displayInsights": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag",
-        "relevanceFrom": 9.2
-      }
-    },
-    "recommendInsightPruning": {
-      "enabled": false,
-      "parameters": {
-        "agentType": "recommender_agent",
-        "companyName": "nag",
-        "debugRun": false,
-        "updateGraph": false
-      }
-    },
-    "deleteCapabilities": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag"
-      }
-    },
-    "pruneCapabilities": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "nag",
-        "updateGraph": false
-      }
-    },
-    "displayCapabilities": {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Tesla"
-      }
-    },
-    "buildCompetitiveEnvironment": {
-      "enabled": false,
-      "parameters" : {
-        "agentType" : "competition_agent",
-        "reportType" : "competitive_analysis_report_agent",
-        "companyName": "nag",
-        "updateGraph": false,
-        "debugRun" : false
       }
     }
   }
