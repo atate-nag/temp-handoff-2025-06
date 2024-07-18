@@ -1,4 +1,4 @@
-from graph_rag_lc import RAG_graph
+from graph_workflow.graph_rag_lc import RAG_graph
 from dotenv import load_dotenv
 
 load_dotenv()

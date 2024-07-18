@@ -3,10 +3,11 @@ import openai
 from dotenv import load_dotenv
 import time
 import pandas as pd
-from graph_rag_lc import RAG_graph
+from graph_workflow.graph_rag_lc import RAG_graph
 import json
 import uuid
 import datetime
+from graph_workflow.trend_agent import TrendAgent
 
 # setup openaAI
 
@@ -28,6 +29,7 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 d = datetime.datetime.now()
 d = d.strftime("%m/%d/%Y %H:%M:%S")
 
+ta = TrendAgent(period="1y")
 
 def create_companies(companyName):
     print(f"Creating company {companyName}")
@@ -139,11 +141,8 @@ mapping = {
 }
 
 
-database = "neo4j"
-
-
 rag_graph = RAG_graph(
-    "bolt://localhost:7687",
+    uri,
     user,
     password,
     database,
@@ -154,7 +153,7 @@ rag_graph = RAG_graph(
 
 d = datetime.datetime.now()
 d = d.strftime("%m/%d/%Y %H:%M:%S")
-data = pd.read_csv("data/source/fortune/fortune.csv")
+data = pd.read_csv("data/sources/fortune/fortune.csv")
 data["linkedin"] = data["linkedin2"]
 print(data.columns)
 data = data.drop(columns=["linkedin2", "Unnamed: 0.1", "Unnamed: 0"])
@@ -201,7 +200,7 @@ def fill_graph(companies):
                     # companyName, dataDir, fileType, title,source = None, source_location = None, creation_time = None
                     update_company_with_files(
                         companyName=company["name"],
-                        dataDir=f"data/source/reportLinker/",
+                        dataDir=f"data/sources/reportLinker/",
                         fileType=f"reportLinker_{company['name']}",
                         source="reportLinker",
                         source_location="reportLinker",
@@ -315,16 +314,16 @@ def fill_graph(companies):
                 print("perigon/" + name + "_perigon.txt")
 
                 try:
-                    with open("data/source/perigon/" + name + "_perigon.txt", "r") as file:
+                    with open("data/sources/perigon/" + name + "_perigon.txt", "r") as file:
                         # write to file
                         file_contents = file.read()
                 except Exception as e:
                     file_contents = []
 
-                print(f"File content:\n{file_contents}")
+                # print(f"File content:\n{file_contents}")
                 if len(file_contents) > 0:
                     results = [
-                        eval(r) for r in file_contents.replace("}{", "}&&&{").split("&&&")
+                        eval(r) for r in file_contents.replace("}{", "}&&&{").replace('true', 'True').replace('false', 'False').replace('null', 'None').split("&&&")
                     ]
                 else:
                     results = []
@@ -406,7 +405,7 @@ def fill_graph(companies):
                 try:
                     
                     with open(
-                        f"data/source/fortune500_wikipedia2/{mapping[name]}.json", "r", encoding="utf-8"
+                        f"data/sources/wikipedia/{mapping[name]}.json", "r", encoding="utf-8"
                     ) as f:
                         # write to file
                         file_contents = f.read()
