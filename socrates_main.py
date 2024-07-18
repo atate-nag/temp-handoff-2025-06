@@ -6,6 +6,7 @@ from debug import dprint
 from full_graph import (dump_company_graph_to_plain_txt, get_trends_from_gics_code, save_curated_trend_data,
                         get_curated_trend_data)
 from filehandler import FileHandler
+from data_ingestion.build_graph import fill_graph
 import json, re
 from openai_asst import (
     delete_assistants_clones,
@@ -79,6 +80,7 @@ def get_step_function(step_name):
         # administrative routines
         "cleanUp": clean_up,
         # graph manipulation and display routines
+        "fill_graph": fill_graph,
         "getTrends": get_trends,
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
