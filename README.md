@@ -50,11 +50,22 @@ pip install -r requirements.txt
 
 4. **Copy your data sources**
 
-There are three directories for data, you will state the names of those in the workflow_config.json
-An extra directory for the company in question will be required, to allow execution for mulitple companies. 
-The structure will need to be:
+Files should be added to the following folders:
 
-./<data dir>/<company name>/ 
+data/sources/wikipedia
+data/sources/perigon
+data/sources/reportLinker
+
+The workflow for feeding the data into the graph is:
+
+"fill_graph_Tesla":{
+      "function": "fill_graph",
+      "parameters": {
+        "companies": ["Tesla"]
+      },
+      "enabled": true
+    },
+
 
 Copy appropriate files in PPT/PPTX, PDF or DOC/DOCX format to those directories. 
 
