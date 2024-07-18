@@ -6,6 +6,28 @@
         "companyName": "nag"
       }
     },
+    "runStrategy" : {
+      "enabled": false,
+      "parameters": {
+        "companyName": "Valero_Energy",
+        "debug" : false,
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
+    "runTask" : {
+      "enabled": true,
+      "parameters": {
+        "companyName": "Valero_Energy",
+        "debug" : false,
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
+    "runStrategyforAll" : {
+      "enabled": false,
+      "parameters": {
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
     "updateCompanyData": {
       "enabled": false,
       "parameters": {
@@ -34,29 +56,56 @@
     "dumpCompanyGraph": {
       "enabled": false,
       "parameters": {
-        "companyName": "nag"
+        "companyName": "Tesla"
+      }
+    },
+    "extractCondenseData": {
+      "enabled": false,
+      "parameters": {
+        "companyName": "nag",
+        "sourceDir": "Files-COMPANY/",
+        "debug": false,
+        "updateGraph": false
       }
     },
     "extractInsights": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
+        "agentType" : "insight_agent",
         "companyName": "nag",
-        "sourceDir": "Files-COMPANY/",
+        "sourceDir": "Files-Company/",
         "debug": false,
-        "updateGraph" : true
+        "updateGraph": false
+      }
+    },
+    "loadTrends": {
+      "enabled": false,
+      "parameters": {}
+    },
+    "detectTrends": {
+      "enabled": false,
+      "parameters": {
+        "agentType" : "trends_agent",
+        "sourceDir": "Files-Trends",
+        "industries": "./industries.json",
+        "debug": false,
+        "updateGraph": false
       }
     },
     "displayInsights": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
         "companyName": "nag",
-        "relevanceFrom" : 9.2
+        "relevanceFrom": 9.2
       }
     },
-    "pruneInsights" : {
+    "recommendInsightPruning": {
       "enabled": false,
-      "parameters" : {
-        "companyName": "nag"
+      "parameters": {
+        "agentType": "recommender_agent",
+        "companyName": "nag",
+        "debugRun": false,
+        "updateGraph": false
       }
     },
     "deleteCapabilities": {
@@ -67,30 +116,38 @@
     },
     "evaluateCapabilities": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
+        "agentType": "capabilities_agent",
+        "reportType": "capability_analysis_report_agent",
         "companyName": "nag",
-        "debug" : false,
-        "updateGraph" : true
+        "debugRun": false,
+        "updateGraph": false
       }
     },
-    "pruneCapabilities" : {
+    "pruneCapabilities": {
       "enabled": false,
-      "parameters" : {
+      "parameters": {
         "companyName": "nag",
-        "updateGraph": true
+        "updateGraph": false
       }
     },
     "displayCapabilities": {
       "enabled": false,
-      "parameters" : {
-        "companyName": "nag"
+      "parameters": {
+        "companyName": "Tesla"
       }
     },
+    "cleanUp": {
+      "enabled": true
+    },
     "buildCompetitiveEnvironment": {
-      "enabled": true,
+      "enabled": false,
       "parameters" : {
+        "agentType" : "competition_agent",
+        "reportType" : "competitive_analysis_report_agent",
         "companyName": "nag",
-        "updateGraph": true
+        "updateGraph": false,
+        "debugRun" : false
       }
     }
   }

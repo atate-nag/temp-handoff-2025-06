@@ -1,49 +1,85 @@
 from neo4j import GraphDatabase
 from datetime import datetime
 from utility import clean_text
+from debug import dprint
 import uuid
 import json
 import logging
+import neo4j
 
+# Configure logging
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+
+def run_query_and_summarize(session, query, parameters=None):
+    try:
+        result = session.run(query, parameters)
+        summary = result.consume()
+        counters = summary.counters
+        notifications = summary.notifications
+
+        # Print summary of changes made by the query
+        print(f"Nodes created: {counters.nodes_created}")
+        print(f"Nodes deleted: {counters.nodes_deleted}")
+        print(f"Relationships created: {counters.relationships_created}")
+        print(f"Relationships deleted: {counters.relationships_deleted}")
+        print(f"Properties set: {counters.properties_set}")
+        print(f"Labels added: {counters.labels_added}")
+        print(f"Labels removed: {counters.labels_removed}")
+        print(f"Indexes added: {counters.indexes_added}")
+        print(f"Indexes removed: {counters.indexes_removed}")
+        print(f"Constraints added: {counters.constraints_added}")
+        print(f"Constraints removed: {counters.constraints_removed}")
+
+        # Correctly print notifications/warnings
+        if notifications:
+            print("\nNotifications/Warnings:")
+            for notification in notifications:
+                print(f"- {notification['title']}: {notification['description']}")
+        else:
+            print("\nNo notifications or warnings.")
+
+    except neo4j.exceptions.Neo4jError as e:
+        print(f"Error executing query: {e.message}")
 
 class BaseGraph:
-    def __init__(self, uri, user, password):
+    def __init__(self, uri, user, password, database_name="new"):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        self.database_name = database_name
 
     def close(self):
         self.driver.close()
 
     def retrieve_entire_graph(self):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             result = session.run("MATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m")
             for record in result:
                 print(record)
 
-
 class CompanyGraph(BaseGraph):
     def delete_company(self, company_name):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(self._delete_company_node, company_name)
 
     def add_company_info(self, company_name, company_data):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(
                 self._create_or_update_company_node, company_name, company_data
             )
 
     def create_company_only(self, company_name):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(
                 self._create_company_node_without_data, company_name
             )
         print(f"CompanyGraph: created a node for {company_name}")
 
     def delete_company_insights(self, company_name):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(self._prune_company_insights, company_name)
 
     def delete_orphan_insights(self):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(self._prune_orphan_insights)
 
     @staticmethod
@@ -63,13 +99,55 @@ class CompanyGraph(BaseGraph):
         """
         tx.run(query, company_name=company_name)
 
-    # def prune_insights_from_recommendation(self, comppany_name, recommendations):
-    #     with self.driver.session() as session:
-    #         session.write_transaction(self._prune_insights_recommendation, comppany_name, recommendations)
-    #
-    # @staticmethod
-    # def _prune_insights_recommendation(tx, company_name, recommendations):
+    def prune_insights_from_recommendation(self, company_name, recommendations):
+        with self.driver.session(database=self.database_name) as session:
+            session.write_transaction(self._prune_insights_recommendation, company_name, recommendations)
 
+    @staticmethod
+    def _prune_insights_recommendation(tx, company_name, recommendations):
+        # Iterate over each recommendation
+        removed_nodes = 0
+        for recommendation in recommendations:
+            # Check if the recommendation is to prune the insight
+            if isinstance(recommendation, dict):
+                # Check if the recommendation is to prune the insight
+                if isinstance(recommendation, dict):
+                    insight_id = recommendation.get('id')
+                    if recommendation.get('recommendation') == 'prune':
+                        # Prune the insight by its ID and the company name
+                        dprint(f"Pruning insight {insight_id}")
+                        query = """
+                               MATCH (i:Insight)-[:PROVIDES_INSIGHT_ON]->(c:Company {name: $company_name})
+                               WHERE ID(i) = $insight_id
+                               DETACH DELETE i
+                               """
+                        dprint(query)
+                        run_query_and_summarize(tx, query, {"company_name": company_name, "insight_id": insight_id})
+                        removed_nodes += 1
+                    else:
+                        if recommendation.get('recommendation') == "retain":
+                            dprint(f"Retaining insight {insight_id}")
+                else:
+                    print(f"Unexpected type for recommendation: {type(recommendation)}. Expected a dictionary.")
+        dprint(f"Removed {removed_nodes}")
+
+    # TODO this generic graph update is not good enough
+
+    def generic_update_graph(self, company_name, dictionary, agent_type):
+        if agent_type == "competition_agent":
+            for competitor_full in dictionary:
+                competitor = competitor_full["competitor"]
+                dprint(f"competitor = {competitor['name']}")
+                dprint(f"data is {competitor['data']}")
+                competitor_data = competitor["data"]
+            #         create_company_with_data(companyName, competitor_data)
+            # # display competitor graph
+        elif agent_type == "capabilities_agent":
+            self.add_capability_and_evidence(company_name, dictionary)
+        elif agent_type == "recommender_agent":
+            self.prune_insights_from_recommendation(company_name, dictionary)
+        else:
+            dprint(f"generic graph update not yet implemented for {agent_type}")
 
     @staticmethod
     def _delete_company_node(tx, company_name):
@@ -80,9 +158,13 @@ class CompanyGraph(BaseGraph):
         tx.run(query, company_name=company_name)
 
     def get_company_info(self, company_name):
-        with self.driver.session() as session:
-            result = session.read_transaction(self._retrieve_company_node, company_name)
-            return result
+        with (self.driver.session(database=self.database_name) as session):
+            try:
+                result = session.read_transaction(self._retrieve_company_node, company_name)
+            except Exception as e:
+                print(f"Error retrieving company {company_name} from graph: Probably no company{e}"
+                      f" of that name exists. Real error is {e}")
+        return result
 
     @staticmethod
     def _retrieve_company_node(tx, company_name):
@@ -113,37 +195,54 @@ class CompanyGraph(BaseGraph):
         return result.single()
 
     def dump_company_graph_to_json(self, company_name):
-        """dumps the whole company graph to json including all fields of the insight nodes. This is useful for
-        printing and debugging but is probably overkill to agents. Instead,  use the
-        dump_company_insight_graph_to_json method to send more selective information to agents
-        """
-
-        with self.driver.session() as session:
-            # Example Cypher query to retrieve a company, its insights, and relationships
+        with self.driver.session(database=self.database_name) as session:
             result = session.run(
                 """
                 MATCH (i:Insight)-[r:PROVIDES_INSIGHT_ON]->(c:Company {name: $company_name})
-                RETURN c AS company, collect(i) AS insights, collect(type(r)) AS relationships
-            """,
+                OPTIONAL MATCH (c)-[:POSSESSES]->(cap:Capability)
+                RETURN c AS company, collect(DISTINCT i) AS insights, collect(DISTINCT type(r)) AS relationships, collect(DISTINCT cap) AS capabilities, collect(DISTINCT ID(i)) AS insightIDs
+                """,
                 company_name=company_name,
             )
 
-            # Assuming only one company node is targeted ( TODO support more companies also later?)
             record = result.single()
             if record:
-                # Construct a dict structure for the company and its insights
                 graph_data = {
                     "company": record["company"]._properties,
-                    "insights": [insight._properties for insight in record["insights"]],
+                    "capabilities": [
+                        {
+                            "elementId": capability["elementId"],
+                            "id": capability["id"],
+                            "confidence": capability["confidence"],
+                            "evidencedBy": capability["evidenceBy"],
+                            "irreplaceability": capability["irreplaceability"],
+                            "name": capability["name"],
+                            "nonReplicability": capability["nonReplicability"],
+                            "scarcity": capability["scarcity"],
+                            "uuid": capability["uuid"],
+                            "valuePotential": capability["valuePotential"],
+                        } for capability in record["capabilities"] if capability is not None
+                    ],
+                    "insights": [
+                        {
+                            "id": insight_id,
+                            "categories": insight["categories"],
+                            "description": insight["description"],
+                            "extractionDate": insight["extractionDate"],
+                            "relevanceScore": insight["relevanceScore"],
+                            "source": insight["source"],
+                            "source_from_file": insight["source_from_file"],
+                            "source_location_from_file": insight["source_location_from_file"],
+                        } for insight, insight_id in zip(record["insights"], record["insightIDs"]) if insight is not None
+                    ],
                 }
-                # Serialize to JSON
                 json_data = json.dumps(graph_data, indent=4)
                 return json_data
             else:
                 return None
 
     def delete_company_capabilities(self, company_name):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(self._delete_company_capabilities, company_name)
 
     @staticmethod
@@ -155,11 +254,10 @@ class CompanyGraph(BaseGraph):
         tx.run(query, company_name=company_name)
 
     def dump_company_insight_graph_to_json(self, company_name):
-
         """this function does not dump the full graph, it will only return the true insight ID , description
         and confidence of the insight. Then a walker will be able to derive the provenance of relationships
         """
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             # Example Cypher query to retrieve a company, its insights, and relationships
             result = session.run(
                 """
@@ -196,7 +294,7 @@ class CompanyGraph(BaseGraph):
                 return None
 
     def add_capability_and_evidence(self, company_name, capability_data):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(
                 self._create_capability_and_link, company_name, capability_data
             )
@@ -233,7 +331,7 @@ class CompanyGraph(BaseGraph):
                 )
 
     def display_company_capabilities(self, company_name):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
 
             result = session.read_transaction(
                 self._get_company_capabilities, company_name
@@ -271,11 +369,11 @@ class CompanyGraph(BaseGraph):
             print("\n")
 
     def prune_company_capabilities(self, company_name):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(self._prune_company_capability, company_name)
 
     def link_insight_to_capability(self, capability_name, insight_id):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(
                 self._link_insight_to_capability, capability_name, insight_id
             )
@@ -301,22 +399,122 @@ class CompanyGraph(BaseGraph):
         result = tx.run(query, capability_name=capability_name, insight_id=insight_id)
         return result.single()
 
+    def add_trend(self, trend, category):
+        with self.driver.session(database=self.database_name) as session:
+            summary = session.write_transaction(self._create_trend_node, trend, category)
+            logger.info(f"Nodes created: {summary.counters.nodes_created}")
+            logger.info(f"Nodes deleted: {summary.counters.nodes_deleted}")
+            logger.info(f"Relationships created: {summary.counters.relationships_created}")
+            logger.info(f"Relationships deleted: {summary.counters.relationships_deleted}")
+            logger.info(f"Properties set: {summary.counters.properties_set}")
+            logger.info(f"Labels added: {summary.counters.labels_added}")
+            logger.info(f"Labels removed: {summary.counters.labels_removed}")
+
+    @staticmethod
+    def _create_trend_node(tx, trend, category):
+        unique_id = str(uuid.uuid4())
+        trend['TrendID'] = unique_id
+        logger.info(f"Creating trend with TrendID: {unique_id}")
+        logger.info(f"Trend data: {json.dumps(trend, indent=2)}")
+
+        trend_query = """
+               MERGE (t:Trend {TrendID: $TrendID})
+               ON CREATE SET 
+                   t.Title = $Title,
+                   t.Summary = $Summary,
+                   t.Description = $Description,
+                   t.Category = $Category,
+                   t.AffectedAreas = $AffectedAreas,
+                   t.EvidencedBy = $EvidencedBy
+               RETURN t
+               """
+
+        affected_areas_json = json.dumps(trend['AffectedAreas'])
+        evidenced_by_json = json.dumps(trend['EvidencedBy'])
+
+        result = tx.run(trend_query,
+                        TrendID=trend['TrendID'],
+                        Title=trend['Title'],
+                        Summary=trend['Summary'],
+                        Description=trend['Description'],
+                        Category=category,
+                        AffectedAreas=affected_areas_json,
+                        EvidencedBy=evidenced_by_json)
+
+        summary = result.consume()
+        return summary
+    def get_all_trends(self):
+        with self.driver.session(database=self.database_name) as session:
+            result = session.run("MATCH (t:Trend) RETURN t")
+            trends = []
+            for record in result:
+                trend_node = record["t"]
+                trends.append(dict(trend_node))
+            return trends
+
+    def get_trends(self, gics_code, gics_name):
+        gics_category = f"{gics_code}. {gics_name}"
+        dprint("gics_category", gics_category)
+        query = """
+        MATCH (t:Trend)
+        WHERE t.Category = $gics_category OR t.Category IN ['Political', 'Economic', 'Social', 'Technological', 'Legal', 'Environmental']
+        RETURN t
+        """
+        with self.driver.session(database=self.database_name) as session:
+            results = session.run(query, gics_category=gics_category)
+            return [record["t"] for record in results]
+
+    def get_trends_json(self, gics_code, gics_name):
+        gics_category = f"{gics_code}. {gics_name}"
+        print(f"Fetching trends for GICS category: {gics_category}")  # Debugging log
+        query = """
+        MATCH (t:Trend)
+        WHERE t.Category = $gics_category OR t.Category IN ['Political', 'Economic', 'Social', 'Technological', 'Legal', 'Environmental']
+        RETURN t
+        """
+        with self.driver.session(database=self.database_name) as session:
+            results = session.run(query, gics_category=gics_category)
+            trends = [record["t"]._properties for record in results]
+            return {"trends": trends}
+
+    def delete_trends(self, criteria):
+        with self.driver.session(database=self.database_name) as session:
+            summary = session.write_transaction(self._delete_trend_nodes, criteria)
+            logger.info(f"Nodes deleted: {summary.counters.nodes_deleted}")
+            logger.info(f"Relationships deleted: {summary.counters.relationships_deleted}")
+
+    @staticmethod
+    def _delete_trend_nodes(tx, criteria):
+        logger.info(f"Deleting trends with criteria: {json.dumps(criteria, indent=2)}")
+
+        delete_query = """
+        MATCH (t:Trend)
+        WHERE """ + ' AND '.join([f"t.{key} = ${key}" for key in criteria.keys()]) + """
+        DETACH DELETE t
+        RETURN count(t) AS deleted_count
+        """
+
+        result = tx.run(delete_query, **criteria)
+        summary = result.consume()
+        logger.info(f"Deleted {summary.counters.nodes_deleted} nodes")
+        return summary
 
 class InsightGraph(BaseGraph):
-    def __init__(self, uri, user, password):
+    def __init__(self, uri, user, password, database_name="new"):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        self.database_name = database_name
 
     def close(self):
         self.driver.close()
 
     def add_insight(self, insight_data, company_name):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             session.write_transaction(
                 self._create_insight_and_link, insight_data, company_name
             )
 
     def get_company_insights_above_relevance(self, company_name, relevance_threshold):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             result = session.read_transaction(
                 self._find_company_insights_above_relevance,
                 company_name,
@@ -361,7 +559,10 @@ class InsightGraph(BaseGraph):
             if not isinstance(insight, dict):
                 logging.warning(f"Skipping invalid insight format: {insight}")
                 continue  # Skip this iteration
-
+            elif "insight" not in insight.keys():
+                logging.warning(f"Skipping invalid insight format: {insight}")
+                continue  # Skip this iteration
+            insight = insight.get("insight", {})
             # Ensure 'categories' is a list and 'extractionDate' is properly formatted
             categories = insight.get("categories", [])
             extractionDate = insight.get(
@@ -384,7 +585,7 @@ class InsightGraph(BaseGraph):
             )
 
     def remove_non_integer_ids(self):
-        with self.driver.session() as session:
+        with self.driver.session(database=self.database_name) as session:
             modified_count = session.write_transaction(self._remove_non_integer_ids)
             print(f"Modified {modified_count} nodes.")
         return
