@@ -50,6 +50,10 @@ pip install -r requirements.txt
 
 4. **Copy your data sources**
 
+You have to run the following export to give the TIKA python package access to your local server:
+
+   export TIKA_SERVER_JAR=${PWD}/tika_server/graph_workflow
+
 Files should be added to the following folders:
 
 data/sources/wikipedia
