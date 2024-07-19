@@ -107,7 +107,7 @@ def get_problem(company_name, problemsFile):
         statement = ""
     if company_name in problem_statements:
         statement = problem_statements[company_name]
-        dprint(f"statement: {statement}")
+        return statement
     else:
         dprint(f"Problem statement not found for the specified company {company_name}.")
         raise Exception(
