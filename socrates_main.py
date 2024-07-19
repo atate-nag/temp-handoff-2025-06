@@ -1,6 +1,8 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+
+load_dotenv()
 from agent_workflow_manager import AgentManager
 from debug import dprint
 from graph_workflow.full_graph import (
@@ -11,6 +13,7 @@ from graph_workflow.full_graph import (
 )
 from filehandler import FileHandler
 from graph_workflow.build_graph import fill_graph
+from graph_workflow.extract_insights import get_insights
 import json, re
 from openai_asst import (
     delete_assistants_clones,
@@ -21,7 +24,7 @@ from openai_asst import (
 
 from utility import dict_to_plain_text, json_to_markdown, dict_to_markdown, retry
 
-load_dotenv()
+
 client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
 
 uri = os.getenv("NEO4J_URL")
@@ -88,6 +91,7 @@ def get_step_function(step_name):
         "cleanUp": clean_up,
         # graph manipulation and display routines
         "fill_graph": fill_graph,
+        "getInsights": get_insights,
         "getTrends": get_trends,
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,

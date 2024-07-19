@@ -274,6 +274,14 @@ class RAG_graph:
         for index in self.indexes:
             print(index)
         return self.indexes
+    
+    def add_company(self, company_name):
+        self.kg.query(
+            """
+            MERGE (c:Company {name: $company_name})
+            """,
+            params={"company_name": company_name},
+        )
 
     def add_chunk(self, chunk):
         # print(f"Chunk: {chunk}")
