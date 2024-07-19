@@ -7,7 +7,6 @@ load_dotenv()
 
 
 from graph_workflow.graph_rag_lc import RAG_graph
-from core_components.TrendAgent.trendAgent import TrendAgent
 from filehandler import FileHandler
 from utility import retry
 import time

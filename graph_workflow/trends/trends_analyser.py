@@ -1,22 +1,12 @@
 import time
-from core_components.RAG.graph import RAG_graph
+from graph_workflow.graph_rag_lc import RAG_graph
 import os
 from dotenv import load_dotenv
-from sklearn.cluster import KMeans
-from sklearn.metrics import (
-    calinski_harabasz_score,
-    davies_bouldin_score,
-    silhouette_score,
-)
-from sklearn import metrics
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from pydantic import BaseModel, ConfigDict, Field, conint
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
+
+from pydantic import BaseModel, Field
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
-from typing import Dict, List
-from langchain_core.prompts import ChatPromptTemplate
+from typing import List
 from langchain_openai import ChatOpenAI
 from utility import dict_to_plain_text
 from multiprocessing import Pool
