@@ -1,7 +1,4 @@
 from graph_workflow.graph_rag_lc import RAG_graph
-from dotenv import load_dotenv
-
-load_dotenv()
 from utility import dict_to_plain_text
 import os
 from chains import evaluate_trend_cluster
@@ -19,7 +16,7 @@ OPENAI_EMBEDDINGS_URL = os.getenv("OPENAI_EMBEDDINGS_URL")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
 rag_graph = RAG_graph(
-    "bolt://localhost:7687",
+    uri,
     user,
     password,
     database,

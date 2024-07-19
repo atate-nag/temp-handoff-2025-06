@@ -4,28 +4,19 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-from functools import wraps
-import logging
-import sys
-from llama_index.llms.openai import OpenAI
-from llama_index.core import Settings
 
-# from ui import UI
-import threading
-from langchain_community.graphs import Neo4jGraph
-from enum import Enum
-import pandas as pd
-from graph import CompanyGraph, InsightGraph, map_json_to_company_schema
-from core_components.RAG.graph import RAG_graph
+
+from graph_workflow.graph_rag_lc import RAG_graph
 from core_components.TrendAgent.trendAgent import TrendAgent
 from filehandler import FileHandler
+from utility import retry
+import time
 
 # from dochandler import import_data_files
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
-from multiprocessing import Process, Queue, Semaphore
-from agent_workflow_manager import AgentManager
+from multiprocessing import Pool
 from filehandler import FileHandler
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from pydantic import BaseModel, ConfigDict, Field
@@ -62,21 +53,13 @@ OPENAI_EMBEDDINGS_URL = os.getenv("OPENAI_EMBEDDINGS_URL")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 from datetime import datetime
 
-data = pd.read_csv("out.csv")
-
 rag_graph = RAG_graph(
-    "bolt://localhost:7687",
+    uri,
     user,
     password,
     database,
     OPENAI_API_KEY,
     OPENAI_EMBEDDINGS_URL,
-)
-
-data = pd.read_csv("out.csv")
-name = data["name"].values[0]
-res = rag_graph.company_sub_graph(
-    name, label_filters=["Chunk"], relationship_exclusions=["SIMILAR"]
 )
 
 
@@ -102,6 +85,17 @@ class InsightList(BaseModel):
 
 
 ### CLASSIFICATIONS
+
+model_insights = ChatOpenAI(model="gpt-4o", temperature=0.1)
+parser_insights = JsonOutputParser(pydantic_object=InsightList)
+get_insights = PromptTemplate(
+    template="""Give me the relevant insights for the company: {company} using only the data provided in this document: '{document}'\n{format_instructions}""",
+    input_variables=["company", "document"],
+    partial_variables={
+        "format_instructions": parser_insights.get_format_instructions()
+    },
+)
+chain_insights = get_insights | model_insights | parser_insights
 
 general_classification_instruction = ChatPromptTemplate.from_template(
     """ You will classify this text:
@@ -411,8 +405,6 @@ def add_to_dict(dict, key, value):
     return dict
 
 
-from langchain_openai import ChatOpenAI
-
 model_classification = ChatOpenAI(model="gpt-4o")
 model_detection = ChatOpenAI(model="gpt-4o")
 output_parser_classification = StrOutputParser()
@@ -425,65 +417,12 @@ chain_classification = (
 chain_detection = (
     general_detection_instruction | model_detection | output_parser_detection
 )
-data = pd.read_csv("out.csv")
-name = data["name"].values[0]
-names = ["NAG"] + list(data["name"].values)
-names = [
-    name
-    for name in names
-    if name
-    in [
-        "Alphabet",
-        "Walmart",
-        "Apple",
-        "Amazon",
-        "Tesla",
-        "Elevance Health",
-        "Exxon Mobil",
-        "McKesson",
-    ]
-]
-name = ["NAG"]
 
 
-def get_fortune(company, rag):
-    return rag.kg.query(
-        "MATCH (n:Company)-[]->(m:Class) WHERE n.name = $company and m.source = 'Fortune' RETURN m",
-        {"company": company},
-    )[0]
-
-
-def clean_up():
-    # Aggressive Cleanup of assistants and files
-    # except for those and all files
-    deleted = delete_assistants_clones(client)
-    deleted = deleted_files = None
-    # deleted = delete_not_known_assistants(client)
-    deleted_files = delete_files_less_than_1_hour(client)
-    # deleted_files = delete_all_uploaded_files(client)
-    print(f"Deleted {deleted} assistants and {deleted_files} files")
-
-
-def retry(number_of_retry=3):
-    def retry_outer(fn):
-        @wraps(fn)
-        def retry_inner(*args, **kwargs):
-            for i in range(number_of_retry):
-                try:
-                    response = fn(*args, **kwargs)
-                    return response
-                except Exception as e:
-                    print(e)
-                    print(f"Retry {i+1}/{number_of_retry}")
-
-        return retry_inner
-
-    return retry_outer
-
-
-@retry()
-def add_insight(name, text, dict, chain_insights):
+def add_insight(name, text, dict):
+    # print("Adding insight")
     response_insight = chain_insights.invoke({"company": name, "document": text})
+    # print(response_insight)
     insights = [
         {
             "insightId": str(uuid.uuid4()),
@@ -497,131 +436,62 @@ def add_insight(name, text, dict, chain_insights):
         for i in response_insight["insights"]
     ]
     for insight in insights:
-
-        #     MERGE(mergedInsight:Insight {insightId: $insightParam.insightId})
-        #     ON CREATE SET
-        #         mergedInsight.name = $insightParam.name,
-        #         mergedInsight.source = $insightParam.source,
-        #         mergedInsight.source_location = $insightParam.source_location,
-        #         mergedInsight.timestamp = TIMESTAMP(),
-        #         mergedInsight.created = $insightParam.created,
-        #         mergedInsight.insightSeqId = $insightParam.insightSeqId,
-        #         mergedInsight.insightType = $insightParam.insightType,
-        #         mergedInsight.text = $insightParam.text,
-        #         mergedInsight.keywords = $insightParam.keywords,
-        #         mergedInsight.id_ = $insightParam.insightId
-        # RETURN mergedInsight
-        # insight_id = str(uuid.uuid4())
-        # insight = {
-        #     'insightId': insight_id,
-        #     'description': insight['description'],
-        #     'name': insight['name'],
-        #     'categories': insight['categories'],
-        #     'relevanceScore': insight['relevanceScore'],
-        #     'source': dict['source'],
-        #     'created': datetime.today().strftime("%Y-%m-%d"),
-        # }
         insight_id = insight["insightId"]
-        print("Adding insight to graph")
+        # print("Adding insight to graph")
         rag_graph.add_insight(insight)
-        print("Linking insight to chunk")
-        print(f"Chunk id is {dict['chunkId']}")
-        print(f"Insight id is {insight_id}")
+        # print("Linking insight to chunk")
+        # print(f"Chunk id is {dict['chunkId']}")
+        # print(f"Insight id is {insight_id}")
         rag_graph.link_chunk_to_insight(dict["chunkId"], insight_id)
+    return insights
 
 
-if __name__ == "__main__":
-    model_insights = ChatOpenAI(model="gpt-4o", temperature=0.1)
-    parser_insights = JsonOutputParser(pydantic_object=InsightList)
-    get_insights = PromptTemplate(
-        template="""Give me the relevant insights for the company: {company} using only the data provided in this document: '{document}'\n{format_instructions}""",
-        input_variables=["company", "document"],
-        partial_variables={
-            "format_instructions": parser_insights.get_format_instructions()
-        },
-    )
-    chain_insights = get_insights | model_insights | parser_insights
-    print(names)
-    names = ["NAG"]
-    companies = [
-        # "Phillips 66",
-        # "Ford Motor",
-        # "Home Depot",
-        # "General Motors",
-        # "Centene",
-        # "Verizon Communications",
-        # "Walgreens Boots Alliance",
-        # "Fannie Mae",
-        # "Comcast",
-        # "Meta Platforms",
-        # "Bank of America",
-        # "Target",
-        # "Dell Technologies",
-        # "Archer Daniels Midland",
-        # "Citigroup",
-        # "United Parcel Service",
-        # "Pfizer",
-        # "Lowe's",
-        # "Johnson & Johnson",
-        # "FedEx",
-        # "Humana",
-        # "Energy Transfer",
-        # "State Farm Insurance",
-        # "Freddie Mac",
-        # "PepsiCo",
-        # "Wells Fargo",
-        # "Walt Disney",
-        # "Procter & Gamble",
-        # "General Electric",
-        # "Albertsons",
-        # "MetLife",
-        # "Goldman Sachs Group",
-        # "Sysco",
-        # "Raytheon Technologies",
-        # "Boeing",
-        # "StoneX Group",
-        # "Lockheed Martin",
-        # "Morgan Stanley",
-        # "Intel",
-        # "HP",
-        # "TD Synnex",
-        # "International Business Machines",
-        # "HCA Healthcare",
-        # "Prudential Financial",
-        # "Caterpillar",
-        # "Merck",
-        # "World Fuel Services"
-        "Tesla"
-    ]
-
+def get_insights(companies, delete_existing_insights=False):
     names = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
     for name in names:
-        print(name)
         name = name.replace(" ", "_").replace(".", "").replace("'", "")
-        clean_up()
         res = rag_graph.company_sub_graph(
             name, label_filters=["Chunk"], relationship_exclusions=["SIMILAR"], depth=5
         )
-        ins = rag_graph.company_sub_graph(
-            name,
-            label_filters=["Insight"],
-            relationship_exclusions=["SIMILAR"],
-            depth=5,
-        )
 
-        for i in ins:
-            print(i)
-            rag_graph.kg.query(
-                f"MATCH (n:Insight) WHERE n.insightId = '{i['insightId']}' DETACH DELETE n"
+        # Delete insights if already exist
+        if delete_existing_insights:
+            ins = rag_graph.company_sub_graph(
+                name,
+                label_filters=["Insight"],
+                relationship_exclusions=["SIMILAR"],
+                depth=5,
             )
 
+            for i in ins:
+                rag_graph.kg.query(
+                    f"MATCH (n:Insight) WHERE n.insightId = '{i['insightId']}' DETACH DELETE n"
+                )
+
         # create_insights(res, company_data, name)
-        if len(ins) == 0:
+        # if len(ins) == 0:
+        with Pool(processes=5) as pool:
+            results = []
             for dict in res:
                 # try:
-                print(name)
                 text = dict["text"]
+                # print(f"Creating insights for {text}")
+                graph_params = [
+                    uri,
+                    user,
+                    password,
+                    database,
+                    OPENAI_API_KEY,
+                    OPENAI_EMBEDDINGS_URL,
+                ]
+                # add_insight(name, text, dict, chain_insights, rag_graph, graph_params)
+                results.append(pool.apply_async(add_insight, args=(name, text, dict)))
+            print("Waiting for processes to finish...")
+            while not all([r.ready() for r in results]):
 
-                add_insight(name, text, dict, chain_insights)
+                print(
+                    f"{[r.ready() for r in results].count(True)} / {len(results)} insights added for {name}."
+                )
+                time.sleep(5)
 
-            print(f"Insights for {name} were created")
+        print(f"Insights for {name} were created")
