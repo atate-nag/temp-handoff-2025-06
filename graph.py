@@ -11,6 +11,7 @@ import neo4j
 # logging.basicConfig(level=logging.INFO)
 # logger = logging.getLogger(__name__)
 
+
 def run_query_and_summarize(session, query, parameters=None):
     try:
         result = session.run(query, parameters)
@@ -42,6 +43,7 @@ def run_query_and_summarize(session, query, parameters=None):
     except neo4j.exceptions.Neo4jError as e:
         print(f"Error executing query: {e.message}")
 
+
 class BaseGraph:
     def __init__(self, uri, user, password, database_name="new"):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
@@ -55,6 +57,7 @@ class BaseGraph:
             result = session.run("MATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m")
             for record in result:
                 print(record)
+
 
 class CompanyGraph(BaseGraph):
     def delete_company(self, company_name):
@@ -101,7 +104,9 @@ class CompanyGraph(BaseGraph):
 
     def prune_insights_from_recommendation(self, company_name, recommendations):
         with self.driver.session(database=self.database_name) as session:
-            session.write_transaction(self._prune_insights_recommendation, company_name, recommendations)
+            session.write_transaction(
+                self._prune_insights_recommendation, company_name, recommendations
+            )
 
     @staticmethod
     def _prune_insights_recommendation(tx, company_name, recommendations):
@@ -112,8 +117,8 @@ class CompanyGraph(BaseGraph):
             if isinstance(recommendation, dict):
                 # Check if the recommendation is to prune the insight
                 if isinstance(recommendation, dict):
-                    insight_id = recommendation.get('id')
-                    if recommendation.get('recommendation') == 'prune':
+                    insight_id = recommendation.get("id")
+                    if recommendation.get("recommendation") == "prune":
                         # Prune the insight by its ID and the company name
                         dprint(f"Pruning insight {insight_id}")
                         query = """
@@ -122,13 +127,19 @@ class CompanyGraph(BaseGraph):
                                DETACH DELETE i
                                """
                         dprint(query)
-                        run_query_and_summarize(tx, query, {"company_name": company_name, "insight_id": insight_id})
+                        run_query_and_summarize(
+                            tx,
+                            query,
+                            {"company_name": company_name, "insight_id": insight_id},
+                        )
                         removed_nodes += 1
                     else:
-                        if recommendation.get('recommendation') == "retain":
+                        if recommendation.get("recommendation") == "retain":
                             dprint(f"Retaining insight {insight_id}")
                 else:
-                    print(f"Unexpected type for recommendation: {type(recommendation)}. Expected a dictionary.")
+                    print(
+                        f"Unexpected type for recommendation: {type(recommendation)}. Expected a dictionary."
+                    )
         dprint(f"Removed {removed_nodes}")
 
     # TODO this generic graph update is not good enough
@@ -158,12 +169,16 @@ class CompanyGraph(BaseGraph):
         tx.run(query, company_name=company_name)
 
     def get_company_info(self, company_name):
-        with (self.driver.session(database=self.database_name) as session):
+        with self.driver.session(database=self.database_name) as session:
             try:
-                result = session.read_transaction(self._retrieve_company_node, company_name)
+                result = session.read_transaction(
+                    self._retrieve_company_node, company_name
+                )
             except Exception as e:
-                print(f"Error retrieving company {company_name} from graph: Probably no company{e}"
-                      f" of that name exists. Real error is {e}")
+                print(
+                    f"Error retrieving company {company_name} from graph: Probably no company{e}"
+                    f" of that name exists. Real error is {e}"
+                )
         return result
 
     @staticmethod
@@ -221,7 +236,9 @@ class CompanyGraph(BaseGraph):
                             "scarcity": capability["scarcity"],
                             "uuid": capability["uuid"],
                             "valuePotential": capability["valuePotential"],
-                        } for capability in record["capabilities"] if capability is not None
+                        }
+                        for capability in record["capabilities"]
+                        if capability is not None
                     ],
                     "insights": [
                         {
@@ -232,8 +249,14 @@ class CompanyGraph(BaseGraph):
                             "relevanceScore": insight["relevanceScore"],
                             "source": insight["source"],
                             "source_from_file": insight["source_from_file"],
-                            "source_location_from_file": insight["source_location_from_file"],
-                        } for insight, insight_id in zip(record["insights"], record["insightIDs"]) if insight is not None
+                            "source_location_from_file": insight[
+                                "source_location_from_file"
+                            ],
+                        }
+                        for insight, insight_id in zip(
+                            record["insights"], record["insightIDs"]
+                        )
+                        if insight is not None
                     ],
                 }
                 json_data = json.dumps(graph_data, indent=4)
@@ -401,11 +424,17 @@ class CompanyGraph(BaseGraph):
 
     def add_trend(self, trend, category):
         with self.driver.session(database=self.database_name) as session:
-            summary = session.write_transaction(self._create_trend_node, trend, category)
+            summary = session.write_transaction(
+                self._create_trend_node, trend, category
+            )
             logger.info(f"Nodes created: {summary.counters.nodes_created}")
             logger.info(f"Nodes deleted: {summary.counters.nodes_deleted}")
-            logger.info(f"Relationships created: {summary.counters.relationships_created}")
-            logger.info(f"Relationships deleted: {summary.counters.relationships_deleted}")
+            logger.info(
+                f"Relationships created: {summary.counters.relationships_created}"
+            )
+            logger.info(
+                f"Relationships deleted: {summary.counters.relationships_deleted}"
+            )
             logger.info(f"Properties set: {summary.counters.properties_set}")
             logger.info(f"Labels added: {summary.counters.labels_added}")
             logger.info(f"Labels removed: {summary.counters.labels_removed}")
@@ -413,7 +442,7 @@ class CompanyGraph(BaseGraph):
     @staticmethod
     def _create_trend_node(tx, trend, category):
         unique_id = str(uuid.uuid4())
-        trend['TrendID'] = unique_id
+        trend["TrendID"] = unique_id
         logger.info(f"Creating trend with TrendID: {unique_id}")
         logger.info(f"Trend data: {json.dumps(trend, indent=2)}")
 
@@ -429,20 +458,23 @@ class CompanyGraph(BaseGraph):
                RETURN t
                """
 
-        affected_areas_json = json.dumps(trend['AffectedAreas'])
-        evidenced_by_json = json.dumps(trend['EvidencedBy'])
+        affected_areas_json = json.dumps(trend["AffectedAreas"])
+        evidenced_by_json = json.dumps(trend["EvidencedBy"])
 
-        result = tx.run(trend_query,
-                        TrendID=trend['TrendID'],
-                        Title=trend['Title'],
-                        Summary=trend['Summary'],
-                        Description=trend['Description'],
-                        Category=category,
-                        AffectedAreas=affected_areas_json,
-                        EvidencedBy=evidenced_by_json)
+        result = tx.run(
+            trend_query,
+            TrendID=trend["TrendID"],
+            Title=trend["Title"],
+            Summary=trend["Summary"],
+            Description=trend["Description"],
+            Category=category,
+            AffectedAreas=affected_areas_json,
+            EvidencedBy=evidenced_by_json,
+        )
 
         summary = result.consume()
         return summary
+
     def get_all_trends(self):
         with self.driver.session(database=self.database_name) as session:
             result = session.run("MATCH (t:Trend) RETURN t")
@@ -481,23 +513,30 @@ class CompanyGraph(BaseGraph):
         with self.driver.session(database=self.database_name) as session:
             summary = session.write_transaction(self._delete_trend_nodes, criteria)
             logger.info(f"Nodes deleted: {summary.counters.nodes_deleted}")
-            logger.info(f"Relationships deleted: {summary.counters.relationships_deleted}")
+            logger.info(
+                f"Relationships deleted: {summary.counters.relationships_deleted}"
+            )
 
     @staticmethod
     def _delete_trend_nodes(tx, criteria):
         logger.info(f"Deleting trends with criteria: {json.dumps(criteria, indent=2)}")
 
-        delete_query = """
+        delete_query = (
+            """
         MATCH (t:Trend)
-        WHERE """ + ' AND '.join([f"t.{key} = ${key}" for key in criteria.keys()]) + """
+        WHERE """
+            + " AND ".join([f"t.{key} = ${key}" for key in criteria.keys()])
+            + """
         DETACH DELETE t
         RETURN count(t) AS deleted_count
         """
+        )
 
         result = tx.run(delete_query, **criteria)
         summary = result.consume()
         logger.info(f"Deleted {summary.counters.nodes_deleted} nodes")
         return summary
+
 
 class InsightGraph(BaseGraph):
     def __init__(self, uri, user, password, database_name="new"):

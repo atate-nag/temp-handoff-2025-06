@@ -7,6 +7,7 @@ from debug import dprint
 from utility import dict_to_plain_text
 import time
 
+
 class FileHandler:
     def __init__(self, client, base_path="./Intermediates/"):
         self.client = client
@@ -40,28 +41,25 @@ class FileHandler:
             dprint(f"Wrote file {local_file_path} and uploaded to {openai_response.id}")
         return openai_response.id
 
-    def json_to_asst_file(self, client, data, tag, assistant ):
+    def json_to_asst_file(self, client, data, tag, assistant):
         local_json = self.write_local_json(tag, data)
         # Upload to Assistant file
         asst_file = self.create_asst_file_from_local(client, assistant, local_json)
         return asst_file
 
-    def txt_to_asst_file(self,client, text, tag, assistant):
+    def txt_to_asst_file(self, client, text, tag, assistant):
         # Check if file already exists locally and has been uploaded
         # nuance - openAI needs an asssistant file if the agent is already active
         # local_file = self.write_local_file(tag, text)
         # asst_file = self.create_asst_file_from_local(client, assistant, local_file)
         # return asst_file
         print(f"\n******\nUploading text to assistant file {text}\n******\n")
-        
+
         with open(f"debug_{tag}.json", "w") as file:
             file.write(text)
         with open(f"debug_{tag}.json", "rb") as local_file:
             print(local_file)
-            uploaded_file = client.files.create(
-                file=local_file,
-                purpose="assistants"
-            )
+            uploaded_file = client.files.create(file=local_file, purpose="assistants")
             # asst_file = client.beta.assistants.files.create(
             #     assistant_id=assistant,
             #     file_id=uploaded_file.id
@@ -73,7 +71,7 @@ class FileHandler:
         # nuance - openAI needs an asssistant file if the agent is already active
         local_file_path = f"./Intermediates/{tag}.txt"
         with open(
-                f"./Intermediates/local_{tag}_for_agent_upload.txt", "w", encoding="utf-8"
+            f"./Intermediates/local_{tag}_for_agent_upload.txt", "w", encoding="utf-8"
         ) as file:
             # write to local file
             with open(local_file_path, "w", encoding="utf-8") as txt_file:
@@ -89,10 +87,7 @@ class FileHandler:
     def direct_upload_file(self, file_path):
 
         with open(file_path, "rb") as file:
-            openai_file = self.client.files.create(
-                file=file,
-                purpose="assistants"
-            )
+            openai_file = self.client.files.create(file=file, purpose="assistants")
         dprint(f"Uploaded {file_path} to {openai_file}")
 
         # check that we can also download this file, if not why not?
@@ -108,7 +103,7 @@ class FileHandler:
         end = min(len(json_string), pos + context_len)
         return json_string[start:end]
 
-    def split_json_objects(self,json_string):
+    def split_json_objects(self, json_string):
         """
         Split a string containing multiple JSON objects into a list of JSON objects.
         This function will handle and skip over malformed JSON segments.
@@ -134,7 +129,7 @@ class FileHandler:
 
                 # Attempt more aggressive repair
                 start_pos = pos
-                while pos < length and json_string[pos] not in '{[':
+                while pos < length and json_string[pos] not in "{[":
                     pos += 1
                 # Capture the malformed segment
                 malformed_segment = json_string[start_pos:pos]
@@ -155,7 +150,9 @@ class FileHandler:
         elif isinstance(data, dict):
             cleaned_data = {}
             for key, value in data.items():
-                cleaned_key = FileHandler.clean_json_string(key) if isinstance(key, str) else key
+                cleaned_key = (
+                    FileHandler.clean_json_string(key) if isinstance(key, str) else key
+                )
                 cleaned_value = FileHandler.clean_structured_data(value)
                 cleaned_data[cleaned_key] = cleaned_value
             return cleaned_data
@@ -179,14 +176,20 @@ class FileHandler:
 
         for file_name in files:
             file_path = os.path.join(path_to_dir, file_name)
-            if os.path.isfile(file_path) and not file_name.lower().endswith('.json'):
-                _, file_extension = os.path.splitext(file_name)  # Extract file extension
-                file_format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
+            if os.path.isfile(file_path) and not file_name.lower().endswith(".json"):
+                _, file_extension = os.path.splitext(
+                    file_name
+                )  # Extract file extension
+                file_format = file_extension.lstrip(
+                    "."
+                )  # Remove the leading '.' from the extension
                 doc = Rdoc.create(file_path, file_format, "insight")
 
                 # Step 2: Convert to structured format (json)
                 structured_data = doc.build_structured_data()
-                print(f"Original structured data snippet: {json.dumps(structured_data)[:1000]}")  # Debugging
+                print(
+                    f"Original structured data snippet: {json.dumps(structured_data)[:1000]}"
+                )  # Debugging
 
                 # Verify and clean the structured data
                 if isinstance(structured_data, str):
@@ -196,7 +199,9 @@ class FileHandler:
                         print(f"Initial structured data is not valid JSON: {e}")
 
                 cleaned_structured_data = self.clean_structured_data(structured_data)
-                print(f"Cleaned structured data snippet: {json.dumps(cleaned_structured_data)[:1000]}")  # Debugging
+                print(
+                    f"Cleaned structured data snippet: {json.dumps(cleaned_structured_data)[:1000]}"
+                )  # Debugging
 
                 # Convert structured data to a JSON string
                 json_string = json.dumps(cleaned_structured_data, indent=4)
@@ -204,12 +209,14 @@ class FileHandler:
 
                 # Clean and repair the JSON string
                 cleaned_json_string = self.clean_json_string(json_string)
-                print(f"Cleaned JSON string snippet: {cleaned_json_string[:1000]}")  # Debugging
+                print(
+                    f"Cleaned JSON string snippet: {cleaned_json_string[:1000]}"
+                )  # Debugging
 
                 try:
                     full_info = json.loads(cleaned_json_string)
                 except json.JSONDecodeError as e:
-                    if 'Extra data' in str(e) or 'Expecting value' in str(e):
+                    if "Extra data" in str(e) or "Expecting value" in str(e):
                         # Handle multiple JSON objects case
                         full_info = list(self.split_json_objects(cleaned_json_string))
                         print("Handled multiple JSON objects.")
@@ -222,27 +229,38 @@ class FileHandler:
                             print(f"Failed to repair JSON: {e}")
                             continue
                 # Create the JSON file path and save the JSON data
-                json_file_path = os.path.splitext(file_path)[0] + '.json'
-                with open(json_file_path, 'w', encoding='utf-8') as json_file:
+                json_file_path = os.path.splitext(file_path)[0] + ".json"
+                with open(json_file_path, "w", encoding="utf-8") as json_file:
                     json.dump(full_info, json_file, indent=4)
                 json_files.append(json_file_path)
 
         return json_files
+
     def upload_dir(self, path_to_dir, company_name, doctype):
         files = [
-            f for f in os.listdir(path_to_dir) if os.path.isfile(os.path.join(path_to_dir, f))
+            f
+            for f in os.listdir(path_to_dir)
+            if os.path.isfile(os.path.join(path_to_dir, f))
         ]
         uploaded_files = []
         for i, file_name in enumerate(files):
             file_path = os.path.join(path_to_dir, file_name)  # Full path to the file
             _, file_extension = os.path.splitext(file_name)  # Extract file extension
-            file_format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
+            file_format = file_extension.lstrip(
+                "."
+            )  # Remove the leading '.' from the extension
             doc = Rdoc.create(file_path, file_format, doctype)
             # step 2 : convert to structured format (json)
             json_doc = doc.build_structured_data()
             # TODO change to use asst_file
-            uploaded_files.append((self.direct_upload_json(json_doc, f"{company_name}_insight_doc",
-                                                      purpose="assistants"), file_name))
+            uploaded_files.append(
+                (
+                    self.direct_upload_json(
+                        json_doc, f"{company_name}_insight_doc", purpose="assistants"
+                    ),
+                    file_name,
+                )
+            )
         return uploaded_files
 
     @staticmethod
@@ -250,9 +268,8 @@ class FileHandler:
         file_path = f"./Intermediates/upload{tag}.json"
         # Open the file in binary mode for writing; encode the text to bytes
         with open(file_path, "w") as file:
-            file.write(text.encode('utf-8'))
+            file.write(text.encode("utf-8"))
         return file_path
-
 
     @staticmethod
     def write_local_json(tag, data):
@@ -263,6 +280,7 @@ class FileHandler:
         with open(file_path, "w") as file:
             file.write(data)
         return file_path
+
     @staticmethod
     def write_local_txt(tag, data):
         # TODO - pass dictionary data not a string?
@@ -281,17 +299,13 @@ class FileHandler:
         with open(file_path, "w") as file:
             json.dump(data, file)
         return file_path
+
     def upload_text_to_file(self, client, text):
-        with open(
-                f"./Intermediates/response.json", "w", encoding="utf-8"
-        ) as file:
+        with open(f"./Intermediates/response.json", "w", encoding="utf-8") as file:
             file.write(text)
-        with open(
-                f"./Intermediates/response.json", "rb"
-        ) as openai_file:
+        with open(f"./Intermediates/response.json", "rb") as openai_file:
             openai_response = client.files.create(
-                file=openai_file,
-                purpose="assistants"
+                file=openai_file, purpose="assistants"
             )
         dprint(
             f"wrote file ./Intermediates/response.json and uploaded to {openai_response.id}"
@@ -337,15 +351,17 @@ class FileHandler:
         for i, file_name in enumerate(data_files):
             file_path = os.path.join(data_dir, file_name)  # Full path to the file
             _, file_extension = os.path.splitext(file_name)  # Extract file extension
-            format = file_extension.lstrip(".")  # Remove the leading '.' from the extension
+            format = file_extension.lstrip(
+                "."
+            )  # Remove the leading '.' from the extension
             doc = Rdoc.create(file_path, format, document_type)
             json_doc = doc.build_structured_data()
             with open(
-                    f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8"
+                f"./Intermediates/structured_data_{i}.json", "w", encoding="utf-8"
             ) as json_file:
                 json_file.write(json_doc)
             with open(
-                    f"./Intermediates/structured_data_{i}.json", "rb"
+                f"./Intermediates/structured_data_{i}.json", "rb"
             ) as json_openai_file:
                 json_openai_response = client.files.create(
                     file=json_openai_file, purpose="assistants"
@@ -360,20 +376,20 @@ class FileHandler:
 
     def local_json_read(self, local_filename):
         # reads local json file and returns dictionary
-        with open(
-                f"{local_filename}", "r", encoding="utf-8"
-        ) as json_file:
+        with open(f"{local_filename}", "r", encoding="utf-8") as json_file:
             json_content = json_file.read()
         # TODO store local files in class
         return json.loads(json_content)
 
-    def retrieve_and_create_asst_file(self, client, assistant, thread, qm_id=None, tag=""):
+    def retrieve_and_create_asst_file(
+        self, client, assistant, thread, qm_id=None, tag=""
+    ):
         """
-            From an assistant thread, extract the file id and store in
-            an assistant-file for accessing by agent. Will need to create the output file
-            on both the assistant-id and the qm_id
-            If this comes out of an output file provided by an Agent, then don't create a
-            new one. Just return the JSON.
+        From an assistant thread, extract the file id and store in
+        an assistant-file for accessing by agent. Will need to create the output file
+        on both the assistant-id and the qm_id
+        If this comes out of an output file provided by an Agent, then don't create a
+        new one. Just return the JSON.
         """
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
@@ -393,8 +409,8 @@ class FileHandler:
 
     def retrieve_output_file_id(self, client, assistant, thread, qm_id=None, tag=""):
         """
-            From an assistant thread, extract the file id that it references, and store in
-            (if necessary) copy it to the QM agent.
+        From an assistant thread, extract the file id that it references, and store in
+        (if necessary) copy it to the QM agent.
         """
         file_id = retrieve_file_annotation(client, thread)
         if file_id:
@@ -405,7 +421,9 @@ class FileHandler:
             return file_id
         return None
 
-    def retrieve_direct_agent_content(self, client, agent_id, response_str, output_file, tag=""):
+    def retrieve_direct_agent_content(
+        self, client, agent_id, response_str, output_file, tag=""
+    ):
         """
         Retrieves the content from a file, annotations or set of messages.
         """
@@ -424,7 +442,9 @@ class FileHandler:
         #     json_data = self.retrieve_file_content_dict(client, agent_id, output_file)
         #     if json_data:
         #         return json_data
-        dprint("No json data found in either response or latest output file, returning None")
+        dprint(
+            "No json data found in either response or latest output file, returning None"
+        )
         return None
 
     @staticmethod
@@ -433,24 +453,24 @@ class FileHandler:
         Cleans a JSON string in common ways that JSON is often invalid.
         """
         # Fix unquoted keys
-        s = re.sub(r'([{,]\s*)(\w+)(\s*:)', r'\1"\2"\3', s)
+        s = re.sub(r"([{,]\s*)(\w+)(\s*:)", r'\1"\2"\3', s)
         # Fix booleans
-        s = re.sub(r'\b(True|False)\b', lambda m: m.group(0).lower(), s)
+        s = re.sub(r"\b(True|False)\b", lambda m: m.group(0).lower(), s)
         # Fix escaping issues
         s = re.sub(r"\\'", "'", s)  # Single quotes should not be escaped in JSON
         s = s.replace("\\\\", "\\")  # Unescape escaped backslashes
         s = s.replace("\\/", "/")  # Unescape escaped slashes
         # Remove stray backslashes not followed by a valid escape sequence
-        s = re.sub(r'\\([^"\\/bfnrtu])', r'\1', s)
+        s = re.sub(r'\\([^"\\/bfnrtu])', r"\1", s)
         # Fix issues with trailing backslashes
-        s = re.sub(r'\\$', '', s)
+        s = re.sub(r"\\$", "", s)
         # Remove newlines within strings
-        s = re.sub(r'(?<!\\)(\\n|\\r)', ' ', s)
+        s = re.sub(r"(?<!\\)(\\n|\\r)", " ", s)
         return s
 
     def extract_json_from_response(self, client, thread):
         """
-            Get JSON data directly from agent thread via messages
+        Get JSON data directly from agent thread via messages
         """
         messages = client.beta.threads.messages.list(thread_id=thread.id).data
         for message in messages:
@@ -463,14 +483,22 @@ class FileHandler:
                             cleaned_json_string = self.clean_json_string(json_string)
                             try:
                                 full_info = json.loads(cleaned_json_string)
-                                dprint(
-                                    f"JSON found in the message, returning it"
-                                )
+                                dprint(f"JSON found in the message, returning it")
                                 return full_info
                             except json.JSONDecodeError as e:
                                 dprint(f"Failed to decode JSON: {e}")
-                                dprint(f"Faulty JSON string: {repr(cleaned_json_string)}")
-                                repaired_json = '[' + re.sub(r'\}\s*,\s*\{', '}, {', cleaned_json_string.strip()) + ']'
+                                dprint(
+                                    f"Faulty JSON string: {repr(cleaned_json_string)}"
+                                )
+                                repaired_json = (
+                                    "["
+                                    + re.sub(
+                                        r"\}\s*,\s*\{",
+                                        "}, {",
+                                        cleaned_json_string.strip(),
+                                    )
+                                    + "]"
+                                )
                                 try:
                                     # Load the repaired JSON string
                                     full_info = json.loads(repaired_json)
@@ -485,12 +513,13 @@ class FileHandler:
         # Extremely naughty AI did not produce anything! Hopefully next round will be better
         dprint("No JSON content was found")
         return None
+
     def extract_json_from_response_asst_file(self, client, file_id, agent_id):
         str = self.retrieve_file_content_str(client, agent_id, file_id)
 
     def extract_json_from_response_text(self, response):
         """
-            Get JSON data directly from provided agent response text and return as a dictionary or list
+        Get JSON data directly from provided agent response text and return as a dictionary or list
         """
         # Adjusting regex to capture JSON data enclosed within markdown code blocks
         # and be resilient to the absence of newlines
@@ -521,18 +550,16 @@ class FileHandler:
 
     def attempt_to_repair_json(self, json_string):
         """
-            Attempt to repair common issues in JSON strings that prevent parsing
+        Attempt to repair common issues in JSON strings that prevent parsing
         """
         # Example: Fixes for missing commas between objects, extra trailing commas, etc.
-        repaired = re.sub(r'\}\s*,\s*\{', '}, {', json_string.strip().rstrip(','))
-        return '[' + repaired + ']'
-
-
+        repaired = re.sub(r"\}\s*,\s*\{", "}, {", json_string.strip().rstrip(","))
+        return "[" + repaired + "]"
 
     def retrieve_file_content_str(self, client, agent_id, file):
         """
-            given an asst-file-id, return the JSON file content
-            TODO should be in filehandler?
+        given an asst-file-id, return the JSON file content
+        TODO should be in filehandler?
         """
         # asst_file = client.beta.assistants.files.retrieve(
         #     assistant_id=agent_id,
@@ -544,8 +571,8 @@ class FileHandler:
 
     def retrieve_file_content_dict(self, client, agent_id, file):
         """
-            given an asst-file-id, return the JSON file content
-            TODO should be in filehandler?
+        given an asst-file-id, return the JSON file content
+        TODO should be in filehandler?
         """
         # asst_file = client.beta.assistants.files.retrieve(
         #     assistant_id=agent_id,
@@ -561,6 +588,7 @@ class FileHandler:
         #     order="asc"
         # )
         # return asst_files
+
     def delete_asst_files(self, client, agent_id):
         """
         delete all assistant files on this assistant
@@ -588,6 +616,8 @@ class FileHandler:
         #             else:
         #                 print("Final attempt failed.")
         #         retries -= 1
+
+
 def retrieve_file_annotation(client, thread):
     """
     Retrieves the file-id from "annotations" which is where the agents should store it

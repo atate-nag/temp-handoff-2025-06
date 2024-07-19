@@ -307,14 +307,12 @@ class RAG_graph:
     def add_document_and_chunks(
         self, document, title, source, source_location, creation_time
     ):
- 
+
         parsed = parser.from_file(document)
 
         return self.add_document_and_chunks_from_text(
             parsed["content"], title, source, source_location, creation_time
         )
-
-
 
     def add_document_and_chunks_from_text(
         self, document, title, source, source_location, creation_time
@@ -680,4 +678,3 @@ class RAG_graph:
     def clear_database(self):
         self.kg.query("match (a) -[r] -> () delete a, r")
         self.kg.query("match (a) delete a")
-

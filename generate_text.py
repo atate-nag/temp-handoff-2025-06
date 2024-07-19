@@ -1,18 +1,19 @@
 def print_formatted_text(data):
     # Define the sections and titles for clarity
     sections = {
-        'Background': "Background",
-        'ProblemContext': "Problem in More Context",
-        'CompanyAnalysis': "Analysis of the Question Given Company Information",
-        'FrameworkApplication': "Application of Strategic Frameworks",
-        'ScenarioAnalysis': "Scenario Analysis and Utility Scores",
-        'ActionPlan': "Action Plan Development",
-        'RiskMitigation': "Risk Mitigation",
-        'Conclusions': "Conclusions and Summary"
+        "Background": "Background",
+        "ProblemContext": "Problem in More Context",
+        "CompanyAnalysis": "Analysis of the Question Given Company Information",
+        "FrameworkApplication": "Application of Strategic Frameworks",
+        "ScenarioAnalysis": "Scenario Analysis and Utility Scores",
+        "ActionPlan": "Action Plan Development",
+        "RiskMitigation": "Risk Mitigation",
+        "Conclusions": "Conclusions and Summary",
     }
     # Loop through each section and print with headers
     for key, title in sections.items():
         print(f"{title}:\n{'=' * len(title)}\n{data[key]}\n")
+
 
 exxon = {
     "Background": "Exxon Mobil, an industry titan in the oil and gas sector, faces the formidable challenge of integrating renewable energy sources into its traditional business model. This transition is necessitated by the evolving global energy landscape, characterized by increasing environmental concerns, tightening regulations on carbon emissions, and a societal push towards sustainability. The company's ability to navigate this shift will be critical in sustaining its market leadership and shareholder value.",
@@ -22,7 +23,7 @@ exxon = {
     "ScenarioAnalysis": "The scenario analysis encompasses multiple pathways Exxon Mobil could undertake in embracing renewable energy. Ranging from aggressive investment in emerging technologies to strategic partnerships aimed at shared risk and accelerated market entry into renewables. These scenarios are evaluated based on utility scores, factoring in costs, potential value gains, and risks. Scenario planning suggests a balanced approach—incremental investments in renewables coupled with strategic alliances—may offer Exxon Mobil the best risk-reward ratio, ensuring steady transition without jeopardizing its existing operations.",
     "ActionPlan": "A pragmatic action plan proposes an initial focus on enhancing operational efficiencies in Exxon Mobil's traditional operations, serving as a financial buffer during the initial phases of renewable investment. Subsequently, strategic partnerships with established renewable energy firms should be pursued to gain insights, access advanced technologies, and share investment risks. This should be complemented by targeted investments in high-potential renewable projects, particularly in geographies favorable to such energy sources, guided by thorough market analysis and regulatory considerations. Continuous capability development, especially in green technologies, is essential, alongside active stakeholder engagement to communicate the strategic shift and value proposition.",
     "RiskMitigation": "Risk mitigation strategies should focus on diversification of investments across various renewable energy sources to spread risk, rigorous due diligence in partnership selection to ensure alignment of goals, and leveraging financial hedging instruments to buffer against market volatility. Ongoing regulatory analysis and engagement will be critical in navigating the evolving policy landscape, ensuring compliance and optimizing for incentive structures. Employee re-skilling and continuous innovation culture cultivation will mitigate the operational risks associated with transitioning to new energy paradigms.",
-    "Conclusions": "Exxon Mobil's strategic pivot towards renewable energy, while challenging, is vital for its sustainability and future growth. The comprehensive analysis underscores the need for a balanced approach, leveraging Exxon Mobil's inherent strengths and mitigating risks through strategic partnerships, phased investments, and continual capability development. Successfully navigating this transition will not only secure Exxon Mobil's leadership in the global energy market but also align it with the broader societal shift towards sustainability, ensuring long-term value creation for its stakeholders."
+    "Conclusions": "Exxon Mobil's strategic pivot towards renewable energy, while challenging, is vital for its sustainability and future growth. The comprehensive analysis underscores the need for a balanced approach, leveraging Exxon Mobil's inherent strengths and mitigating risks through strategic partnerships, phased investments, and continual capability development. Successfully navigating this transition will not only secure Exxon Mobil's leadership in the global energy market but also align it with the broader societal shift towards sustainability, ensuring long-term value creation for its stakeholders.",
 }
 
 

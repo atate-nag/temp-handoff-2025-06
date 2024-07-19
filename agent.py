@@ -59,8 +59,15 @@ class Agent:
         agent_requirements=None,
     ):
         self.user_data["initial_run"] = initial_run
-    def load(self, initial_run, agent_output=None, qm_instructions=None,agent_requirements=None):
-        self.user_data['initial_run'] = initial_run
+
+    def load(
+        self,
+        initial_run,
+        agent_output=None,
+        qm_instructions=None,
+        agent_requirements=None,
+    ):
+        self.user_data["initial_run"] = initial_run
         # TODO the following assignments may be outmoded due to receive_input
         if agent_output:
             self.user_data["agent_output"] = agent_output
@@ -78,12 +85,12 @@ class Agent:
     ):
         if agent_output:
             self.user_data["agent_output"] = agent_output
-            self.user_data['agent_output'] = agent_output
-            #print("receive input: set agent output to ",agent_output)
+            self.user_data["agent_output"] = agent_output
+            # print("receive input: set agent output to ",agent_output)
         if qm_instructions:
             self.user_data["qm_instructions"] = qm_instructions
-            self.user_data['qm_instructions'] = qm_instructions
-            print("receive input: set qm_instructions to ",qm_instructions)
+            self.user_data["qm_instructions"] = qm_instructions
+            print("receive input: set qm_instructions to ", qm_instructions)
 
         if agent_requirements:
             self.user_data["agent_requirements"] = agent_requirements
@@ -185,7 +192,7 @@ class Agent:
     """ Initialised State to Loaded State Transition """
 
     def before_initialised_to_loaded(self, unvalidated_data):
-        """ Prepare data specifically for the 'Initialised2Loaded' state transition. """
+        """Prepare data specifically for the 'Initialised2Loaded' state transition."""
         dprint(f"Generating state data for state {self.state}")
         client = self.validated.workflow_context.client
         agent_id = self.validated.agent_context.agent_id
@@ -207,11 +214,11 @@ class Agent:
             agent_output_file = output["output_file"]
             agent_structured_output = output["structured_output"]
         print("doing the agent output stuff")
-        if self.user_data.get('agent_output'):
-            output = self.user_data['agent_output']
-            agent_response_file = output['response_file']
-            agent_output_file = output['output_file']
-            agent_structured_output = output['structured_output']
+        if self.user_data.get("agent_output"):
+            output = self.user_data["agent_output"]
+            agent_response_file = output["response_file"]
+            agent_output_file = output["output_file"]
+            agent_structured_output = output["structured_output"]
 
         self.unvalidated_data.set_data_for_state(
             "Initialised",
@@ -397,7 +404,7 @@ class Agent:
             # did the run produce the right outputs and response?
             raw_output_dict = self.validated.agent_thread.get_output()
 
-            #print(f"running_to_retrieved_validation: raw output from agent = {raw_output_dict}")
+            # print(f"running_to_retrieved_validation: raw output from agent = {raw_output_dict}")
 
             # dprint(f"raw output from agent = {raw_output_dict}")
             # if not, it will get reissued
@@ -408,7 +415,9 @@ class Agent:
                 output_dict = self.normalize_agent_output(raw_output_dict)
                 self.validated.set_data("retrieve_output", output_dict)
                 dprint("Good JSON output - validating state")
-                print("running_to_retrieved_validation: Good JSON output - validating state")
+                print(
+                    "running_to_retrieved_validation: Good JSON output - validating state"
+                )
 
                 return True
             else:
@@ -442,11 +451,11 @@ class Agent:
     def before_reinitialise(self):
         # erase the old files that were used last time
         print("before reinitialise: resetting hte validated data")
-        self.validated.set_data('asst_input_files', None)
-        self.validated.set_data('file_paths', None)
-        self.validated.set_data('agent_output_file', None)
-        self.validated.set_data('agent_response_file', None)
-        self.validated.set_data('agent_structured_output', None)
+        self.validated.set_data("asst_input_files", None)
+        self.validated.set_data("file_paths", None)
+        self.validated.set_data("agent_output_file", None)
+        self.validated.set_data("agent_response_file", None)
+        self.validated.set_data("agent_structured_output", None)
 
     def after_validation_running_to_retrieved(self, unvalidated_data):
         """Execute AFTER validation but before state transition"""

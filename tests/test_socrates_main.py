@@ -3,11 +3,13 @@
 import pytest
 from socrates_main import get_gics_code_and_name, create_json_filename
 
+
 def test_get_gics_code_and_name():
     company_name = "Tesla"
     gics_code, gics_name = get_gics_code_and_name(company_name)
     assert gics_code == [25]
     assert gics_name == ["Consumer Discretionary"]
+
 
 def test_create_json_filename():
     company_name = "Tesla Inc."

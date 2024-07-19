@@ -31,6 +31,7 @@ d = d.strftime("%m/%d/%Y %H:%M:%S")
 
 ta = TrendAgent(period="1y")
 
+
 def create_companies(companyName):
     print(f"Creating company {companyName}")
     rag_graph.add_company(companyName)
@@ -86,6 +87,7 @@ def update_company_with_files(
 
     for doc in docs:
         rag_graph.link_class_to_document(fileType, doc["name"])
+
 
 mapping = {
     "Walmart": "Walmart",
@@ -158,20 +160,23 @@ data["linkedin"] = data["linkedin2"]
 print(data.columns)
 data = data.drop(columns=["linkedin2", "Unnamed: 0.1", "Unnamed: 0"])
 
+
 def fill_graph(companies):
-    companies = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
+    companies = [
+        c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies
+    ]
     firms = []
     data_dict = data.T.to_dict()
     for id, company in data_dict.items():
-        firms.append(company["name"].replace(" ", "_").replace(".", "").replace("'", ""))
-
+        firms.append(
+            company["name"].replace(" ", "_").replace(".", "").replace("'", "")
+        )
 
     for company in companies:
         if company in firms:
             print(f"{company} in list")
         else:
             print(f"{company} not in list")
-
 
     for id, company in data_dict.items():
         name = company["name"]
@@ -299,7 +304,6 @@ def fill_graph(companies):
 
                     id = str(uuid.uuid4())
                     value = str(value)
-    
 
             check = rag_graph.kg.query(
                 f'MATCH (n:Class) WHERE n.name = "perigon_page_1_{company["name"]}" RETURN n LIMIT 10000;'
@@ -314,7 +318,9 @@ def fill_graph(companies):
                 print("perigon/" + name + "_perigon.txt")
 
                 try:
-                    with open("data/sources/perigon/" + name + "_perigon.txt", "r") as file:
+                    with open(
+                        "data/sources/perigon/" + name + "_perigon.txt", "r"
+                    ) as file:
                         # write to file
                         file_contents = file.read()
                 except Exception as e:
@@ -323,7 +329,12 @@ def fill_graph(companies):
                 # print(f"File content:\n{file_contents}")
                 if len(file_contents) > 0:
                     results = [
-                        eval(r) for r in file_contents.replace("}{", "}&&&{").replace('true', 'True').replace('false', 'False').replace('null', 'None').split("&&&")
+                        eval(r)
+                        for r in file_contents.replace("}{", "}&&&{")
+                        .replace("true", "True")
+                        .replace("false", "False")
+                        .replace("null", "None")
+                        .split("&&&")
                     ]
                 else:
                     results = []
@@ -346,9 +357,9 @@ def fill_graph(companies):
 
                     docs = []
                     for key, value in result.items():
-  
+
                         id = str(uuid.uuid4())
- 
+
                         value = str(value)
                         if len(str(value)) > 150:
 
@@ -403,9 +414,11 @@ def fill_graph(companies):
                     company["name"], "wikipedia_" + company["name"]
                 )
                 try:
-                    
+
                     with open(
-                        f"data/sources/wikipedia/{mapping[name]}.json", "r", encoding="utf-8"
+                        f"data/sources/wikipedia/{mapping[name]}.json",
+                        "r",
+                        encoding="utf-8",
                     ) as f:
                         # write to file
                         file_contents = f.read()
@@ -440,8 +453,9 @@ def fill_graph(companies):
                         rag_graph.link_class_to_document(
                             "wikipedia_" + company["name"], doc["name"]
                         )
-   
+
                 except Exception as e:
                     print(e)
+
 
 print("Done")

@@ -7,15 +7,17 @@ from import_files import InputFilesModel, AsstFilesModel
 import uuid
 from datetime import datetime, timedelta
 from agent_configs import AgentConfigs
-class AgentThread():
 
-    """ A thread of execution and management of one Agent """
+
+class AgentThread:
+    """A thread of execution and management of one Agent"""
+
     def __init__(self, client, agent_id, initial_prompt, file_handler):
         self.client = client
         self.agent_id = agent_id
         self.id = uuid.uuid4()  # Generates a unique identifier
         self.initial_prompt = initial_prompt
-        self.state = 'inactive'
+        self.state = "inactive"
         self.run_prompt = None
         self.runobjs = []
         self.returnobjs = []
@@ -28,17 +30,19 @@ class AgentThread():
     def runs_made(self):
         return len(self.runobjs)
 
-    def new_runobj(self,
-                   parent,
-                   retrieval_limit,
-                   input_files,
-                   agent_response,
-                   agent_output,
-                   agent_requirements,
-                   output_schema,
-                   agent_schema_errors,
-                   prompt=None,
-                   file_paths=None):
+    def new_runobj(
+        self,
+        parent,
+        retrieval_limit,
+        input_files,
+        agent_response,
+        agent_output,
+        agent_requirements,
+        output_schema,
+        agent_schema_errors,
+        prompt=None,
+        file_paths=None,
+    ):
         dprint("creating new run")
         file_ids = []
 
@@ -56,16 +60,11 @@ class AgentThread():
         if file_ids:
             my_updated_assistant = self.client.beta.assistants.update(
                 self.agent_id,
-                tool_resources={
-                    "code_interpreter": {
-                        "file_ids": file_ids
-                    }
-                }
+                tool_resources={"code_interpreter": {"file_ids": file_ids}},
             )
         run = RunObj(
-            parent=parent,
-            input_files=input_files,
-            retrieval_limit=retrieval_limit)
+            parent=parent, input_files=input_files, retrieval_limit=retrieval_limit
+        )
         dprint(f"created new run")
         if prompt is None:
             prompt = self.initial_prompt
@@ -78,7 +77,8 @@ class AgentThread():
             agent_output=agent_output,
             agent_requirements=agent_requirements,
             agent_schema_errors=agent_schema_errors,
-            file_paths=file_paths)
+            file_paths=file_paths,
+        )
         dprint(f"created new run prompt")
         self.add_message(run_prompt)
         run.create_run()
@@ -90,7 +90,7 @@ class AgentThread():
 
     def get_output(self):
         # The only valid output is the one that specifically relates to the last
-        if self.runobjs[-1].ran :
+        if self.runobjs[-1].ran:
             rtuple = self.returnobjs[-1]
             return rtuple
         else:
@@ -98,8 +98,8 @@ class AgentThread():
         return
 
     def retrieve(self, qm_id=None):
-        """ retrieves an existing run via the runobj
-            and extracts the response, output and json """
+        """retrieves an existing run via the runobj
+        and extracts the response, output and json"""
         self.runobjs[-1].retrieve()
         # switch the runobj to ran state, can't be modified or reran
         self.runobjs[-1].ran = True
@@ -117,19 +117,18 @@ class AgentThread():
         )
         agent_response = self.get_new_messages()
         self.full_response.append(agent_response)
-        #print(f"agent response is: \n***********\n{agent_response}\n***********\n")
+        # print(f"agent response is: \n***********\n{agent_response}\n***********\n")
         try:
             asst_file_response = self.file_handler.txt_to_asst_file(
-                self.client,
-                agent_response,
-                "agent_response",
-                target_id)
+                self.client, agent_response, "agent_response", target_id
+            )
             structured_output = self.file_handler.retrieve_direct_agent_content(
                 self.client,
                 self.agent_id,
                 agent_response,
                 asst_file_agent_output,
-                f"_runobj{self.runobjs[-1].id}")
+                f"_runobj{self.runobjs[-1].id}",
+            )
         except Exception as e:
             dprint(f"Error retrieving output: {e}")
             structured_output = None
@@ -143,10 +142,10 @@ class AgentThread():
         # TODO structured_output could be too large to be passed in a dict and
         # should be a new assistant_file ?
         self.output_dict = {
-            'run_obj': self.runobjs[-1],
-            'response_file': asst_file_response.id,
-            'output_file': asst_file_agent_output,
-            'structured_output': structured_output
+            "run_obj": self.runobjs[-1],
+            "response_file": asst_file_response.id,
+            "output_file": asst_file_agent_output,
+            "structured_output": structured_output,
         }
         self.returnobjs.append(self.output_dict)
         dprint(f"output dict is {self.output_dict}, returning it")
@@ -155,17 +154,15 @@ class AgentThread():
 
     def add_message(self, instructions, input_files=None):
         """
-            add a message {prompt} to the thread
+        add a message {prompt} to the thread
         """
         self.client.beta.threads.messages.create(
-            thread_id=self.thread.id,
-            role="user",
-            content=instructions
+            thread_id=self.thread.id, role="user", content=instructions
         )
 
     def get_new_messages(self):
         """
-            just return the latest messages, i.e the last response
+        just return the latest messages, i.e the last response
         """
         # Fetch all messages from the thread
         messages = self.client.beta.threads.messages.list(thread_id=self.thread.id).data
@@ -182,6 +179,7 @@ class AgentThread():
             self.last_timestamp = new_messages[-1].created_at
         return response
 
+
 class RunObj(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     parent: Any
@@ -196,13 +194,13 @@ class RunObj(BaseModel):
     #     t = AsstFilesModel(input_files=v)
     #     return v
 
-    @validator('openai_run', always=True)
+    @validator("openai_run", always=True)
     def validate_openai_run(cls, v):
         if v is not None and not isinstance(v, str):
             raise ValueError("openai_run must be a valid run identifier string.")
         return v
 
-    @validator('run_prompt', always=True)
+    @validator("run_prompt", always=True)
     def validate_run_prompt(cls, v):
         if v is not None and not isinstance(v, str):
             raise ValueError("run_prompt must be a string.")
@@ -220,14 +218,13 @@ class RunObj(BaseModel):
             openai_run = client.beta.threads.runs.create(
                 thread_id=self.parent.thread.id,
                 assistant_id=self.parent.agent_id,
-                #model="gpt-4-turbo-preview",
+                # model="gpt-4-turbo-preview",
                 tools=[{"type": "code_interpreter"}],
             )
             self.set_openai_run(openai_run)
             print(f"Created run {self.openai_run}")
         else:
             print("Run already created.")
-
 
     def retrieve(self):
         print(f"Attempting to run: {self.openai_run}")
@@ -259,7 +256,7 @@ class RunObj(BaseModel):
                 dprint(f"Assistant status: {retrieve.status}")
                 if retrieve.status == "completed":
                     return retrieve
-                elif retrieve.status in ["failed", "incomplete","expired"]:
+                elif retrieve.status in ["failed", "incomplete", "expired"]:
                     dprint(f"Run {run_id} failed.")
                     return "Run {run_id} failed."
                 time.sleep(5)
@@ -270,11 +267,19 @@ class RunObj(BaseModel):
         print(f"Run {run_id} did not complete after {self.retrieval_limit} queries.")
         return None
 
-    def generate_runtime_prompt(self, prompt,input_files=None, agent_response=None,agent_output=None,
-                                agent_requirements=None, agent_schema_errors=None, file_paths=None):
+    def generate_runtime_prompt(
+        self,
+        prompt,
+        input_files=None,
+        agent_response=None,
+        agent_output=None,
+        agent_requirements=None,
+        agent_schema_errors=None,
+        file_paths=None,
+    ):
         """
-            Generate a prompt using runtime information. Note placeholder values
-            appear in the prompt in known_agents.json in the "prompt" field.
+        Generate a prompt using runtime information. Note placeholder values
+        appear in the prompt in known_agents.json in the "prompt" field.
         """
         if file_paths is None:
             doc_path = ""
@@ -283,28 +288,31 @@ class RunObj(BaseModel):
         placeholder_values = {
             "INPUT_FILES": input_files,
             "AGENT_RESPONSE": agent_response,
-            "AGENT_OUTPUT" : agent_output,
+            "AGENT_OUTPUT": agent_output,
             "AGENT_REQUIREMENTS": agent_requirements,
             "AGENT_SCHEMA_ERRORS": agent_schema_errors,
-            "DOC_NAME": doc_path
+            "DOC_NAME": doc_path,
         }
         # Prepare the prompt by replacing placeholders with actual runtime values
         for placeholder, value in placeholder_values.items():
             # Convert list to string if necessary
             if isinstance(value, list):
-                value_str = ', '.join(map(str, value))  # Ensure all elements are converted to strings
+                value_str = ", ".join(
+                    map(str, value)
+                )  # Ensure all elements are converted to strings
             else:
                 value_str = str(value)
             prompt = prompt.replace(f"{{{placeholder}}}", value_str)
         self.set_run_prompt(prompt)
         return prompt
+
     class Config:
         arbitrary_types_allowed = True  # Allows 'Any' and other arbitrary types
 
 
 def clone_assistant(client, source_assistant_id):
     # Retrieve the list of assistants
-    my_assistants = client.beta.assistants.list(order="desc",limit=100).data
+    my_assistants = client.beta.assistants.list(order="desc", limit=100).data
     # Find the assistant by IDg
     source_assistant = None
     for assistant in my_assistants:
@@ -321,14 +329,14 @@ def clone_assistant(client, source_assistant_id):
     assistant_data = {
         "name": "Adrian Cloned Agent",
         "description": source_assistant.description,
-        "model": 'gpt-4o',#'gpt-3.5-turbo', #"gpt-4o",
+        "model": "gpt-4o",  #'gpt-3.5-turbo', #"gpt-4o",
         "instructions": source_assistant.instructions,
-         "tools": [{"type": "code_interpreter"}],
+        "tools": [{"type": "code_interpreter"}],
         "temperature": source_assistant.temperature,
         "top_p": source_assistant.top_p,
     }
     # model = "gpt-4o",
-    #tools = [{"type": "code_interpreter"}]
+    # tools = [{"type": "code_interpreter"}]
     # TODO there is a bug in assistants API, how to set temperature?
     # modify_data = {
     #     "temperature": 0.5,
@@ -349,8 +357,9 @@ def clone_assistant(client, source_assistant_id):
     # )    # my_updated_assistant = client.beta.assistants.update(**modify_data, id=new_assistant.id)
     return new_assistant
 
+
 def delete_existing_assistant_files(client, agent_id):
-    """ Manage existing assistant files in OpenAI """
+    """Manage existing assistant files in OpenAI"""
     asst_files = client.beta.assistants.files.list(
         assistant_id=agent_id,
     )
@@ -358,12 +367,12 @@ def delete_existing_assistant_files(client, agent_id):
     for asst_file in asst_files.data:
         try:
             client.beta.assistants.files.delete(
-                assistant_id=agent_id,
-                file_id=asst_file.id
+                assistant_id=agent_id, file_id=asst_file.id
             )
             dprint(f"Deleted Assistant file")
         except Exception as e:
             dprint(f"Error deleting Assistant file {e}")
+
 
 def delete_oldest_assistant_files(client, agent_id, max_files=6):
     """Manage existing assistant files by keeping only the latest 'max_files'."""
@@ -377,17 +386,17 @@ def delete_oldest_assistant_files(client, agent_id, max_files=6):
         # Check if the number of files exceeds the maximum allowed
         if len(asst_files.data) > max_files:
             sorted_files = sorted(asst_files.data, key=lambda x: x.created_at)
-            files_to_delete = sorted_files[:len(asst_files.data) - max_files]
+            files_to_delete = sorted_files[: len(asst_files.data) - max_files]
 
             # Delete the oldest files
             for asst_file in files_to_delete:
                 client.beta.assistants.files.delete(
-                    assistant_id=agent_id,
-                    file_id=asst_file.id
+                    assistant_id=agent_id, file_id=asst_file.id
                 )
                 dprint(f"Deleted Assistant file-id: {asst_file.id}")
     except Exception as e:
         dprint(f"Error managing Assistant files: {e}")
+
 
 def delete_files_older_than_x_days(client, days_old=30):
     # Calculate the cutoff date
@@ -408,6 +417,7 @@ def delete_files_older_than_x_days(client, days_old=30):
         print("Deletion process completed.")
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 def delete_files_less_than_1_hour(client):
     # Calculate the cutoff date
@@ -430,6 +440,7 @@ def delete_files_less_than_1_hour(client):
     except Exception as e:
         print(f"An error occurred: {e}")
 
+
 def delete_not_known_assistants(client):
     config_manager = AgentConfigs()
     known_agent_ids = config_manager.get_all_known_agent_ids()
@@ -444,11 +455,15 @@ def delete_not_known_assistants(client):
             if assistant.id not in known_agent_ids:
                 print(f"Assistant with name {assistant.name} will be deleted.")
                 client.beta.assistants.delete(assistant_id=assistant.id)
-                print(f"Deleted assistant: {assistant.id}, created at {assistant.created_at}")
+                print(
+                    f"Deleted assistant: {assistant.id}, created at {assistant.created_at}"
+                )
 
         print("Deletion process completed.")
     except Exception as e:
         print(f"An error occurred: {e}")
+
+
 def delete_assistants_clones(client):
 
     tag = "Cloned"
@@ -467,6 +482,7 @@ def delete_assistants_clones(client):
     assistants = client.beta.assistants.list(limit=100)
     dprint(f"Number of assistants is now {len(assistants.data)}")
 
+
 def delete_all_uploaded_files(client):
     # Calculate the cutoff date
     try:
@@ -482,10 +498,13 @@ def delete_all_uploaded_files(client):
             if deleted % 20 == 0:
                 dprint(f"Deleted {deleted} files")
         files = client.files.list()
-        print(f"Deletion process completed and deleted {deleted} files and now there are {len(files.data)}")
+        print(
+            f"Deletion process completed and deleted {deleted} files and now there are {len(files.data)}"
+        )
         return deleted
     except Exception as e:
         print(f"An error occurred in file deletion: {e}")
+
 
 def delete_assistants_less_than_x_days(client, days_old=100):
     # Calculate the cutoff date
@@ -498,9 +517,9 @@ def delete_assistants_less_than_x_days(client, days_old=100):
             print(f"found the assistant {ass}")
             ass_creation_date = datetime.fromtimestamp(ass.created_at)
             if ass_creation_date > cutoff_date:
-                    # Delete file
-                    client.beta.assistants.delete(assistant_id=ass.id)
-                    print(f"Deleted ass: {ass.id}, created at {ass.created_at}")
+                # Delete file
+                client.beta.assistants.delete(assistant_id=ass.id)
+                print(f"Deleted ass: {ass.id}, created at {ass.created_at}")
         print("Deletion process completed.")
     except Exception as e:
         print(f"An error occurred: {e}")
