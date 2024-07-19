@@ -3,9 +3,10 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from agent_workflow_manager import AgentManager
 from debug import dprint
-from full_graph import (dump_company_graph_to_plain_txt, get_trends_from_gics_code, save_curated_trend_data,
+from graph_workflow.full_graph import (dump_company_graph_to_plain_txt, get_trends_from_gics_code, save_curated_trend_data,
                         get_curated_trend_data)
 from filehandler import FileHandler
+from graph_workflow.build_graph import fill_graph
 import json, re
 from openai_asst import (
     delete_assistants_clones,
@@ -49,13 +50,14 @@ def execute_workflow():
     """
     dprint(f"workflow config is {workflow_config}")
     dprint("Enabled workflow steps:")
-    for step, details in workflow_config.items():
+    for step_name, details in workflow_config.items():
+        step = details.get("step", step_name)
         if details.get("enabled", False):
             func = get_step_function(step)
             if func:
                 # Unpack all parameters dynamically for the function
                 parameters = details.get("parameters", {})
-                dprint(f"- Executing {step} with parameters: {parameters}...")
+                dprint(f"- Executing {step_name} with parameters: {parameters}...")
                 func(**parameters)  # Use ** to unpack and pass named parameters
             else:
                 dprint(f"No function defined for {step}.")
@@ -79,6 +81,7 @@ def get_step_function(step_name):
         # administrative routines
         "cleanUp": clean_up,
         # graph manipulation and display routines
+        "fill_graph": fill_graph,
         "getTrends": get_trends,
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
