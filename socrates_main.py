@@ -3,9 +3,14 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from agent_workflow_manager import AgentManager
 from debug import dprint
-from full_graph import (dump_company_graph_to_plain_txt, get_trends_from_gics_code, save_curated_trend_data,
-                        get_curated_trend_data)
+from graph_workflow.full_graph import (
+    dump_company_graph_to_plain_txt,
+    get_trends_from_gics_code,
+    save_curated_trend_data,
+    get_curated_trend_data,
+)
 from filehandler import FileHandler
+from graph_workflow.build_graph import fill_graph
 import json, re
 from openai_asst import (
     delete_assistants_clones,
@@ -44,18 +49,20 @@ gics_mapping = {
 }
 
 file_handler = FileHandler(client)
+
+
 def execute_workflow():
-    """ Executes the workflow steps based on the configuration.
-    """
+    """Executes the workflow steps based on the configuration."""
     dprint(f"workflow config is {workflow_config}")
     dprint("Enabled workflow steps:")
-    for step, details in workflow_config.items():
+    for step_name, details in workflow_config.items():
+        step = details.get("step", step_name)
         if details.get("enabled", False):
             func = get_step_function(step)
             if func:
                 # Unpack all parameters dynamically for the function
                 parameters = details.get("parameters", {})
-                dprint(f"- Executing {step} with parameters: {parameters}...")
+                dprint(f"- Executing {step_name} with parameters: {parameters}...")
                 func(**parameters)  # Use ** to unpack and pass named parameters
             else:
                 dprint(f"No function defined for {step}.")
@@ -71,6 +78,7 @@ def main():
         dprint(f"- {step}")
     execute_workflow()
 
+
 def get_step_function(step_name):
     """
     Returns the function mapped to the specified workflow step without executing it.
@@ -79,6 +87,7 @@ def get_step_function(step_name):
         # administrative routines
         "cleanUp": clean_up,
         # graph manipulation and display routines
+        "fill_graph": fill_graph,
         "getTrends": get_trends,
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
@@ -90,7 +99,7 @@ def get_step_function(step_name):
 
 def get_problem(company_name, problemsFile):
     """
-        Retrieves the problem statement for a given company from a JSON file.
+    Retrieves the problem statement for a given company from a JSON file.
     """
     with open(problemsFile, "r") as file:
         problem_statements = json.load(file)
@@ -100,9 +109,7 @@ def get_problem(company_name, problemsFile):
         statement = problem_statements[company_name]
         return statement
     else:
-        dprint(
-            f"Problem statement not found for the specified company {company_name}."
-        )
+        dprint(f"Problem statement not found for the specified company {company_name}.")
         raise Exception(
             f"Problem statement not found for the specified company {company_name}."
         )
@@ -110,9 +117,9 @@ def get_problem(company_name, problemsFile):
 
 def get_trends(company_name, problem, force_recreate=False):
     """
-        Retrieves the trends for a given company.
-        Will load from archive if available, otherwise will generate new trends unless force_recreate is set to True.
-        Will store to archive after generation.
+    Retrieves the trends for a given company.
+    Will load from archive if available, otherwise will generate new trends unless force_recreate is set to True.
+    Will store to archive after generation.
     """
     gics_code, gics_name = get_gics_code_and_name(company_name)
     dprint(f"gics_code: {gics_code}")
@@ -132,7 +139,7 @@ def get_trends(company_name, problem, force_recreate=False):
 
 def get_company_data(companyName):
     """
-        Retrieves the full data for a given company
+    Retrieves the full data for a given company
     """
     company_full_data = dump_company_graph_to_plain_txt(companyName)
     dprint(f"company_full_data: {company_full_data}")
@@ -270,8 +277,8 @@ def get_gics_code_and_name(company_name):
 
 def get_file_paths(company_name, problemsFile):
     """
-        Give a single company, extracts the problem, company and trend data
-        and generates files suitable for agent processing
+    Give a single company, extracts the problem, company and trend data
+    and generates files suitable for agent processing
     """
     company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
     problem_data = get_problem(company_name, problemsFile)
@@ -283,40 +290,43 @@ def get_file_paths(company_name, problemsFile):
     trends_file_path = file_handler.write_local_json(
         f"company_trends_{company_name}", json.dumps(trends)
     )
-    company_file_path = file_handler.write_local_json(f"company_data_{company_name}", company_full_data)
+    company_file_path = file_handler.write_local_json(
+        f"company_data_{company_name}", company_full_data
+    )
     return problem_file_path, trends_file_path, company_file_path
 
 
 def run_scenarios(companyName, problemsFile):
     """
-        Runs the stand-alone scenarios analysis for a single company
+    Runs the stand-alone scenarios analysis for a single company
     """
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
+    )
     scenarios_return_file, scenarios_response_file = generate_scenarios(
-        company_name,
-        problem_file_path,
-        trends_file_path,
-        company_file_path)
+        company_name, problem_file_path, trends_file_path, company_file_path
+    )
 
     # Add validation and quality checks of scenarios outputs
 
     return scenarios_return_file, scenarios_response_file
 
 
-def generate_scenarios(company_name, problem_file_path, trends_file_path, company_file_path):
+def generate_scenarios(
+    company_name, problem_file_path, trends_file_path, company_file_path
+):
     """
-         Executes the scenarios agent  for a single company
+    Executes the scenarios agent  for a single company
     """
-    agent_configs = [{'agent_type': "full_graph_scenario_agent"}]
+    agent_configs = [{"agent_type": "full_graph_scenario_agent"}]
     scenarios_manager = AgentManager(
         client,
         file_handler,
         agent_configs,
-        [problem_file_path,
-         trends_file_path,
-         company_file_path],
-        use_qm_agents=False)
+        [problem_file_path, trends_file_path, company_file_path],
+        use_qm_agents=False,
+    )
     scenarios_manager.run_workflow()
     scenarios_return = scenarios_manager.return_dict()
     scenarios_response = scenarios_manager.return_response
@@ -333,23 +343,25 @@ def generate_scenarios(company_name, problem_file_path, trends_file_path, compan
 
 def run_frameworks(companyName, problemsFile):
     """
-        Runs a stand-alone frameworks agent for a single company
+    Runs a stand-alone frameworks agent for a single company
     """
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
+    )
     frameworks_file_path = generate_frameworks(
-        company_name,
-        problem_file_path,
-        trends_file_path,
-        company_file_path)
+        company_name, problem_file_path, trends_file_path, company_file_path
+    )
     # Add validation and quality checks of frameworks outputs
 
     return frameworks_file_path
 
 
-def generate_frameworks(company_name, problem_file_path, trends_file_path, company_file_path):
+def generate_frameworks(
+    company_name, problem_file_path, trends_file_path, company_file_path
+):
     """
-            Executes the frameworks agent  for a single company
+    Executes the frameworks agent  for a single company
     """
     agent_configs = [{"agent_type": "full_graph_frameworks_agent"}]
     for path in [problem_file_path, trends_file_path, company_file_path]:
@@ -371,10 +383,12 @@ def generate_frameworks(company_name, problem_file_path, trends_file_path, compa
 
 def run_report(company_name, problemsFile):
     """
-            Runs a stand-alone report generation for a single company
+    Runs a stand-alone report generation for a single company
     """
     company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
+    )
 
     # retrieve stored Scenarios
 
@@ -383,10 +397,15 @@ def run_report(company_name, problemsFile):
     # generate report
 
 
-def generate_report(company_name, scenarios_response_file, scenarios_return_file, frameworks_file_path,
-                    trends_file_path):
+def generate_report(
+    company_name,
+    scenarios_response_file,
+    scenarios_return_file,
+    frameworks_file_path,
+    trends_file_path,
+):
     """
-        Executes the report generation for a single company
+    Executes the report generation for a single company
     """
     print(f"agent_type: full_graph_reporting_agent")
     agent_configs = [{"agent_type": "reporting_agent_strong"}]
@@ -418,27 +437,23 @@ def generate_report(company_name, scenarios_response_file, scenarios_return_file
 @retry(number_of_retry=1)  # Retry the function once in case of failure
 def run_strategy(companyName, problemsFile):
     """
-        Executes the strategic analysis process for a given company.
+    Executes the strategic analysis process for a given company.
 
-        (this is the full workload automation)
+    (this is the full workload automation)
 
-        """
+    """
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     # Get the files and paths for the necessary files related to the company and problem
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
+    )
     # Generate scenarios using the scenarios agent
     scenarios_return_file, scenarios_response_file = generate_scenarios(
-        companyName,
-        problem_file_path,
-        trends_file_path,
-        company_file_path
+        companyName, problem_file_path, trends_file_path, company_file_path
     )
     # Generate frameworks using the frameworks agent
     frameworks_file_path = generate_frameworks(
-        company_name,
-        problem_file_path,
-        trends_file_path,
-        company_file_path
+        company_name, problem_file_path, trends_file_path, company_file_path
     )
     report_path = f"./Strategic Reports/{companyName}_strategic_report.json"
     # Generate a strategic report using the reporting agent
@@ -447,7 +462,7 @@ def run_strategy(companyName, problemsFile):
         scenarios_response_file,
         scenarios_return_file,
         frameworks_file_path,
-        trends_file_path
+        trends_file_path,
     )
     with open(report_path, "w") as file:
         file.write(json.dumps(reporting_return))

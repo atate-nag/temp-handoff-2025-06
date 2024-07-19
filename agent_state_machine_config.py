@@ -24,13 +24,15 @@ class AgentStateMachineConfig:
         ]
         self.permissions["Loaded"] = ["run_object"]
         self.permissions["Running"] = ["retrieve_output"]
-        self.permissions["Retrieved"] = ["asst_input_files",
+        self.permissions["Retrieved"] = [
+            "asst_input_files",
             "agent_output_file",
             "agent_response_file",
             "agent_structured_output",
             "agent_requirements",
             "agent_schema_errors",
-            "file_paths"]
+            "file_paths",
+        ]
 
     def setup(self, agent):
         self.machine = Machine(model=agent, states=agent.states, initial="Zero")
@@ -66,8 +68,14 @@ class AgentStateMachineConfig:
             before="after_validation_running_to_retrieved",
         )
         # Transition to handle successful completion
-        self.machine.add_transition('mark_complete', 'Retrieved','Completed', after='clean_up')
-        self.machine.add_transition('reissue_trigger', 'Running', 'Loaded', after='run_trigger')
-        self.machine.add_transition('reinitialise','Retrieved', 'Initialised',prepare='before_reinitialise')
+        self.machine.add_transition(
+            "mark_complete", "Retrieved", "Completed", after="clean_up"
+        )
+        self.machine.add_transition(
+            "reissue_trigger", "Running", "Loaded", after="run_trigger"
+        )
+        self.machine.add_transition(
+            "reinitialise", "Retrieved", "Initialised", prepare="before_reinitialise"
+        )
 
         return self.machine

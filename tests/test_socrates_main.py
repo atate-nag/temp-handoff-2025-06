@@ -10,6 +10,7 @@ def test_get_gics_code_and_name():
     assert gics_code == [25]
     assert gics_name == ["Consumer Discretionary"]
 
+
 def test_create_json_filename():
     company_name = "Tesla Inc."
     filename = create_json_filename(company_name)

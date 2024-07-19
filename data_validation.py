@@ -1,5 +1,6 @@
 from debug import dprint
 
+
 class UnvalidatedData:
     def __init__(self, **kwargs):
         self.data = kwargs
@@ -19,6 +20,7 @@ class UnvalidatedData:
     def get_data_for_state(self, state):
         return self.data.get(state, {})
 
+
 class ValidatedData:
     def __init__(self, parent):
         self._data = {}
@@ -34,5 +36,6 @@ class ValidatedData:
         if key in self.parent.permissions.get(self.parent.state, []):
             self._data[key] = value
         else:
-            raise PermissionError(f"Setting {key} is not allowed in the {self.parent.state} state.")
-
+            raise PermissionError(
+                f"Setting {key} is not allowed in the {self.parent.state} state."
+            )

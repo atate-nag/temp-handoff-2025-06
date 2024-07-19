@@ -4,7 +4,6 @@ import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from core_components.src.agents.openAI import load_agents
 from dochandler import Rdoc
 from datetime import datetime
 from dochandler import Rdoc
@@ -113,6 +112,7 @@ from agent import Agent
 #     print(f"Response received in {end_time - start_time} seconds")
 #     run_steps = client.beta.threads.runs.steps.list(thread_id=thread.id, run_id=run.id)
 #     return run_steps, retrieve
+
 
 def parallel_file_process(client, file_dir, company_data, prefix, write_intermediates):
     files = [
@@ -243,6 +243,7 @@ def process_file(
     else:
         return None
 
+
 # def run_insight_analysis(client, condense_file, data_file, source_file):
 #     today_date = datetime.today().date()
 #     prompt = (
@@ -351,8 +352,6 @@ def process_file(
 #     thread = agent_comp.create_thread(prompt, input_files=insight_file)
 #     retrieval = agent_comp.run_and_retrieve_thread()
 #     return thread, retrieval, agent_comp
-
-
 
 
 def run_actions(client, challenge, trends_file, capabilities_file):

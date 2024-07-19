@@ -1,6 +1,5 @@
-
 # TODO this file is defunct, combined with filehandler
-def retrieve_from_file_or_text(client,thread):
+def retrieve_from_file_or_text(client, thread):
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct:
         return file_direct
@@ -10,7 +9,8 @@ def retrieve_from_file_or_text(client,thread):
             return file_from_response
     return None
 
-def retrieve_from_id_or_path(client,thread, file_str):
+
+def retrieve_from_id_or_path(client, thread, file_str):
     # the problem is that the file is either in
     file_direct = retrieve_file_annotation(client, thread)
     if file_direct == file_str:
@@ -32,6 +32,7 @@ def retrieve_file_annotation(client, thread):
     print("No annotations for a file were found")
     return None
 
+
 def retrieve_file_path(client, thread):
     # Retrieve file from "annotations" but when it is a path
     messages = client.beta.threads.messages.list(thread_id=thread.id).data
@@ -45,6 +46,7 @@ def retrieve_file_path(client, thread):
                     return file
     print("No annotations for a file were found")
     return None
+
 
 def download_file_by_id(client, file_id):
     content = client.files.retrieve_content(file_id)

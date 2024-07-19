@@ -8,6 +8,7 @@ from agent_configs import AgentConfigs
 # Set up logging
 from abc import ABC, abstractmethod
 
+
 class BaseTransition(ABC):
     def __init__(self, agent, **kwargs):
         self.agent = agent
@@ -32,11 +33,13 @@ class BaseTransition(ABC):
         self.agent.load()
         pass
 
+
 class ZerotoInitialTransition(BaseTransition):
 
     def __init__(self, agent, **kwargs):
         super().__init__(agent)
         self.agent = agent
+
     def generate(self):
         dprint("Preparing S1 operations...")
         return True
@@ -45,13 +48,12 @@ class ZerotoInitialTransition(BaseTransition):
         dprint("Executing S1 tasks...")
         # upload the input files to make them assistant files, validated in the InitialState
 
-
-
         return True
 
     def trigger(self):
         dprint("Cleaning up S1 and moving to S2")
         return True
+
 
 class InitialtoLoadedTransition(BaseTransition):
 
@@ -82,6 +84,7 @@ class LoadedtoRunningTransition(BaseTransition):
         dprint("Cleaning up LoadedtoRunningTransition...")
         return True
 
+
 class RunningtoReturnedTransition(BaseTransition):
 
     def generate(self):
@@ -96,6 +99,7 @@ class RunningtoReturnedTransition(BaseTransition):
     def trigger(self):
         dprint("Cleaning up RunningtoReturnedTransition...")
         return True
+
 
 class ReturnedtoCompleteTransition(BaseTransition):
 
