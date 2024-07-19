@@ -490,7 +490,7 @@ def get_insights(companies, delete_existing_insights=False):
             while not all([r.ready() for r in results]):
 
                 print(
-                    f"{[r.ready() for r in results].count(True)} / {len(results)} insights added for {name}."
+                    f"insights added for chunk {[r.ready() for r in results].count(True)} / {len(results)} for {name}."
                 )
                 time.sleep(5)
 
