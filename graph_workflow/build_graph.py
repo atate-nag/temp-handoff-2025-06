@@ -354,40 +354,45 @@ def fill_graph(companies):
                 rag_graph.link_company_to_class(company["name"], class_name)
 
                 docs = []
-                for key, value in result.items():
+                if isinstance(result, list):
+                    r = result
+                else:
+                    r = [result]
+                for r in result:
+                    for key, value in r.items():
 
-                    id = str(uuid.uuid4())
+                        id = str(uuid.uuid4())
 
-                    value = str(value)
-                    if len(str(value)) > 150:
+                        value = str(value)
+                        if len(str(value)) > 150:
 
-                        doc = rag_graph.add_document_and_chunks_from_text(
-                            key.replace("'", "") + ": " + value,
-                            id,
-                            "perigon",
-                            "perigon",
-                            d,
-                        )
-                        docs.append(doc)
-                    else:
-                        if key == "name":
-                            rag_graph.add_attribute(
-                                "perigon_" + company["name"],
-                                key.replace(" ", "_").replace("'", "") + "_",
-                                value,
+                            doc = rag_graph.add_document_and_chunks_from_text(
+                                key.replace("'", "") + ": " + value,
+                                id,
+                                "perigon",
+                                "perigon",
+                                d,
                             )
+                            docs.append(doc)
                         else:
-                            rag_graph.add_attribute(
-                                "perigon_" + company["name"],
-                                key.replace(" ", "_").replace("'", ""),
-                                value,
-                            )
-                    print(f"key: {key}")
-                    print(f"value: {value}")
-                for doc in docs:
-                    rag_graph.link_class_to_document(class_name, doc["name"])
-                    print(f"node: {'perigon_'+company['name']}")
-                    print(f"with: {doc['name']}")
+                            if key == "name":
+                                rag_graph.add_attribute(
+                                    "perigon_" + company["name"],
+                                    key.replace(" ", "_").replace("'", "") + "_",
+                                    value,
+                                )
+                            else:
+                                rag_graph.add_attribute(
+                                    "perigon_" + company["name"],
+                                    key.replace(" ", "_").replace("'", ""),
+                                    value,
+                                )
+                        print(f"key: {key}")
+                        print(f"value: {value}")
+                    for doc in docs:
+                        rag_graph.link_class_to_document(class_name, doc["name"])
+                        print(f"node: {'perigon_'+company['name']}")
+                        print(f"with: {doc['name']}")
 
         check = rag_graph.kg.query(
             f'MATCH (n:Class) WHERE n.name = "wikipedia_{company["name"]}" RETURN n LIMIT 10000;'
