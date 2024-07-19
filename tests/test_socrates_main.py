@@ -2,8 +2,15 @@
 
 import pytest
 from unittest.mock import mock_open, patch, MagicMock
-from socrates_main import get_gics_code_and_name, create_json_filename, get_problem, get_trends
+from socrates_main import (
+    get_gics_code_and_name,
+    create_json_filename,
+    get_problem,
+    get_trends,
+)
 import json
+
+
 def test_get_gics_code_and_name():
     company_name = "Tesla"
     gics_code, gics_name = get_gics_code_and_name(company_name)
@@ -16,11 +23,13 @@ def test_create_json_filename():
     filename = create_json_filename(company_name)
     assert filename == "tesla_inc.json"
 
+
 def test_get_problem(monkeypatch):
     # Mock the problem statements
     problem_statements = {
         "Tesla": "Scaling production efficiently amidst growing competition in the electric vehicle market is Tesla’s challenge. Optimizing production capacity, reducing costs, and maintaining innovation leadership are key. The company’s strategic focus centers on automation, battery technology, and global expansion. By fine-tuning its supply chain, investing in Gigafactories, and expanding charging infrastructure, Tesla can meet surging demand. The question: How can Tesla balance rapid growth with quality control and sustainable practices, ensuring its electric vehicles remain at the forefront of the automotive industry?",
     }
+
     # Mock the dprint function
     def mock_dprint(msg):
         pass
@@ -42,7 +51,9 @@ def test_get_problem(monkeypatch):
         company_name = "Unknown"
         with pytest.raises(Exception) as excinfo:
             get_problem(company_name, problemsFile)
-        assert "Problem statement not found for the specified company" in str(excinfo.value)
+        assert "Problem statement not found for the specified company" in str(
+            excinfo.value
+        )
 
 
 def test_get_trends(monkeypatch):
@@ -68,11 +79,19 @@ def test_get_trends(monkeypatch):
     mock_save_curated_trend_data = MagicMock()
 
     # Apply the mocks
-    monkeypatch.setattr("socrates_main.get_gics_code_and_name", mock_get_gics_code_and_name)
+    monkeypatch.setattr(
+        "socrates_main.get_gics_code_and_name", mock_get_gics_code_and_name
+    )
     monkeypatch.setattr("socrates_main.dprint", mock_dprint)
-    monkeypatch.setattr("socrates_main.get_curated_trend_data", mock_get_curated_trend_data)
-    monkeypatch.setattr("socrates_main.get_trends_from_gics_code", mock_get_trends_from_gics_code)
-    monkeypatch.setattr("socrates_main.save_curated_trend_data", mock_save_curated_trend_data)
+    monkeypatch.setattr(
+        "socrates_main.get_curated_trend_data", mock_get_curated_trend_data
+    )
+    monkeypatch.setattr(
+        "socrates_main.get_trends_from_gics_code", mock_get_trends_from_gics_code
+    )
+    monkeypatch.setattr(
+        "socrates_main.save_curated_trend_data", mock_save_curated_trend_data
+    )
 
     # Test case: Load trends from archive
     company_name = "Tesla"
@@ -87,7 +106,10 @@ def test_get_trends(monkeypatch):
     force_recreate = True
     trend_data = get_trends(company_name, problem, force_recreate)
     assert trend_data == {"trend": "new trend data"}
-    mock_save_curated_trend_data.assert_called_with(company_name, [25], "sample problem", {"trend": "new trend data"})
+    mock_save_curated_trend_data.assert_called_with(
+        company_name, [25], "sample problem", {"trend": "new trend data"}
+    )
+
 
 # def test_execute_workflow(monkeypatch):
 #     def mock_dprint(msg):

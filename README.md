@@ -92,7 +92,10 @@ is what is supported so far
             "companies": ["Tesla"],
             "delete_existing_insights": true
          }
-- "getTrends": get_trends,
+- "getTrends": generate_trends, "parameters": {
+            "folders": ["10. Energy", "25. Consumer Discretionary"],
+            "number_of_processes": 5
+         }
 - "runStrategy": run_strategy,
 - "runFrameworks": run_frameworks,
 - "runScenarios": run_scenarios,

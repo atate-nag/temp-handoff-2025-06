@@ -274,7 +274,7 @@ class RAG_graph:
         for index in self.indexes:
             print(index)
         return self.indexes
-    
+
     def add_company(self, company_name):
         self.kg.query(
             """

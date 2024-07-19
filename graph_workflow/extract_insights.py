@@ -446,7 +446,7 @@ def add_insight(name, text, dict):
     return insights
 
 
-def get_insights(companies, delete_existing_insights=False):
+def get_insights(companies, delete_existing_insights=False, number_of_processes=5):
     names = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
     for name in names:
         name = name.replace(" ", "_").replace(".", "").replace("'", "")
@@ -470,7 +470,7 @@ def get_insights(companies, delete_existing_insights=False):
 
         # create_insights(res, company_data, name)
         # if len(ins) == 0:
-        with Pool(processes=5) as pool:
+        with Pool(processes=number_of_processes) as pool:
             results = []
             for dict in res:
                 # try:
