@@ -14,6 +14,7 @@ from graph_workflow.full_graph import (
 from filehandler import FileHandler
 from graph_workflow.build_graph import fill_graph
 from graph_workflow.extract_insights import get_insights
+from graph_workflow.trends.trends_analyser import generate_trends
 import json, re
 from openai_asst import (
     delete_assistants_clones,
@@ -92,7 +93,7 @@ def get_step_function(step_name):
         # graph manipulation and display routines
         "fill_graph": fill_graph,
         "getInsights": get_insights,
-        "getTrends": get_trends,
+        "getTrends": generate_trends,
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
