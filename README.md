@@ -79,17 +79,25 @@ Copy appropriate files in PPT/PPTX, PDF or DOC/DOCX format to those directories.
 Modify the workflow_config.json file to turn on the selective workflow components. The names are self-explanatory but this
 is what is supported so far
 
-    "createCompanies":
-    "updateCompanyData"
-    "deleteInsights"
-    "deleteCompany"
-    "dumpCompanyGraph"
-    "extractInsights"
-    "displayInsights"
-    "analyzeTrends"
-    "deleteCapabilities"
-    "evaluateCapabilities"
-    "displayCapabilities" 
+### administrative routines
+
+- "cleanUp": clean_up
+
+### graph manipulation and display routines
+
+- "fill_graph": fill_graph, "parameters": {
+            "companies": ["Tesla"],
+         }
+- "getInsights": get_insights, "parameters": {
+            "companies": ["Tesla"],
+            "delete_existing_insights": true
+         }
+- "getTrends": get_trends,
+- "runStrategy": run_strategy,
+- "runFrameworks": run_frameworks,
+- "runScenarios": run_scenarios,
+
+   
 
 
 E.g. setting 
