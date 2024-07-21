@@ -63,7 +63,7 @@ data/sources/reportLinker
 The workflow for feeding the data into the graph is:
 
 "fill_graph_Tesla":{
-      "function": "fill_graph",
+      "step": "fill_graph",
       "parameters": {
         "companies": ["Tesla"]
       },
