@@ -1,4 +1,4 @@
-from core_components.RAG.graph import RAG_graph
+from graph_workflow.graph_rag_lc import RAG_graph
 import os
 from dotenv import load_dotenv
 from sklearn.cluster import KMeans
@@ -17,47 +17,13 @@ from langchain_core.prompts import PromptTemplate
 from typing import Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from utility import dict_to_plain_text
+import multiprocessing as mp
+import time
 
 load_dotenv()
 import uuid
 import copy
-
-
-def dict_to_plain_text(data, indent_level=0):
-    """
-    Transform an unstructured dictionary into plain text to make it easy for LLM to read.
-
-    Parameters:
-        data (dict): The dictionary to transform.
-        indent_level (int): The current indentation level for nested dictionaries and lists.
-
-    Returns:
-        str: A string representing the dictionary in plain text.
-    """
-    plain_text = ""
-    indent = "    " * indent_level  # 4 spaces per indent level
-
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, dict):
-                plain_text += f"{indent}{key}:\n"
-                plain_text += dict_to_plain_text(value, indent_level + 1)
-            elif isinstance(value, list):
-                plain_text += f"{indent}{key}:\n"
-                plain_text += dict_to_plain_text(value, indent_level + 1)
-            else:
-                plain_text += f"{indent}{key}: {value}\n"
-    elif isinstance(data, list):
-        for item in data:
-            if isinstance(item, dict) or isinstance(item, list):
-                plain_text += dict_to_plain_text(item, indent_level + 1)
-            else:
-                plain_text += f"{indent}- {item}\n"
-    else:
-        plain_text += f"{indent}{data}\n"
-
-    return plain_text
-
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
@@ -70,29 +36,14 @@ OPENAI_EMBEDDINGS_URL = os.getenv("OPENAI_EMBEDDINGS_URL")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
 rag_graph = RAG_graph(
-    "bolt://localhost:7687",
+    uri,
     user,
     password,
     database,
     OPENAI_API_KEY,
     OPENAI_EMBEDDINGS_URL,
 )
-rag_graph_cluster = RAG_graph(
-    "bolt://localhost:7687",
-    user,
-    password,
-    "clustering",
-    OPENAI_API_KEY,
-    OPENAI_EMBEDDINGS_URL,
-)
-rag_graph_ict = RAG_graph(
-    "bolt://localhost:7687",
-    user,
-    password,
-    "ict",
-    OPENAI_API_KEY,
-    OPENAI_EMBEDDINGS_URL,
-)
+
 
 # rag_graph.kg.query("match (t:Trend)-[]-(cl:Cluster)  detach delete cl")
 
@@ -108,7 +59,6 @@ model_summary = ChatOpenAI(model="gpt-4o", temperature=0.1)
 parser_summary = StrOutputParser()
 chain_summary = get_summary | model_summary | parser_summary
 
-rag_graph.compute_embeddings("Trend", "Description")
 
 query = """
 MATCH (excluded:Cluster)
@@ -118,59 +68,12 @@ WHERE  r.gics_code IS NOT NULL and NONE(i in excluded WHERE (r)-[]->(i))
 RETURN r as trends
 """
 
+
 # trends = rag_graph.kg.query(
 #     "match (n:Trend) where n.gics_code IS NOT NULL return n as trends"
-# )
-trends = rag_graph.kg.query(query)
-trends = [trend["trends"] for trend in trends]
-trends_ = trends
-trends = []
-for t in trends_:
-    t["EvidencedBy"] = eval(t["EvidencedBy"])
-    t["AffectedAreas"] = eval(t["AffectedAreas"])
-for trend in trends_:
-    # print(trend)
-    print([aa["IndustryName"] for aa in trend["AffectedAreas"]])
-    # if len([aa for aa in trend['AffectedAreas'] if aa['IndustryName'] == 'IndustryName'])>0:
-
-    trends.append(trend)
-for t in trends:
-    t["EvidencedBy"] = str(t["EvidencedBy"])
-    t["AffectedAreas"] = str(t["AffectedAreas"])
-
-X = []
-print(len(trends_))
-print(len(trends))
-for trend in trends:
-
-    for key, value in trend.items():
-
-        if key == "DescriptionEmbedding":
-
-            X.append(np.array([float(v) for v in value]))
-
-X = np.stack(X)
-print(X.shape[0] // 15)
-
-labels = KMeans(n_clusters=X.shape[0] // 15, random_state=0).fit_predict(X)
 
 
-# df = pd.DataFrame({i:node for i,node in enumerate(TESLA)}.items())
-trends_ = copy.deepcopy(trends)
-for trend in trends_:
-    trend.pop("DescriptionEmbedding", None)
-# print(trends_)
-df = pd.DataFrame(trends_)
-df["label"] = labels
-# print(df)
-
-
-from datetime import datetime
-
-now = datetime.now()
-now = now.strftime("%m/%d/%Y, %H:%M:%S")
-
-for label in list(set(labels)):
+def create_cluster(df, label, now):
     cluster_id = str(uuid.uuid4())
 
     df_trends = df[df["label"] == label]
@@ -251,3 +154,66 @@ for label in list(set(labels)):
         # print(trend['trendId'])
         # assert 1==2
         res = rag_graph.link_trend_to_cluster(trend["trendId"], cluster["clusterId"])
+
+
+# )
+def cluster_trends(compute_embeddings, number_of_processes=5):
+    if compute_embeddings:
+        rag_graph.compute_embeddings_parallel("Trend", "Description")
+    # assert False
+    trends = rag_graph.kg.query(query)
+    trends = [trend["trends"] for trend in trends]
+    trends_ = trends
+    trends = []
+    for t in trends_:
+        t["EvidencedBy"] = eval(t["EvidencedBy"])
+        t["AffectedAreas"] = eval(t["AffectedAreas"])
+    for trend in trends_:
+        # print(trend)
+        print([aa["IndustryName"] for aa in trend["AffectedAreas"]])
+        # if len([aa for aa in trend['AffectedAreas'] if aa['IndustryName'] == 'IndustryName'])>0:
+
+        trends.append(trend)
+    for t in trends:
+        t["EvidencedBy"] = str(t["EvidencedBy"])
+        t["AffectedAreas"] = str(t["AffectedAreas"])
+
+    X = []
+    for trend in trends:
+
+        for key, value in trend.items():
+
+            if key == "DescriptionEmbedding":
+
+                X.append(np.array([float(v) for v in value]))
+
+    X = np.stack(X)
+    print(X.shape[0] // 15)
+
+    labels = KMeans(n_clusters=X.shape[0] // 15, random_state=0).fit_predict(X)
+
+    # df = pd.DataFrame({i:node for i,node in enumerate(TESLA)}.items())
+    trends_ = copy.deepcopy(trends)
+    for trend in trends_:
+        trend.pop("DescriptionEmbedding", None)
+    # print(trends_)
+    df = pd.DataFrame(trends_)
+    df["label"] = labels
+    # print(df)
+
+    from datetime import datetime
+
+    now = datetime.now()
+    now = now.strftime("%m/%d/%Y, %H:%M:%S")
+
+    with mp.Pool(number_of_processes) as pool:
+        results = [
+            pool.apply_async(create_cluster, args=(df, label, now))
+            for label in list(set(labels))
+        ]
+        while not all([r.ready() for r in results]):
+
+            print(
+                f"trends added {[r.ready() for r in results].count(True)} / {len(results)}"
+            )
+            time.sleep(5)

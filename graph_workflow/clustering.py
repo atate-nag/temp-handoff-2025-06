@@ -1,4 +1,4 @@
-from core_components.RAG.graph import RAG_graph
+from graph_workflow.graph_rag_lc import RAG_graph
 import os
 from dotenv import load_dotenv
 from sklearn.cluster import KMeans
