@@ -52,7 +52,11 @@ pip install -r requirements.txt
 
 You have to run the following export to give the TIKA python package access to your local server:
 
-   export TIKA_SERVER_JAR=${PWD}/tika_server/graph_workflow
+   export TIKA_SERVER_JAR=${PWD}/tika_server/
+
+you can also run:
+   cd tika_server
+   source export_tika_server_location.sh
 
 Files should be added to the following folders:
 
