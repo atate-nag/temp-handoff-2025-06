@@ -191,11 +191,6 @@ def kmeans_write_group(
         """
     return kg.query(query)
 
-
-def cluster_nodes():
-    pass
-
-
 # print()
 # rag_graph.compute_insight_embeddings_for_company('NAG', 'description')
 def generate_capabilities_per_cluster(companies, compute_embeddings=True):
