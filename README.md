@@ -96,6 +96,16 @@ is what is supported so far
             "folders": ["10. Energy", "25. Consumer Discretionary"],
             "number_of_processes": 5
          }
+
+- getCapabilities: "get_capabilities_tesla" : {
+      "step": "getCapabilities",
+      "enabled": true,
+      "parameters": {
+        "companies": ["Tesla"],
+        "compute_embeddings" : false,
+        "number_of_processes" : 5
+      }
+    },
 - "runStrategy": run_strategy,
 - "runFrameworks": run_frameworks,
 - "runScenarios": run_scenarios,

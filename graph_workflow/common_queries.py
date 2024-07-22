@@ -24,3 +24,15 @@ t = """ MATCH (c:Company {name: 'Tesla'})
         YIELD nodes, relationships 
         RETURN distinct nodes;
     """
+
+delete = """
+MATCH (c:Company {name: 'Tesla'})
+    CALL apoc.path.subgraphAll(c, { 
+            relationshipFilter: 'CONTAINS|DESCRIBED_BY|SPECIFIED_BY|EXTRACTED_FROM|SUMMARIZED_BY',
+        minLevel: 0,
+        maxLevel: 6
+    })
+        YIELD nodes, relationships 
+        WITH [x IN nodes Where x:Cluster or x:Capability ] AS nodes
+        unwind nodes as n
+        detach delete n;"""
