@@ -335,6 +335,9 @@ def fill_graph(companies):
                     .replace("null", "None")
                     .split("&&&")
                 ]
+                # results = eval(results)
+                # print(f"Results: {results}")
+                # assert False
             else:
                 results = []
             i = 0
@@ -356,9 +359,10 @@ def fill_graph(companies):
 
                 docs = []
                 if isinstance(result, list):
-                    r = result
+                    pass
                 else:
-                    r = [result]
+                    result = [result]
+                # print(result)
                 for r in result:
                     for key, value in r.items():
 
