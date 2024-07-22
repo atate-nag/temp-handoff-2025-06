@@ -591,11 +591,17 @@ class RAG_graph:
             },
         )
 
-    def compute_insight_embeddings_for_company(self, company="NAG", field="text", number_of_processes=5, bucket_size=50):
-        query = f"MATCH (i:Insight)-[]-()-[]-()-[]-()-[]-(c:Company) WHERE c.name = '{company}' AND i.{field}Embedding IS NULL AND i.{field} IS NOT NULL AND SIZE(i.{field}) < 8192 AND SIZE(i.{field}) > 2
-        return DISTINCT i.insightId as id"
+    def compute_insight_embeddings_for_company(
+        self, company="NAG", field="text", number_of_processes=5, bucket_size=50
+    ):
+        query = f"""MATCH (i:Insight)-[]-()-[]-()-[]-()-[]-(c:Company) 
+        WHERE c.name = '{company}' AND 
+            i.{field}Embedding IS NULL AND 
+            i.{field} IS NOT NULL AND 
+            SIZE(i.{field}) < 8192 AND SIZE(i.{field}) > 2
+        return DISTINCT i.insightId as id"""
         nodes = self.kg.query(query)
-        node = 'Insight'
+        node = "Insight"
         lower_node = node.lower()
         l = len(nodes)
         with mp.Pool(number_of_processes) as pool:
@@ -629,16 +635,20 @@ class RAG_graph:
                     f"embeddings {[r.ready() for r in results].count(True)} / {len(results)} for {node}."
                 )
                 time.sleep(5)
-            
 
     def compute_embeddings_parallel(
         self, node="Chunk", field="text", bucket_size=50, number_of_processes=5
     ):
+        # print(field)
         lower_node = node.lower()
-        query = f"MATCH (n:{node}) WHERE n.{field}Embedding IS NULL AND n.{field} IS NOT NULL AND SIZE(n.{field}) < 8192 AND SIZE(n.{field}) > 2 return distinct n.{lower_node}Id as id"
+        query = f"""MATCH (n:{node}) 
+        WHERE n.{field}Embedding IS NULL AND 
+            n.{field} IS NOT NULL AND 
+            SIZE(n.{field}) < 8192 AND SIZE(n.{field}) > 2 
+        return distinct n.{lower_node}Id as id"""
         nodes = self.kg.query(query)
         # print(nodes)
-        print(query)
+        # print(query)
         l = len(nodes)
         with mp.Pool(number_of_processes) as pool:
             results = []
