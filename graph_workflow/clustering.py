@@ -2,11 +2,6 @@ from core_components.RAG.graph import RAG_graph
 import os
 from dotenv import load_dotenv
 from sklearn.cluster import KMeans
-from sklearn.metrics import (
-    calinski_harabasz_score,
-    davies_bouldin_score,
-    silhouette_score,
-)
 from sklearn import metrics
 import numpy as np
 import pandas as pd
@@ -76,30 +71,13 @@ OPENAI_EMBEDDINGS_URL = os.getenv("OPENAI_EMBEDDINGS_URL")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
 rag_graph = RAG_graph(
-    "bolt://localhost:7687",
+    uri,
     user,
     password,
     database,
     OPENAI_API_KEY,
     OPENAI_EMBEDDINGS_URL,
 )
-rag_graph_cluster = RAG_graph(
-    "bolt://localhost:7687",
-    user,
-    password,
-    "clustering",
-    OPENAI_API_KEY,
-    OPENAI_EMBEDDINGS_URL,
-)
-rag_graph_ict = RAG_graph(
-    "bolt://localhost:7687",
-    user,
-    password,
-    "ict",
-    OPENAI_API_KEY,
-    OPENAI_EMBEDDINGS_URL,
-)
-
 
 capability_instruction = """
 You are a production strategy agent working as part of a team solving a real strategy consulting problem for businesses. This is not a simulation and you are not here to solve a model problem, but to perform real analysis on real data for a real client. 
@@ -214,202 +192,119 @@ def kmeans_write_group(
     return kg.query(query)
 
 
-companies = rag_graph.kg.query("match (n:Company) return n.name")
-companies = [company["n.name"] for company in companies]
-print(companies)
-companies = companies[6:-1]
-print(companies)
-# assert 2==3
-companies = ["NAG"]
-companies = [
-    # "Phillips 66",
-    # "Ford Motor",
-    # "Home Depot",
-    # "General Motors",
-    # "Centene",
-    # "Verizon Communications",
-    # "Walgreens Boots Alliance",
-    # "Fannie Mae",
-    # "Comcast",
-    # "Meta Platforms",
-    # "Bank of America",
-    # "Target",
-    # "Dell Technologies",
-    # "Archer Daniels Midland",
-    # "Citigroup",
-    # "United Parcel Service",
-    # "Pfizer",
-    # "Lowe's",
-    # "Johnson & Johnson",
-    # "FedEx",
-    # "Humana",
-    # "Energy Transfer",
-    # "State Farm Insurance",
-    # "Freddie Mac",
-    # "PepsiCo",
-    # "Wells Fargo",
-    # "Walt Disney",
-    # "Procter & Gamble",
-    # "General Electric",
-    # "Albertsons",
-    # "MetLife",
-    # "Goldman Sachs Group",
-    # "Sysco",
-    # "Raytheon Technologies",
-    # "Boeing",
-    # "StoneX Group",
-    # "Lockheed Martin",
-    # "Morgan Stanley",
-    # "Intel",
-    # "HP",
-    # "TD Synnex",
-    # "International Business Machines",
-    # "HCA Healthcare",
-    # "Prudential Financial",
-    # "Caterpillar",
-    # "Merck",
-    # "World Fuel Services",
-    # "Raytheon_Technologies",
-    "Tesla"
-]
-
-
 def cluster_nodes():
     pass
 
 
 names = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
 
+
 # print()
 # rag_graph.compute_insight_embeddings_for_company('NAG', 'description')
-for company in names:
-    print(company)
-    rag_graph.compute_insight_embeddings_for_company(company, "description")
-    company_name = company
-    graph = rag_graph.company_sub_graph(
-        company, label_filters=["Insight"], relationship_exclusions=["SIMILAR"]
-    )
+def generate_capabilities_per_cluster(companies, compute_embeddings=True):
+    names = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
+    for company in names:
+        print(company)
+        if compute_embeddings:
+            rag_graph.compute_insight_embeddings_for_company(company, "description")
+        company_name = company
+        graph = rag_graph.company_sub_graph(
+            company, label_filters=["Insight"], relationship_exclusions=["SIMILAR"]
+        )
 
-    try:
-        X = []
+        try:
+            X = []
 
-        for node in graph:
-            # print(node.keys())
-            insightId = node.get("insightId", "")
-            #  MERGE(I:Insight {{insightId: '{insightId}'}})
-            #             ON CREATE SET
-            # query = f"""
-            #         CREATE (I:Insight {{insightId: '{insightId}', """
+            for node in graph:
 
-            #         # '}})
-            #         # """
+                insightId = node.get("insightId", "")
 
-            for key, value in node.items():
-                # if key != 'insightId' and key != 'descriptionEmbedding' and key != 'company':
-                # if isinstance(value, list):
-                #     query += f' {key}: "[{", ".join(value)}]",'
-                # else:
-                #     query += f' {key}: "{str(value)}",'
-                # if key == 'company':
-                # company = value
-                # query = f"MATCH (c:Company {{name: '{value}'}}) " + query
+                for key, value in node.items():
 
-                if key == "descriptionEmbedding":
-                    print(value[0])
-                    print(np.array(value))
-                    X.append(np.array([float(v) for v in value]))
-                    # company = value
-                    # query = f"MATCH (c:Company {{name: '{value}'}}) " + query
-            # query = query[:-1] + f"""}})
-            # MERGE (I)-[:PROVIDES_INSIGHT_ON]->(c)"""
-            # print('\n')
-            # print(query)
-            # print('\n')
-            # rag_graph_cluster.kg.query(query)
+                    if key == "descriptionEmbedding":
+                        print(value[0])
+                        print(np.array(value))
+                        X.append(np.array([float(v) for v in value]))
 
-            # rag_graph_ict.kg.query(query)
-            # rag_graph_ict.query('"MERGE (i)-[:PROVIDES_INSIGHT_ON]->(c)"')
-        X = np.stack(X)
+            X = np.stack(X)
 
-        labels = KMeans(n_clusters=X.shape[0] // 15, random_state=0).fit_predict(X)
+            labels = KMeans(n_clusters=X.shape[0] // 15, random_state=0).fit_predict(X)
 
-        # df = pd.DataFrame({i:node for i,node in enumerate(TESLA)}.items())
-        df = pd.DataFrame(graph)
-        df["label"] = labels
+            df = pd.DataFrame(graph)
+            df["label"] = labels
 
-        from datetime import datetime
+            from datetime import datetime
 
-        now = datetime.now()
-        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+            now = datetime.now()
+            now = now.strftime("%m/%d/%Y, %H:%M:%S")
 
-        for label in list(set(labels)):
-            cluster_id = str(uuid.uuid4())
+            for label in list(set(labels)):
+                cluster_id = str(uuid.uuid4())
 
-            df_insights = df[df["label"] == label]
-            insights = df_insights.to_dict("records")
+                df_insights = df[df["label"] == label]
+                insights = df_insights.to_dict("records")
 
-            sources = []
-            categories = []
-            descriptions = []
+                sources = []
+                categories = []
+                descriptions = []
 
-            for insight in insights:
-                # print(insight['source'])
-                sources.append(insight["source"])
+                for insight in insights:
+                    # print(insight['source'])
+                    sources.append(insight["source"])
 
-                # print(insight['categories'])
-                categories.extend(insight["categories"])
+                    # print(insight['categories'])
+                    categories.extend(insight["categories"])
 
-                # print(insight['description'])
-                descriptions.append(insight["description"])
+                    # print(insight['description'])
+                    descriptions.append(insight["description"])
 
-            # print(categories)
+                # print(categories)
 
-            categories = list(set(categories))
-            sources = list(set(sources))
-            descriptions = list(set(descriptions))
+                categories = list(set(categories))
+                sources = list(set(sources))
+                descriptions = list(set(descriptions))
 
-            summary = chain_summary.invoke(
-                {
-                    "company": company_name,
-                    "insights": " ***** "
+                summary = chain_summary.invoke(
+                    {
+                        "company": company_name,
+                        "insights": " ***** "
+                        + "\n ***** \n".join(descriptions)
+                        + " ***** ",
+                    }
+                )
+                # print(list(set(categories)))
+                cluster = {
+                    "number": label,
+                    "source": sources,
+                    "category": categories,
+                    "created": now,
+                    "description": " ***** "
                     + "\n ***** \n".join(descriptions)
                     + " ***** ",
+                    "summary": summary,
+                    "clusterId": cluster_id,
                 }
-            )
-            # print(list(set(categories)))
-            cluster = {
-                "number": label,
-                "source": sources,
-                "category": categories,
-                "created": now,
-                "description": " ***** " + "\n ***** \n".join(descriptions) + " ***** ",
-                "summary": summary,
-                "clusterId": cluster_id,
-            }
 
-            print(cluster)
-            rag_graph.add_cluster(cluster)
+                print(cluster)
+                rag_graph.add_cluster(cluster)
 
-            # print(f'\nLabel: {label}\n')
-            # print(df[df['label'] == label])
+                for insight in insights:
+                    res = rag_graph.link_insights_to_cluster(
+                        insight["insightId"], cluster["clusterId"]
+                    )
 
-            for insight in insights:
-                res = rag_graph.link_insights_to_cluster(
-                    insight["insightId"], cluster["clusterId"]
+                capabilities = chain_capabilities.invoke(
+                    {"company": company_name, "document": summary}
                 )
-
-            capabilities = chain_capabilities.invoke(
-                {"company": company_name, "document": summary}
-            )
-            print("\n")
-            print(capabilities)
-            print("\n")
-            for capability in capabilities["capabilities"]:
-                capability["capabilityId"] = str(uuid.uuid4())
-                capability["evidenced_by"] = str(capability["evidenced_by"])
-                rag_graph.add_capability(capability=capability)
-                rag_graph.link_cluster_to_capability(
-                    cluster["clusterId"], capability["capabilityId"]
-                )
-    except Exception as e:
-        print(e)
+                print("\n")
+                print(capabilities)
+                print("\n")
+                for capability in capabilities["capabilities"]:
+                    capability["capabilityId"] = str(uuid.uuid4())
+                    capability["evidenced_by"] = str(capability["evidenced_by"])
+                    rag_graph.add_capability(capability=capability)
+                    rag_graph.link_cluster_to_capability(
+                        cluster["clusterId"], capability["capabilityId"]
+                    )
+        except Exception as e:
+            print(e)
