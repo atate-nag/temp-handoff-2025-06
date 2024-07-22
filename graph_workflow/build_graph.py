@@ -7,7 +7,7 @@ from graph_workflow.graph_rag_lc import RAG_graph
 import json
 import uuid
 import datetime
-from graph_workflow.trend_agent import TrendAgent
+from graph_workflow.linkedin_agent import LinkedinAgent
 
 # setup openaAI
 
@@ -29,7 +29,7 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 d = datetime.datetime.now()
 d = d.strftime("%m/%d/%Y %H:%M:%S")
 
-ta = TrendAgent(period="1y")
+ta = LinkedinAgent(period="1y")
 
 
 def create_companies(companyName):
@@ -177,7 +177,8 @@ def fill_graph(companies):
             }
         except Exception as e:
             print(e)
-            company = {"name": company_name, "linkedin": None}
+            company = {"name": company_name, "linkedin": ta.get_linkedin_url_company(company_name)}
+            
 
         name = company["name"]
         company["name"] = (
