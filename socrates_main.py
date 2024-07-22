@@ -285,8 +285,8 @@ def get_file_paths(company_name, problemsFile):
     Give a single company, extracts the problem, company and trend data
     and generates files suitable for agent processing
     """
-    company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
     problem_data = get_problem(company_name, problemsFile)
+    company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
     trends = get_trends(company_name, problem_data, force_recreate=False)
     company_full_data = get_company_data(company_name)
     problem_file_path = file_handler.write_local_json(
@@ -300,21 +300,56 @@ def get_file_paths(company_name, problemsFile):
     )
     return problem_file_path, trends_file_path, company_file_path
 
+def run_modeller(companyName, problemsFile):
+    """
+     Runs an experimental modeller for a single company
+     """
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        companyName, problemsFile
+    )
+    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
+    models_return_file, models_response_file = generate_models(
+        company_name, problem_file_path, trends_file_path, company_file_path
+    )
+    return models_return_file, models_response_file
+
+def generate_models(company_name, problem_file_path, trends_file_path, company_file_path):
+    """
+    Executes the modeller agent for a single company
+    """
+    agent_configs = [{"agent_type": "modeller_agent"}]
+    modeller_manager = AgentManager(
+        client,
+        file_handler,
+        agent_configs,
+        [problem_file_path, trends_file_path, company_file_path],
+        use_qm_agents=False,
+    )
+    modeller_manager.run_workflow()
+    modeller_return = modeller_manager.return_dict()
+    modeller_response = modeller_manager.return_response
+    modeller_return_file = file_handler.write_local_json(
+        f"modeller_return_{company_name}", json.dumps(modeller_return)
+    )
+    response_dict = {"response_text": modeller_response}
+    modeller_response_file = file_handler.write_local_json(
+        f"modeller_response_{company_name}", json.dumps(response_dict)
+    )
+    print(f"completed modeller for {company_name}")
+    return modeller_response_file, modeller_return_file
 
 def run_scenarios(companyName, problemsFile):
     """
     Runs the stand-alone scenarios analysis for a single company
     """
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        company_name, problemsFile
+        companyName, problemsFile
     )
+    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     scenarios_return_file, scenarios_response_file = generate_scenarios(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
-
     # Add validation and quality checks of scenarios outputs
-
     return scenarios_return_file, scenarios_response_file
 
 

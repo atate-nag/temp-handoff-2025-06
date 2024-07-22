@@ -1,35 +1,20 @@
 {
   "workflow": {
-    "cleanUp": {
+    "runScenarios": {
+      "parameters": {
+        "companyName": "Exxon Mobil",
+        "problemsFile": "problem_statements.json"
+      },
+      "enabled": true
+    },
+    "fill_graph": {
+      "parameters": {
+        "companies": [
+          "Exxon Mobil"
+        ]
+      },
       "enabled": false
-    },
-    "getTrends" : {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
-      }
-    },
-     "runFrameworks" : {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
-      }
-    },
-    "runScenarios" : {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
-      }
-    },
-    "runStrategy" : {
-      "enabled": true,
-      "parameters": {
-        "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
-      }
     }
   }
 }
+
