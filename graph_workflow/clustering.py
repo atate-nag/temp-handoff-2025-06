@@ -196,9 +196,6 @@ def cluster_nodes():
     pass
 
 
-names = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
-
-
 # print()
 # rag_graph.compute_insight_embeddings_for_company('NAG', 'description')
 def generate_capabilities_per_cluster(companies, compute_embeddings=True):
