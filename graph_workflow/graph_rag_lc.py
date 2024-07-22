@@ -22,6 +22,7 @@ import keybert.llm as llm
 from keybert import KeyBERT
 import os
 import uuid
+import multiprocessing as mp
 
 
 def extract_keywords(documents):
@@ -64,6 +65,47 @@ class graph_explorer:
             """,
             params={"class_id": class_id},
         )
+
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_ENDPOINT = os.getenv("OPENAI_ENDPOINT")
+OPENAI_EMBEDDINGS_URL = os.getenv("OPENAI_EMBEDDINGS_URL")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+
+NEO4J_URI = os.getenv("NEO4J_URL")
+NEO4J_USERNAME = os.getenv("NEO4J_USER")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+NEO4J_DATABASE = os.getenv("NEO4J_DATABASE")
+
+
+def compute_bucket_embeddings(bucket_str_list_nodes, node, lower_node, field):
+    kg = Neo4jGraph(
+        url=NEO4J_URI,
+        username=NEO4J_USERNAME,
+        password=NEO4J_PASSWORD,
+        database=NEO4J_DATABASE,
+    )
+    print("Computing bucket embedding..")
+    query = f"""MATCH (n:{node}) WHERE n.{lower_node}Id in {bucket_str_list_nodes}
+            WITH n, genai.vector.encode(
+            n.{field}, 
+            "OpenAI", 
+            {{
+                token: $openAiApiKey, 
+                endpoint: $openAiEndpoint
+            }}) AS vector
+            CALL db.create.setNodeVectorProperty(n, "{field}Embedding", vector)
+            """
+
+    # print(f"query: {query}")
+    kg.query(
+        query,
+        params={
+            "openAiApiKey": OPENAI_API_KEY,
+            "openAiEndpoint": OPENAI_ENDPOINT,
+        },
+    )
+    return True
 
 
 class RAG_graph:
@@ -548,6 +590,88 @@ class RAG_graph:
                 "openAiEndpoint": self.OPENAI_ENDPOINT,
             },
         )
+
+    def compute_insight_embeddings_for_company(self, company="NAG", field="text", number_of_processes=5, bucket_size=50):
+        query = f"MATCH (i:Insight)-[]-()-[]-()-[]-()-[]-(c:Company) WHERE c.name = '{company}' AND i.{field}Embedding IS NULL AND i.{field} IS NOT NULL AND SIZE(i.{field}) < 8192 AND SIZE(i.{field}) > 2
+        return DISTINCT i.insightId as id"
+        nodes = self.kg.query(query)
+        node = 'Insight'
+        lower_node = node.lower()
+        l = len(nodes)
+        with mp.Pool(number_of_processes) as pool:
+            results = []
+            for i in range((l // bucket_size) + 1):
+                print(f"\nnumber of nodes {l}")
+                print(f"Starting bucket: {i * bucket_size}")
+                print(f"ending bucket: {min((i + 1) * bucket_size, l)}")
+                bucket_nodes_id = [
+                    n["id"]
+                    for n in nodes[i * bucket_size : min((i + 1) * bucket_size, l)]
+                ]
+                # print(bucket_nodes_id)
+                # print(f"bucket list nodes: {bucket_nodes_id}")
+                bucket_str_list_nodes = [str(b) for b in bucket_nodes_id]
+                # self.compute_bucket_embeddings( bucket_str_list_nodes, node, lower_node, field)
+                results.append(
+                    pool.apply_async(
+                        compute_bucket_embeddings,
+                        args=(
+                            bucket_str_list_nodes,
+                            node,
+                            lower_node,
+                            field,
+                        ),
+                    )
+                )
+            while not all([r.ready() for r in results]):
+
+                print(
+                    f"embeddings {[r.ready() for r in results].count(True)} / {len(results)} for {node}."
+                )
+                time.sleep(5)
+            
+
+    def compute_embeddings_parallel(
+        self, node="Chunk", field="text", bucket_size=50, number_of_processes=5
+    ):
+        lower_node = node.lower()
+        query = f"MATCH (n:{node}) WHERE n.{field}Embedding IS NULL AND n.{field} IS NOT NULL AND SIZE(n.{field}) < 8192 AND SIZE(n.{field}) > 2 return distinct n.{lower_node}Id as id"
+        nodes = self.kg.query(query)
+        # print(nodes)
+        print(query)
+        l = len(nodes)
+        with mp.Pool(number_of_processes) as pool:
+            results = []
+            for i in range((l // bucket_size) + 1):
+                print(f"\nnumber of nodes {l}")
+                print(f"Starting bucket: {i * bucket_size}")
+                print(f"ending bucket: {min((i + 1) * bucket_size, l)}")
+                bucket_nodes_id = [
+                    n["id"]
+                    for n in nodes[i * bucket_size : min((i + 1) * bucket_size, l)]
+                ]
+                # print(bucket_nodes_id)
+                # print(f"bucket list nodes: {bucket_nodes_id}")
+                bucket_str_list_nodes = [str(b) for b in bucket_nodes_id]
+                # self.compute_bucket_embeddings( bucket_str_list_nodes, node, lower_node, field)
+                results.append(
+                    pool.apply_async(
+                        compute_bucket_embeddings,
+                        args=(
+                            bucket_str_list_nodes,
+                            node,
+                            lower_node,
+                            field,
+                        ),
+                    )
+                )
+            while not all([r.ready() for r in results]):
+
+                print(
+                    f"embeddings {[r.ready() for r in results].count(True)} / {len(results)} for {node}."
+                )
+                time.sleep(5)
+            # print([r.get() for r in results])
 
     def link_close_chunks(self, threshold=0.85):
         self.kg.query(

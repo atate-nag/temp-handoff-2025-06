@@ -15,6 +15,7 @@ from filehandler import FileHandler
 from graph_workflow.build_graph import fill_graph
 from graph_workflow.extract_insights import get_insights
 from graph_workflow.trends.trends_analyser import generate_trends
+from graph_workflow.trends.clustering_trend import cluster_trends
 from graph_workflow.clustering import generate_capabilities_per_cluster
 import json, re
 from openai_asst import (
@@ -96,6 +97,7 @@ def get_step_function(step_name):
         "getInsights": get_insights,
         "getCapabilities": generate_capabilities_per_cluster,
         "getTrends": generate_trends,
+        "clusterTrends": cluster_trends,
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
