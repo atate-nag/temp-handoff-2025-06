@@ -12,6 +12,8 @@ from langchain_core.prompts import PromptTemplate
 from typing import Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+import multiprocessing as mp
+import time
 
 load_dotenv()
 import uuid
@@ -191,15 +193,85 @@ def kmeans_write_group(
         """
     return kg.query(query)
 
+
+def generate_cluster_and_capabilities(df, company_name, label, now):
+
+    cluster_id = str(uuid.uuid4())
+
+    df_insights = df[df["label"] == label]
+    insights = df_insights.to_dict("records")
+
+    sources = []
+    categories = []
+    descriptions = []
+
+    for insight in insights:
+        # print(insight['source'])
+        sources.append(insight["source"])
+
+        # print(insight['categories'])
+        categories.extend(insight["categories"])
+
+        # print(insight['description'])
+        descriptions.append(insight["description"])
+
+    # print(categories)
+
+    categories = list(set(categories))
+    sources = list(set(sources))
+    descriptions = list(set(descriptions))
+
+    summary = chain_summary.invoke(
+        {
+            "company": company_name,
+            "insights": " ***** " + "\n ***** \n".join(descriptions) + " ***** ",
+        }
+    )
+    # print(list(set(categories)))
+    cluster = {
+        "number": label,
+        "source": sources,
+        "category": categories,
+        "created": now,
+        "description": " ***** " + "\n ***** \n".join(descriptions) + " ***** ",
+        "summary": summary,
+        "clusterId": cluster_id,
+    }
+
+    rag_graph.add_cluster(cluster)
+
+    for insight in insights:
+        res = rag_graph.link_insights_to_cluster(
+            insight["insightId"], cluster["clusterId"]
+        )
+
+    capabilities = chain_capabilities.invoke(
+        {"company": company_name, "document": summary}
+    )
+
+    for capability in capabilities["capabilities"]:
+        capability["capabilityId"] = str(uuid.uuid4())
+        capability["evidenced_by"] = str(capability["evidenced_by"])
+        rag_graph.add_capability(capability=capability)
+        rag_graph.link_cluster_to_capability(
+            cluster["clusterId"], capability["capabilityId"]
+        )
+
+
 # print()
 # rag_graph.compute_insight_embeddings_for_company('NAG', 'description')
-def generate_capabilities_per_cluster(companies, compute_embeddings=True):
+def generate_capabilities_per_cluster(
+    companies, compute_embeddings=True, number_of_processes=5
+):
     names = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
     for company in names:
-        print(company)
+        print(
+            f"clustering of the insights and generation of capabilities for company: {company}"
+        )
         if compute_embeddings:
+            print(f"Start computing embeddings..")
             rag_graph.compute_insight_embeddings_for_company(company, "description")
-        company_name = company
+
         graph = rag_graph.company_sub_graph(
             company, label_filters=["Insight"], relationship_exclusions=["SIMILAR"]
         )
@@ -214,12 +286,10 @@ def generate_capabilities_per_cluster(companies, compute_embeddings=True):
                 for key, value in node.items():
 
                     if key == "descriptionEmbedding":
-                        print(value[0])
-                        print(np.array(value))
                         X.append(np.array([float(v) for v in value]))
 
             X = np.stack(X)
-
+            print(f"Start computing clusters..")
             labels = KMeans(n_clusters=X.shape[0] // 15, random_state=0).fit_predict(X)
 
             df = pd.DataFrame(graph)
@@ -230,73 +300,21 @@ def generate_capabilities_per_cluster(companies, compute_embeddings=True):
             now = datetime.now()
             now = now.strftime("%m/%d/%Y, %H:%M:%S")
 
-            for label in list(set(labels)):
-                cluster_id = str(uuid.uuid4())
-
-                df_insights = df[df["label"] == label]
-                insights = df_insights.to_dict("records")
-
-                sources = []
-                categories = []
-                descriptions = []
-
-                for insight in insights:
-                    # print(insight['source'])
-                    sources.append(insight["source"])
-
-                    # print(insight['categories'])
-                    categories.extend(insight["categories"])
-
-                    # print(insight['description'])
-                    descriptions.append(insight["description"])
-
-                # print(categories)
-
-                categories = list(set(categories))
-                sources = list(set(sources))
-                descriptions = list(set(descriptions))
-
-                summary = chain_summary.invoke(
-                    {
-                        "company": company_name,
-                        "insights": " ***** "
-                        + "\n ***** \n".join(descriptions)
-                        + " ***** ",
-                    }
-                )
-                # print(list(set(categories)))
-                cluster = {
-                    "number": label,
-                    "source": sources,
-                    "category": categories,
-                    "created": now,
-                    "description": " ***** "
-                    + "\n ***** \n".join(descriptions)
-                    + " ***** ",
-                    "summary": summary,
-                    "clusterId": cluster_id,
-                }
-
-                print(cluster)
-                rag_graph.add_cluster(cluster)
-
-                for insight in insights:
-                    res = rag_graph.link_insights_to_cluster(
-                        insight["insightId"], cluster["clusterId"]
+            with mp.Pool(number_of_processes) as pool:
+                results = []
+                for label in list(set(labels)):
+                    results.append(
+                        pool.apply_async(
+                            generate_cluster_and_capabilities,
+                            args=(df, company, label, now),
+                        )
                     )
 
-                capabilities = chain_capabilities.invoke(
-                    {"company": company_name, "document": summary}
-                )
-                print("\n")
-                print(capabilities)
-                print("\n")
-                for capability in capabilities["capabilities"]:
-                    capability["capabilityId"] = str(uuid.uuid4())
-                    capability["evidenced_by"] = str(capability["evidenced_by"])
-                    rag_graph.add_capability(capability=capability)
-                    rag_graph.link_cluster_to_capability(
-                        cluster["clusterId"], capability["capabilityId"]
+                while not all([r.ready() for r in results]):
+
+                    print(
+                        f"cluster and capabilities added {[r.ready() for r in results].count(True)} / {len(results)} for {company}."
                     )
+                    time.sleep(5)
         except Exception as e:
             print(e)
