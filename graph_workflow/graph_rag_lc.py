@@ -244,6 +244,10 @@ class RAG_graph:
                     c.description = $clusterParam.description,
                     c.summary = $clusterParam.summary,
                     c.type = $clusterParam.type,
+                    c.gics_codes = $clusterParam.gics_codes,
+                    c.gics_names = $clusterParam.gics_names,
+                    c.titles = $clusterParam.titles,
+                    c.AffectedAreas = $clusterParam.AffectedAreas,
                     c.id_ = $clusterParam.clusterId
             RETURN c
         """
