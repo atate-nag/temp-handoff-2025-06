@@ -176,3 +176,28 @@ model_capability_cluster = ChatOpenAI(model="gpt-4o", temperature=0.1)
 evaluate_capability_cluster = (
     prompt_capability_cluster | model_capability_cluster | parser_capability_cluster
 )
+
+
+condense_model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+condense_parser = StrOutputParser()
+condense_prompt = ChatPromptTemplate.from_template(
+    template="""
+This is the content statements extracted about {subject}:
+*****
+{content}
+*****
+
+This is the context for your task:
+*****
+{context}
+*****
+
+You have to create a summary of the content, you have to include citation and be factual. 
+
+Your output will be used in strategic analysis and decision making. 
+Format your output in a way that is easy to read and understand in prose.
+"""
+)
+
+# Define the summary chain
+condense_chain = condense_prompt | condense_model | condense_parser
