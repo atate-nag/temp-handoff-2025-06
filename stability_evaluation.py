@@ -490,20 +490,15 @@ if __name__ == "__main__":
     # company_name, problemsFile, company_file, trend_file
     inputs = (
         "Tesla",
-        "./problem_statements.json",
+        "Intermediates/local_problem_Tesla.json",
         "Intermediates/condensed_company_data.json",
         "Intermediates/condensed_trends.json",
     )
-    # print(
-    #     measure_stability(
-    #         use_chain_scenario,
-    #         inputs,
-    #         Distances["cosine"],
-    #         None,
-    #         50,
-    #         name='chains'
-    #     )
-    # )
+    print(
+        measure_stability(
+            use_chain_scenario, inputs, Distances["cosine"], None, 50, name="chains"
+        )
+    )
 
     print(
         measure_stability(
