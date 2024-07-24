@@ -1,6 +1,20 @@
 import re
 from functools import wraps
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
+from sklearn.cluster import KMeans
+from openai import OpenAI
+import numpy as np
+import pandas as pd
+from chains import condense_chain
+import multiprocessing as mp
+import threading
+import concurrent.futures
+import time
+
+client = OpenAI()
 
 
 def clean_text(text):
@@ -97,6 +111,55 @@ def retry(number_of_retry=3):
     return retry_outer
 
 
+def wrapper(q, fn, args, kwargs):
+    print("wrapping")
+    q.put(fn(*args, **kwargs))
+    return True
+
+
+def timeout(timeout=5):
+    def timeout_outer(fn):
+        @wraps(fn)
+        def timeout_inner(*args, **kwargs):
+            # wrapper = lambda x:
+            start = time.time()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(fn, *args, **kwargs)
+                while not future.done():
+                    if time.time() - start > timeout:
+                        raise Exception("timeout", f"function: {fn.__name__} failed")
+                    time.sleep(0.2)
+            # t = threading.Thread(target=fn, args=args, kwargs=kwargs)
+            # t.start()
+
+            # while t.is_alive():
+            #     if time.time() - start > timeout:
+            #         raise Exception('timeout', f'function: {fn.__name__} failed')
+            #     time.sleep(.2)
+
+            # with mp.Pool(5) as pool:
+            #     res = pool.apply_async(fn, args=args, kwds=kwargs)
+            #     # p = mp.Process(target=wrapper, args=(output, fn, args, kwargs))
+            # p.start()
+
+            # while not res.ready():
+            #     print(res.ready())
+            #     # print(res.successful())
+            #     if time.time() - start > timeout:
+            #         raise Exception("timeout", f"function: {fn.__name__} failed")
+            #     time.sleep(0.2)
+            # while p.is_alive:
+            #     if time.time() - start > timeout:
+            #         raise Exception('timeout', f'function: {fn.__name__} failed')
+            #     time.sleep(.2)
+            return future.result()
+
+        return timeout_inner
+
+    return timeout_outer
+
+
 def unescape_string(value):
     if isinstance(value, str):
         return json.loads(f'"{value}"')  # This will unescape the string
@@ -115,3 +178,87 @@ def process_dict(d):
                 for item in value
             ]
     return d
+
+
+def generate_condense_summary(df, label, context, subject):
+    content = df[df["labels"] == label]
+    content = dict_to_plain_text(content.to_dict())
+    return invoke(
+        condense_chain, {"content": content, "context": context, "subject": subject}
+    )
+
+
+def condense(
+    data: list,
+    key: str,
+    context: str,
+    subject: str,
+    number_of_clusters=10,
+    number_of_processes=5,
+):
+    # Partant d'une liste de dictionnaires, on extrait les embeddings de chaque dictionnaire
+    # et on les regroupe en clusters
+    # On cree un dataframe avec les embeddings et les labels des clusters
+    print()
+    X = [embed(text=node[key], model="text-embedding-3-large") for node in data]
+
+    X = np.stack(X)
+    print(f"Start computing clusters..")
+    labels = KMeans(n_clusters=number_of_clusters, random_state=0).fit_predict(X)
+
+    df = pd.DataFrame(data)
+    df["labels"] = labels
+
+    with mp.Pool(number_of_processes) as pool:
+        results = [
+            pool.apply_async(
+                generate_condense_summary,
+                args=(df, label, context, subject),
+            )
+            for label in list(set(labels))
+        ]
+        while not all([r.ready() for r in results]):
+            print(
+                f"Condense summary {[r.ready() for r in results].count(True)} / {len(results)} for {subject}."
+            )
+            # [print([r.get() for r in results if r.ready()])]
+            time.sleep(5)
+
+    return [r.get() for r in results]
+
+
+@retry(number_of_retry=5)
+@timeout(120)
+def invoke(chain, parameters):
+    return chain.invoke(parameters)
+    # start = time.time()
+
+    # p = mp.Process(target=chain.invoke, args=(parameters,))
+    # p.start()
+
+    # while p.is_alive():
+    #     if time.time() - start > timeout:
+    #         raise Exception("timeout", f"chain: {chain} failed")
+    #     time.sleep(0.2)
+
+
+@retry(number_of_retry=10)
+@timeout(15)
+def embed(text: str, model: str = "text-embedding-3-large", timeout=5):
+
+    return client.embeddings.create(input=text, model=model).data[0].embedding
+
+
+@timeout(4)
+def wait_for_sec(t):
+    print("start waiting")
+    time.sleep(t)
+    print("finish waiting")
+    return t
+
+
+if __name__ == "__main__":
+    print("start waiting test")
+    print(wait_for_sec(1))
+    print("waited 1")
+    print(embed("I am trying something"))

@@ -152,11 +152,15 @@ Distances = {
 # class EmbeddingFunction(Enum):
 #     openAI = OpenAIEmbeddings
 
+
 def scenario_wrapper(company_name, problemsFile, company_file, trend_file):
-    _, scenarios_path = generate_scenarios(company_name, problemsFile, company_file, trend_file)
+    _, scenarios_path = generate_scenarios(
+        company_name, problemsFile, company_file, trend_file
+    )
     scenario = json.load(open(scenarios_path))
     return scenario
-    
+
+
 def measure_stability(
     model, inputs, distance, embedding_function, n_samples=100, name=""
 ):
@@ -179,7 +183,10 @@ def measure_stability(
     print(f"\noutputs: {outputs}")
     [print(output.keys()) for output in outputs]
     # print(f"\noutputs: {outputs[0].keys()}")
-    outputs = [output['output_schema'] if 'output_schema' in output.keys() else output for output in outputs]
+    outputs = [
+        output["output_schema"] if "output_schema" in output.keys() else output
+        for output in outputs
+    ]
     outputs = [
         {key: dict_to_plain_text(output[key]) for key in keys} for output in outputs
     ]
