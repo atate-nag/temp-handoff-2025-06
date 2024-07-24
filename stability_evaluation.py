@@ -251,6 +251,87 @@ def measure_stability(
     return results
 
 
+def measure_stability_from_file(
+    file_names, distance, name=''
+):
+    outputs = [json.load(open(file_name)) for file_name in file_names]
+
+    keys = [
+        "ProblemStatement",
+        "ProblemStatementBreakdown",
+        "Scenarios",
+        "UtilityAssessment",
+        "Prioritization",
+        "Analysis",
+    ]
+
+    # outputs = [json.load(open(output[1])) for output in outputs]
+    print(f"\noutputs: {outputs}")
+    [print(output.keys()) for output in outputs]
+    # print(f"\noutputs: {outputs[0].keys()}")
+    outputs = [
+        output["output_schema"] if "output_schema" in output.keys() else output
+        for output in outputs
+    ]
+    outputs = [
+        {key: dict_to_plain_text(output[key]) for key in keys} for output in outputs
+    ]
+
+    # print(f"\nembeddings outputs: {outputs}")
+
+    embeddings = np.array(
+        [
+            {
+                # key: client.embeddings.create(
+                #     input=output[key], model="text-embedding-3-large"
+                # )
+                # .data[0]
+                # .embedding
+                key: embed(text=output[key], model="text-embedding-3-large")
+                for key in keys if len(output[key]) < 8191*4
+            }
+            for output in outputs
+        ]
+    )
+    print(embeddings)
+    # embeddings = np.array(embedding_function.embed_documents(outputs))
+    # np.mean([[embedding[key] for key in keys] for embedding in embeddings], axis=0)
+    means = {
+        key: np.mean(np.array([embedding[key] for embedding in embeddings if key in embedding.keys()]), axis=0)
+        for key in keys
+    }
+    # print(f"means: {means}")
+    # print(f"means: {embeddings}")
+    # print(np.shape(embeddings[0]["ProblemStatement"]))
+
+
+    distances = {
+        key: [distance(means[key], embedding[key]) for embedding in embeddings if key in embedding.keys()]
+        for key in keys
+    }
+    # print(f"distances: {distances}")
+    results = {
+        key: {
+            "mean": np.mean(distances[key]),
+            "std": np.std(distances[key]),
+            "min": np.min(distances[key]),
+            "max": np.max(distances[key]),
+            "distances": distances[key],
+        }
+        for key in keys
+    }
+
+    print(f"Stability results: {results}")
+    # Convert results to JSON format
+    results_json = json.dumps(results)
+
+    # Write results to a file
+    if len(name) > 0:
+        name = name + "_"
+    with open("results_" + name + str(uuid.uuid4()) + ".json", "w") as f:
+        f.write(results_json)
+    return results
+
 # COSINE = 'cosine'
 
 # EUCLIDEAN = 'euclidean'
@@ -494,14 +575,70 @@ if __name__ == "__main__":
         "Intermediates/condensed_company_data.json",
         "Intermediates/condensed_trends.json",
     )
-    print(
-        measure_stability(
-            use_chain_scenario, inputs, Distances["cosine"], None, 50, name="chains"
-        )
-    )
+    # print(
+    #     measure_stability(
+    #         use_chain_scenario, inputs, Distances["cosine"], None, 50, name="chains"
+    #     )
+    # )
+    
+    file_names = ["Intermediates/local_scenarios_return_Tesla_0d4ea3cc-d89c-4d0b-8a60-66414a289464.json",
+    "Intermediates/local_scenarios_return_Tesla_1c824789-3b7d-470c-9a6f-565e5e72b932.json",
+    "Intermediates/local_scenarios_return_Tesla_1eaa4ca7-803d-4e26-be17-f2a1167bfe94.json",
+    "Intermediates/local_scenarios_return_Tesla_3a580a56-ed10-4216-b4c8-6a5424e7eb14.json",
+    "Intermediates/local_scenarios_return_Tesla_3b89948b-7765-4422-80d8-5a91da8baada.json",
+    "Intermediates/local_scenarios_return_Tesla_6a73530e-ceda-4dcd-9255-4ebd43d7a8af.json",
+    "Intermediates/local_scenarios_return_Tesla_06efa4fd-5de5-4933-bc34-42e42ab6c80e.json",
+    "Intermediates/local_scenarios_return_Tesla_6f9215ec-0a69-4ba2-a7c3-d1e890ab62a7.json",
+    "Intermediates/local_scenarios_return_Tesla_7b5cd609-4b63-4bc9-bf16-64fa130394ef.json",
+    "Intermediates/local_scenarios_return_Tesla_7d1c1e59-b6b2-4989-b17d-fe1d6d2623de.json",
+    "Intermediates/local_scenarios_return_Tesla_8e7df0b9-eb13-46f0-aa64-f36d36cd1691.json",
+    "Intermediates/local_scenarios_return_Tesla_8f31c2b9-552b-420d-a967-c6a1e52532a4.json",
+    "Intermediates/local_scenarios_return_Tesla_45fcad96-b1b6-4b44-bdd3-fe6c4eb73107.json",
+    "Intermediates/local_scenarios_return_Tesla_53c0dba7-feb2-47e9-bebe-d7ee08fb8c16.json",
+    "Intermediates/local_scenarios_return_Tesla_67c29856-747e-4df2-9f78-ee2f2bab15c1.json",
+    "Intermediates/local_scenarios_return_Tesla_91f30e03-ea1d-431f-8879-7f4b1da064d3.json",
+    "Intermediates/local_scenarios_return_Tesla_92ca536a-ef22-482b-8dbc-23d9b20d91c8.json",
+    "Intermediates/local_scenarios_return_Tesla_291ea263-2f6d-4a05-a97c-23a24349e233.json",
+    "Intermediates/local_scenarios_return_Tesla_523ad8b2-f2fa-496b-8703-d8ed3632fa58.json",
+    "Intermediates/local_scenarios_return_Tesla_838eba44-cc9b-4686-a952-ebd53c71be2c.json",
+    "Intermediates/local_scenarios_return_Tesla_5696a5f4-ddde-40c0-bb05-651499f282c4.json",
+    "Intermediates/local_scenarios_return_Tesla_7320e8fb-556c-4c26-b9f4-e566596c239e.json",
+    "Intermediates/local_scenarios_return_Tesla_7671b188-f299-4508-88f3-a8781b3d1d83.json",
+    "Intermediates/local_scenarios_return_Tesla_8056b7a2-8b1d-4ffb-9fb7-6dbc7036f9b5.json",
+    "Intermediates/local_scenarios_return_Tesla_21731a75-5b12-4c4f-9714-fb3321ff9105.json",
+    "Intermediates/local_scenarios_return_Tesla_76751ba3-1785-4105-b757-0caa9862cce8.json",
+    "Intermediates/local_scenarios_return_Tesla_601783cb-0701-4833-843c-f90fe737a8a4.json",
+    "Intermediates/local_scenarios_return_Tesla_971176ba-24a7-4357-bd94-a72ebc8b5d68.json",
+    "Intermediates/local_scenarios_return_Tesla_2385040e-d14f-47f1-bf44-ebe6bf49aa6e.json",
+    "Intermediates/local_scenarios_return_Tesla_a43f0ec8-52fb-49bb-b108-1eb40c299226.json",
+    "Intermediates/local_scenarios_return_Tesla_a84a3b09-7a12-4d9c-9282-8a79744ae40b.json",
+    "Intermediates/local_scenarios_return_Tesla_a8160ebf-abd7-4fe6-8315-cf1adbb777ec.json",
+    "Intermediates/local_scenarios_return_Tesla_b5daf0ee-6374-4b04-8eb9-5ae1e94db223.json",
+    "Intermediates/local_scenarios_return_Tesla_b96eb2f9-f7f5-431e-8c66-5a721eb35fcb.json",
+    "Intermediates/local_scenarios_return_Tesla_b3373739-2153-4cc5-9d2b-0db850552ccd.json",
+    "Intermediates/local_scenarios_return_Tesla_bdf40c4e-3f5b-480d-aa22-98cc64e68076.json",
+    "Intermediates/local_scenarios_return_Tesla_bfd0d479-bf96-486a-8187-5636eab95eca.json",
+    "Intermediates/local_scenarios_return_Tesla_d26eb98e-4ff1-4f10-81c4-ce059093ecb1.json",
+    "Intermediates/local_scenarios_return_Tesla_d49ad841-0c73-43e9-861a-fa51d1480557.json",
+    "Intermediates/local_scenarios_return_Tesla_dc9a3fac-0a5f-49db-a9a9-42d09575ef13.json",
+    "Intermediates/local_scenarios_return_Tesla_dd6447ae-8f5c-4286-9b37-840f6b059694.json",
+    "Intermediates/local_scenarios_return_Tesla_debfe62c-9bfe-4d74-bf8b-5d91b883e4ca.json",
+    "Intermediates/local_scenarios_return_Tesla_e4b6895a-e91d-4c64-98b4-77d90200b606.json",
+    "Intermediates/local_scenarios_return_Tesla_e9fad16b-e6e1-421d-9a02-136855ff4a4c.json",
+    "Intermediates/local_scenarios_return_Tesla_e81e034a-bd28-4726-92df-6ba0c6153ebe.json",
+    "Intermediates/local_scenarios_return_Tesla_e752892c-7a19-4d9f-98aa-d3fcd4e5640b.json",
+    "Intermediates/local_scenarios_return_Tesla_f8b0538f-4577-4d5b-9a99-591db6718f70.json",
+    "Intermediates/local_scenarios_return_Tesla_f5490c37-ae8f-4a0c-ba1c-fde8fb000c99.json",
+    "Intermediates/local_scenarios_return_Tesla_fa0d31da-1c46-4f87-b3f3-ab586979aec2.json",
+    "Intermediates/local_scenarios_return_Tesla_fa2425fc-2201-46ba-a7ca-7c8ed286e19e.json"]
 
+    # print(
+    #     measure_stability(
+    #         scenario_wrapper, inputs, Distances["cosine"], None, 50, name="assistants"
+    #     )
+    # )
     print(
-        measure_stability(
-            scenario_wrapper, inputs, Distances["cosine"], None, 50, name="assistants"
+        measure_stability_from_file(
+            file_names, Distances["cosine"], name="assistants"
         )
     )

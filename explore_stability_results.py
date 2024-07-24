@@ -4,10 +4,13 @@ import numpy as np
 import seaborn as sns
 import pandas as pd
 
-with open("results_chains_30437be2-995c-4324-b94b-6597a18316d9.json", "r") as f:
+with open("results_chains_f52dc0e9-976b-40e6-9a5d-3f3238e35e51.json", "r") as f:
     chain_results = json.load(f)
 
-with open("results_chains_30437be2-995c-4324-b94b-6597a18316d9.json", "r") as f:
+with open(
+    "results_assistants_dd136e73-73ad-4c03-bdcb-6946c66610b1.json",
+    "r",
+) as f:
     assitant_results = json.load(f)
 # chain_results = json.load()
 
