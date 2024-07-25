@@ -251,9 +251,7 @@ def measure_stability(
     return results
 
 
-def measure_stability_from_file(
-    file_names, distance, name=''
-):
+def measure_stability_from_file(file_names, distance, name=""):
     outputs = [json.load(open(file_name)) for file_name in file_names]
 
     keys = [
@@ -288,7 +286,8 @@ def measure_stability_from_file(
                 # .data[0]
                 # .embedding
                 key: embed(text=output[key], model="text-embedding-3-large")
-                for key in keys if len(output[key]) < 8191*4
+                for key in keys
+                if len(output[key]) < 8191 * 4
             }
             for output in outputs
         ]
@@ -297,16 +296,24 @@ def measure_stability_from_file(
     # embeddings = np.array(embedding_function.embed_documents(outputs))
     # np.mean([[embedding[key] for key in keys] for embedding in embeddings], axis=0)
     means = {
-        key: np.mean(np.array([embedding[key] for embedding in embeddings if key in embedding.keys()]), axis=0)
+        key: np.mean(
+            np.array(
+                [embedding[key] for embedding in embeddings if key in embedding.keys()]
+            ),
+            axis=0,
+        )
         for key in keys
     }
     # print(f"means: {means}")
     # print(f"means: {embeddings}")
     # print(np.shape(embeddings[0]["ProblemStatement"]))
 
-
     distances = {
-        key: [distance(means[key], embedding[key]) for embedding in embeddings if key in embedding.keys()]
+        key: [
+            distance(means[key], embedding[key])
+            for embedding in embeddings
+            if key in embedding.keys()
+        ]
         for key in keys
     }
     # print(f"distances: {distances}")
@@ -331,16 +338,6 @@ def measure_stability_from_file(
     with open("results_" + name + str(uuid.uuid4()) + ".json", "w") as f:
         f.write(results_json)
     return results
-
-# COSINE = 'cosine'
-
-# EUCLIDEAN = 'euclidean'
-
-# MANHATTAN = 'manhattan'
-
-# CHEBYSHEV = 'chebyshev'
-
-# HAMMING = 'hamming'
 
 
 evaluators = {
@@ -580,8 +577,7 @@ versus {len(dict_to_plain_text(json.load(open("Intermediates/company_data.json")
             use_chain_scenario, inputs, Distances["cosine"], None, 50, name="chains"
         )
     )
-    
-    
+
     print(
         measure_stability(
             scenario_wrapper, inputs, Distances["cosine"], None, 50, name="assistants"

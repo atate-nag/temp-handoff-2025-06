@@ -2,10 +2,9 @@ from pydantic import BaseModel, create_model, Field
 from typing import Dict, List, Tuple, Optional
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
-from langchain_openai import ChatOpenAI 
+from langchain_openai import ChatOpenAI
 import json
 from utility import dict_to_plain_text, invoke
-
 
 
 def build_chain_action(tools):
@@ -206,8 +205,6 @@ Format your output in a way that is easy to read and understand in prose.
 condense_chain = condense_prompt | condense_model | condense_parser
 
 
-
-
 ############### Scenario Chain
 
 
@@ -298,8 +295,8 @@ class Scenarios(BaseModel):
     Analysis: str = Field(
         description="The final comprehensive analysis, summarizing all the data, scenarios, evaluations, and recommendations. This analysis is used for critical strategic decision-making and must be thorough and factual, meeting a requirement of at least 3000 words. You have explain in details the analysis will details every element of the assessment and quote when possible."
     )
-    
-    
+
+
 scenario_instruction = """
 You are providing support for a production workflow in a strategy consultancy. This is not a simulation, you must perform real analysis on real data that will be used by your colleagues to provide services for clients. 
 
@@ -393,10 +390,6 @@ using company data: '
 chain_scenario = get_scenario | model_scenario | parser_scenario
 
 
-
-
-
-
 #################### Framework Chain
 
 
@@ -410,6 +403,7 @@ class Capability(BaseModel):
     Importance: int = Field(
         description="A numerical score representing the importance of the capability in relation to the problem statement, assessed on axes such as Value Potential, Scarcity, Irreplaceability, and nonReplicability."
     )
+
 
 class Framework(BaseModel):
     NameOfStrategicFramework: str = Field(
@@ -559,10 +553,7 @@ using company data: '
 chain_framework = get_framework | model_framework | parser_framework
 
 
-
-
 ################## Report Chain
-
 
 
 report_instruction = """
@@ -668,17 +659,27 @@ def get_problem(company_name, problemsFile):
         raise Exception(
             f"Problem statement not found for the specified company {company_name}."
         )
-        
+
+
 if __name__ == "__main__":
     problem_data = get_problem("Tesla", "./problem_statements.json")
     trends_file_path = "Intermediates/condensed_trends.json"
     company_file_path = "Intermediates/condensed_company_data.json"
-    
+
     trends_data = json.load(open(trends_file_path))
     company_data = json.load(open(company_file_path))
     print("starting scenario chain")
-    print([len(x) for x in [dict_to_plain_text(problem_data), dict_to_plain_text(trends_data), dict_to_plain_text(company_data)]])
-    
+    print(
+        [
+            len(x)
+            for x in [
+                dict_to_plain_text(problem_data),
+                dict_to_plain_text(trends_data),
+                dict_to_plain_text(company_data),
+            ]
+        ]
+    )
+
     output_scenario = invoke(
         chain_scenario,
         {
@@ -688,9 +689,9 @@ if __name__ == "__main__":
             "company_name": "Tesla",
         },
     )
-    
+
     print("starting framework chain")
-    
+
     output_framework = invoke(
         chain_framework,
         {
@@ -702,12 +703,22 @@ if __name__ == "__main__":
     )
     with open("Intermediates/scenario_output.json", "w") as file:
         json.dump(output_scenario, file, indent=4)
-        
+
     with open("Intermediates/framework_output.json", "w") as file:
         json.dump(output_framework, file, indent=4)
-    
+
     print("starting report chain")
-    print([len(x) for x in [dict_to_plain_text(company_data), dict_to_plain_text(output_scenario), dict_to_plain_text(output_framework), dict_to_plain_text(trends_data)]])
+    print(
+        [
+            len(x)
+            for x in [
+                dict_to_plain_text(company_data),
+                dict_to_plain_text(output_scenario),
+                dict_to_plain_text(output_framework),
+                dict_to_plain_text(trends_data),
+            ]
+        ]
+    )
     output_report = invoke(
         chain_report,
         {
@@ -717,7 +728,7 @@ if __name__ == "__main__":
             "trends": dict_to_plain_text(trends_data),
         },
     )
-    
+
     print(output_report)
     # Define the output file path
     output_file = "report.txt"
