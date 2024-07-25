@@ -22,6 +22,7 @@ from graph_workflow.extract_insights import get_insights
 from graph_workflow.trends.trends_analyser import generate_trends
 from graph_workflow.trends.clustering_trend import cluster_trends
 from graph_workflow.clustering import generate_capabilities_per_cluster
+from chains import chain_scenario, chain_framework, chain_report
 import json, re
 from openai_asst import (
     delete_assistants_clones,
@@ -30,7 +31,14 @@ from openai_asst import (
     delete_files_less_than_1_hour,
 )
 
-from utility import dict_to_plain_text, json_to_markdown, dict_to_markdown, retry, condense
+from utility import (
+    dict_to_plain_text,
+    json_to_markdown,
+    dict_to_markdown,
+    retry,
+    condense,
+    invoke,
+)
 
 
 client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
@@ -112,6 +120,7 @@ def get_step_function(step_name):
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
 
+
 def condense_trends(company_name, problemsFile):
     gics_code, _ = get_gics_code_and_name(company_name)
     trends = get_curated_trend_data(company_name, gics_code, problemsFile)
@@ -126,10 +135,12 @@ The trends impacting {company_name}
         context,
         subject,
         number_of_clusters=10,
-        number_of_processes=5,)
-    
+        number_of_processes=5,
+    )
+
     save_condensed_trend_data(company_name, problem, condensed_trends)
-    
+
+
 def condense_company_data(company_name, problemsFile):
     company_data = get_company_data(company_name)
     problem = get_problem(company_name, problemsFile)
@@ -137,7 +148,7 @@ def condense_company_data(company_name, problemsFile):
     subject = f"""
 The insights and capabilities of {company_name}
     """
-    
+
     condensed_company_data = condense(
         company_data,
         "statement",
@@ -147,8 +158,8 @@ The insights and capabilities of {company_name}
         number_of_processes=5,
     )
     save_condensed_company_data(company_name, problem, condensed_company_data)
-    
-    
+
+
 def get_problem(company_name, problemsFile):
     """
     Retrieves the problem statement for a given company from a JSON file.
@@ -524,6 +535,82 @@ def run_strategy(companyName, problemsFile):
     # Write the markdown report to a file
     with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
         file.write(markdown)
+
+
+def run_strategy_chains(companyName, problemsFile):
+    problem_data = get_problem(companyName, problemsFile)
+
+    trends_data = get_condensed_trend_data(companyName, problem_data)
+    company_data = get_condensed_company_data(companyName, problem_data)
+
+    print("starting scenario chain")
+    print(
+        [
+            len(x)
+            for x in [
+                dict_to_plain_text(problem_data),
+                dict_to_plain_text(trends_data),
+                dict_to_plain_text(company_data),
+            ]
+        ]
+    )
+
+    output_scenario = invoke(
+        chain_scenario,
+        {
+            "problem_statement": dict_to_plain_text(problem_data),
+            "trend_document": dict_to_plain_text(trends_data),
+            "company_data": dict_to_plain_text(company_data),
+            "company_name": "Tesla",
+        },
+    )
+
+    print("starting framework chain")
+
+    output_framework = invoke(
+        chain_framework,
+        {
+            "problem_statement": dict_to_plain_text(problem_data),
+            "trend_document": dict_to_plain_text(trends_data),
+            "company_data": dict_to_plain_text(company_data),
+            "company_name": "Tesla",
+        },
+    )
+    with open("Intermediates/scenario_output.json", "w") as file:
+        json.dump(output_scenario, file, indent=4)
+
+    with open("Intermediates/framework_output.json", "w") as file:
+        json.dump(output_framework, file, indent=4)
+
+    print("starting report chain")
+    print(
+        [
+            len(x)
+            for x in [
+                dict_to_plain_text(company_data),
+                dict_to_plain_text(output_scenario),
+                dict_to_plain_text(output_framework),
+                dict_to_plain_text(trends_data),
+            ]
+        ]
+    )
+    output_report = invoke(
+        chain_report,
+        {
+            "company_data": dict_to_plain_text(company_data),
+            "scenario_analysis": dict_to_plain_text(output_scenario),
+            "framework_analysis": dict_to_plain_text(output_framework),
+            "trends": dict_to_plain_text(trends_data),
+        },
+    )
+
+    print(output_report)
+    # Define the output file path
+    output_file = "report.txt"
+
+    # Write the report to the output file
+    with open(output_file, "w") as file:
+        file.write(output_report)
 
 
 if __name__ == "__main__":

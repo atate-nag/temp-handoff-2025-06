@@ -300,7 +300,8 @@ def save_curated_trend_data(company_name, gics_code, problem_statement, trend_da
         json.dumps(trend_data).replace("'", "\\'"),
     )
     rag_graph.kg.query(query)
-    
+
+
 def get_curated_trend_data(company_name, gics_code, problem_statement):
     query = """
     MATCH (c:Company {name: '%s'})-[:HAS_CURATED_TREND]->(ctd:CuratedTrendData)
@@ -316,7 +317,7 @@ def get_curated_trend_data(company_name, gics_code, problem_statement):
         return json.loads(result[0]["trend_data"])
     return None
 
-    
+
 def save_condensed_trend_data(company_name, problem_statement, trend_data):
     for trend in trend_data:
         query = """
@@ -332,6 +333,7 @@ def save_condensed_trend_data(company_name, problem_statement, trend_data):
         )
         rag_graph.kg.query(query)
 
+
 def get_condensed_trend_data(company_name, problem_statement):
     query = """
     MATCH (c:Company {name: '%s'})-[:HAS_CONDENSED_TREND]->(ctd:CondensedTrendData)
@@ -345,6 +347,7 @@ def get_condensed_trend_data(company_name, problem_statement):
     if result:
         return json.loads(result[0]["trend_data"])
     return None
+
 
 def save_condensed_company_data(company_name, problem_statement, company_data):
     for data in company_data:
@@ -360,3 +363,18 @@ def save_condensed_company_data(company_name, problem_statement, company_data):
             data,
         )
         rag_graph.kg.query(query)
+
+
+def get_condensed_company_data(company_name, problem_statement):
+    query = """
+    MATCH (c:Company {name: '%s'})-[:HAS_CONDENSED_COMPANY]->(ctd:CondensedCompanyData)
+    WHERE ctd.problem_statement = '%s'
+    RETURN ctd.company_data AS company_data, ctd.last_updated AS last_updated
+    """ % (
+        company_name,
+        problem_statement,
+    )
+    result = rag_graph.kg.query(query)
+    if result:
+        return json.loads(result[0]["company_data"])
+    return None
