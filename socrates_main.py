@@ -116,6 +116,7 @@ def get_step_function(step_name):
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
+        "runStrategyChains": run_strategy_chains,
     }
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
@@ -142,8 +143,9 @@ The trends impacting {company_name}
 
 
 def condense_company_data(company_name, problemsFile):
-    company_data = get_company_data(company_name)
     problem = get_problem(company_name, problemsFile)
+    company_data = get_company_data(company_name, problem)
+    
     context = problem
     subject = f"""
 The insights and capabilities of {company_name}
@@ -186,26 +188,39 @@ def get_trends(company_name, problem, force_recreate=False):
     """
     gics_code, gics_name = get_gics_code_and_name(company_name)
     dprint(f"gics_code: {gics_code}")
-    trend_data = get_curated_trend_data(company_name, gics_code, problem)
-    if trend_data and not force_recreate:
+    condense_trend_data = get_condensed_trend_data(company_name, problem)
+    curated_trend_data = get_curated_trend_data(company_name, gics_code, problem)
+    if condense_trend_data and not force_recreate:
+        dprint(f"Loaded condensed trends from archive: {condense_trend_data}")
+        trend_data = condense_trend_data
+    elif curated_trend_data and not force_recreate:
         dprint(f"Loaded trends from archive: {trend_data}")
+        trend_data = condense_trends(company_name, problem)
     else:
-        trend_data = get_trends_from_gics_code(gics_code, problem)
+        curated_trend_data = get_trends_from_gics_code(gics_code, problem)
         dprint(f"Generated trends: {json.dumps(trend_data, indent=2)}")
-        save_curated_trend_data(company_name, gics_code, problem, trend_data)
+        save_curated_trend_data(company_name, gics_code, problem, curated_trend_data)
         dprint(f"Saved trends to archive: {trend_data}")
+        trend_data = condense_trends(company_name, problem)
 
     # implement validation and checking of trends
 
     return trend_data
 
 
-def get_company_data(companyName):
+def get_company_data(companyName, problem_statement):
     """
     Retrieves the full data for a given company
     """
-    company_full_data = dump_company_graph_to_json(companyName)
+    
     dprint(f"company_full_data: {company_full_data}")
+    condensed_company_data = get_condensed_company_data(companyName, problem_statement)
+    if condensed_company_data:
+        dprint(f"Loaded condensed company data from archive: {condensed_company_data}")
+        company_full_data = condensed_company_data
+    else:
+        condense_company_data(companyName, problem_statement)
+        company_full_data = get_condensed_company_data(companyName, problem_statement)
     # implement validation and checking of trends
 
     return company_full_data
@@ -346,7 +361,7 @@ def get_file_paths(company_name, problemsFile):
     company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
     problem_data = get_problem(company_name, problemsFile)
     trends = get_trends(company_name, problem_data, force_recreate=False)
-    company_full_data = get_company_data(company_name)
+    company_full_data = get_company_data(company_name, problem_data)
     problem_file_path = file_handler.write_local_json(
         f"problem_{company_name}", json.dumps(problem_data)
     )

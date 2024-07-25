@@ -598,9 +598,10 @@ Do not generalise or speak in high-level terms.  Be precise and use the availabl
 
 
 
-The QM will ensure that you meet the minimum character length requirements. Those targets should not be challenging to hit if you provide sufficiently rich and accurate descriptions of how the analysis was obtained, and from where the trends and capabilities were derived. Do not worry about patronising the client, explain everything as though there was no background context available and your report were the only source of truth. 
+Those targets should not be challenging to hit if you provide sufficiently rich and accurate descriptions of how the analysis was obtained, and from where the trends and capabilities were derived. Do not worry about patronising the client, explain everything as though there was no background context available and your report were the only source of truth. 
 Provide the strongest citations possible - state the document name, or the source of the information. When you refer to strategic analysis don't just say "Analysis reveals" say that "Background detailed analysis has been performed and has shown that ...." This will differentiate your results from those generic results available elsewhere. When you reference scenairio analysis, speak in detail about the costs, benefits, risks and risk sensitivity. This analysis is the specialist of your firm, and it is likely to make a huge differentiation. 
- Do not skip any sections. 
+Do not skip any sections. 
+Fortmat your output as markdown file.
 """
 
 get_report = PromptTemplate(
