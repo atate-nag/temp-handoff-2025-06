@@ -4,7 +4,8 @@ from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import json
-from utility import dict_to_plain_text, invoke
+
+# from utility import dict_to_plain_text, invoke
 
 
 def build_chain_action(tools):
@@ -661,78 +662,78 @@ def get_problem(company_name, problemsFile):
         )
 
 
-if __name__ == "__main__":
-    problem_data = get_problem("Tesla", "./problem_statements.json")
-    trends_file_path = "Intermediates/condensed_trends.json"
-    company_file_path = "Intermediates/condensed_company_data.json"
+# if __name__ == "__main__":
+#     problem_data = get_problem("Tesla", "./problem_statements.json")
+#     trends_file_path = "Intermediates/condensed_trends.json"
+#     company_file_path = "Intermediates/condensed_company_data.json"
 
-    trends_data = json.load(open(trends_file_path))
-    company_data = json.load(open(company_file_path))
-    print("starting scenario chain")
-    print(
-        [
-            len(x)
-            for x in [
-                dict_to_plain_text(problem_data),
-                dict_to_plain_text(trends_data),
-                dict_to_plain_text(company_data),
-            ]
-        ]
-    )
+#     trends_data = json.load(open(trends_file_path))
+#     company_data = json.load(open(company_file_path))
+#     print("starting scenario chain")
+#     print(
+#         [
+#             len(x)
+#             for x in [
+#                 dict_to_plain_text(problem_data),
+#                 dict_to_plain_text(trends_data),
+#                 dict_to_plain_text(company_data),
+#             ]
+#         ]
+#     )
 
-    output_scenario = invoke(
-        chain_scenario,
-        {
-            "problem_statement": dict_to_plain_text(problem_data),
-            "trend_document": dict_to_plain_text(trends_data),
-            "company_data": dict_to_plain_text(company_data),
-            "company_name": "Tesla",
-        },
-    )
+#     output_scenario = invoke(
+#         chain_scenario,
+#         {
+#             "problem_statement": dict_to_plain_text(problem_data),
+#             "trend_document": dict_to_plain_text(trends_data),
+#             "company_data": dict_to_plain_text(company_data),
+#             "company_name": "Tesla",
+#         },
+#     )
 
-    print("starting framework chain")
+#     print("starting framework chain")
 
-    output_framework = invoke(
-        chain_framework,
-        {
-            "problem_statement": dict_to_plain_text(problem_data),
-            "trend_document": dict_to_plain_text(trends_data),
-            "company_data": dict_to_plain_text(company_data),
-            "company_name": "Tesla",
-        },
-    )
-    with open("Intermediates/scenario_output.json", "w") as file:
-        json.dump(output_scenario, file, indent=4)
+#     output_framework = invoke(
+#         chain_framework,
+#         {
+#             "problem_statement": dict_to_plain_text(problem_data),
+#             "trend_document": dict_to_plain_text(trends_data),
+#             "company_data": dict_to_plain_text(company_data),
+#             "company_name": "Tesla",
+#         },
+#     )
+#     with open("Intermediates/scenario_output.json", "w") as file:
+#         json.dump(output_scenario, file, indent=4)
 
-    with open("Intermediates/framework_output.json", "w") as file:
-        json.dump(output_framework, file, indent=4)
+#     with open("Intermediates/framework_output.json", "w") as file:
+#         json.dump(output_framework, file, indent=4)
 
-    print("starting report chain")
-    print(
-        [
-            len(x)
-            for x in [
-                dict_to_plain_text(company_data),
-                dict_to_plain_text(output_scenario),
-                dict_to_plain_text(output_framework),
-                dict_to_plain_text(trends_data),
-            ]
-        ]
-    )
-    output_report = invoke(
-        chain_report,
-        {
-            "company_data": dict_to_plain_text(company_data),
-            "scenario_analysis": dict_to_plain_text(output_scenario),
-            "framework_analysis": dict_to_plain_text(output_framework),
-            "trends": dict_to_plain_text(trends_data),
-        },
-    )
+#     print("starting report chain")
+#     print(
+#         [
+#             len(x)
+#             for x in [
+#                 dict_to_plain_text(company_data),
+#                 dict_to_plain_text(output_scenario),
+#                 dict_to_plain_text(output_framework),
+#                 dict_to_plain_text(trends_data),
+#             ]
+#         ]
+#     )
+#     output_report = invoke(
+#         chain_report,
+#         {
+#             "company_data": dict_to_plain_text(company_data),
+#             "scenario_analysis": dict_to_plain_text(output_scenario),
+#             "framework_analysis": dict_to_plain_text(output_framework),
+#             "trends": dict_to_plain_text(trends_data),
+#         },
+#     )
 
-    print(output_report)
-    # Define the output file path
-    output_file = "report.txt"
+#     print(output_report)
+#     # Define the output file path
+#     output_file = "report.txt"
 
-    # Write the report to the output file
-    with open(output_file, "w") as file:
-        file.write(output_report)
+#     # Write the report to the output file
+#     with open(output_file, "w") as file:
+#         file.write(output_report)

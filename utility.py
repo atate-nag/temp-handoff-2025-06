@@ -231,15 +231,6 @@ def condense(
 @timeout(120)
 def invoke(chain, parameters):
     return chain.invoke(parameters)
-    # start = time.time()
-
-    # p = mp.Process(target=chain.invoke, args=(parameters,))
-    # p.start()
-
-    # while p.is_alive():
-    #     if time.time() - start > timeout:
-    #         raise Exception("timeout", f"chain: {chain} failed")
-    #     time.sleep(0.2)
 
 
 @retry(number_of_retry=10)
