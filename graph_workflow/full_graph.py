@@ -9,6 +9,7 @@ from chains import (
 import json
 import multiprocessing as mp
 import time
+import uuid
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
@@ -135,16 +136,6 @@ def format_insight_and_capability(
 
 
 def filter_insights_and_capabilities(subgraph, problem_statement, company_name):
-    # insights_and_capabilities_assesment = {
-    #     "number_of_validated_insights_and_capabilities": 0,
-    #     "number_of_insights_and_capabilities": len(subgraph) * 2,
-    #     "number_of_statements": 0,
-    #     "number_of_validated_statements": 0,
-    #     "insights_and_capabilities": [],
-    #     "number_of_insights": 0,
-    #     "number_of_capabilities": 0,
-    #     "problem_statement": problem_statement,
-    # }
     insights_and_capabilities_output = {"insights": [], "capabilities": []}
     klist = ["statement", "source", "quote"]
     with mp.Pool(5) as p:
@@ -161,24 +152,7 @@ def filter_insights_and_capabilities(subgraph, problem_statement, company_name):
             )
             time.sleep(5)
         results = [r.get() for r in results if r.get() != []]
-        # print(results)
 
-        # if evaluation_capabilities["Validated"]:
-        # statements = [
-        #     {k: v for k, v in statement.items() if k in klist}
-        #     for statement in evaluation_capabilities["Statements"]
-        #     if statement["relevant"]
-        # ]
-        # outputs["capabilities"].extend(statements)
-        # print([result for result in results])
-        # print([insights for result in results for insights in result["insights"]])
-        # print("statements:")
-        # for result in results:
-        #     for insights in result["insights"]:
-        #         print(insights)
-        #         print("\n")
-        # print([insights for result in results for insights in result["insights"]])
-        # print(results)
         insights_and_capabilities_output["insights"].extend(
             [
                 [
@@ -197,32 +171,6 @@ def filter_insights_and_capabilities(subgraph, problem_statement, company_name):
                 for result in results
             ]
         )
-
-        #
-    # for i, cluster in enumerate(subgraph):
-    #     # print(f"Cluster: {cluster}")
-    #     print(f"\n {i} out of {len(subgraph)} \n")
-
-    # insights_and_capabilities_assesment[
-    #     "number_of_validated_insights_and_capabilities"
-    # ] += 1
-
-    # insights_and_capabilities_assesment["number_of_statements"] += len(
-    #     evaluation_capabilities["Statements"]
-    # )
-
-    # insights_and_capabilities_assesment[
-    #     "number_of_validated_statements"
-    # ] += len(statements)
-    # insights_and_capabilities_assesment["insights_and_capabilities"].append(
-    #     {
-    #         "insight": dict_to_plain_text(capabilities),
-    #         "validation": evaluation_capabilities["Validated"],
-    #         "explanation": evaluation_capabilities["Explanation"],
-    #         "statements": evaluation_capabilities["Statements"],
-    #     }
-    # )
-
     return insights_and_capabilities_output
 
 
@@ -279,43 +227,6 @@ def dump_company_graph_to_json(company_name, problem_statement):
     return subgraph
 
 
-# def filter_trends(subgraph, problem_statement):
-#     number_of_trends = len(subgraph)
-#     trends_assesment = {
-#         "number_of_validated_trends": 0,
-#         "number_of_trends": number_of_trends,
-#         "trends": [],
-#         "problem_statement": problem_statement,
-#     }
-#     trends_output = {"trends": []}
-#     for trends in subgraph:
-#         trend = trends["trends"]
-#         evaluation = evaluate_trend_cluster.invoke(
-#             {
-#                 "trend_summary": dict_to_plain_text(trend),
-#                 "problem_statement": problem_statement,
-#             }
-#         )
-#         if evaluation["Validated"]:
-#             trends_assesment["number_of_validated_trends"] += 1
-#             trends_output["trends"].append(evaluation["Statements"])
-#         evaluation["Explanation"]
-#         trends_assesment["trends"].append(
-#             {
-#                 "trend": trend["summary"],
-#                 "validation": evaluation["Validated"],
-#                 "explanation": evaluation["Explanation"],
-#                 "statements": evaluation["Statements"],
-#             }
-#         )
-#     # Convert trends_assesment to JSON
-#     trends_assesment_json = json.dumps(trends_assesment)
-#     with open("trends_assesment.json", "w") as f:
-#         f.write(trends_assesment_json)
-
-#     return trends_output
-
-
 def format_trend(trends, problem_statement):
     trend = trends["trends"]
     evaluation = invoke(
@@ -325,12 +236,6 @@ def format_trend(trends, problem_statement):
             "problem_statement": problem_statement,
         },
     )
-    # evaluation = evaluate_trend_cluster.invoke(
-    #     {
-    #         "trend_summary": dict_to_plain_text(trend),
-    #         "problem_statement": problem_statement,
-    #     }
-    # )
     statements = [
         statement for statement in evaluation["Statements"] if statement["relevant"]
     ]
@@ -338,13 +243,6 @@ def format_trend(trends, problem_statement):
 
 
 def filter_trends(subgraph, problem_statement):
-    # number_of_trends = len(subgraph)
-    # trends_assesment = {
-    #     "number_of_validated_trends": 0,
-    #     "number_of_trends": number_of_trends,
-    #     "trends": [],
-    #     "problem_statement": problem_statement,
-    # }
     trends_output = {"trends": []}
 
     klist = ["statement", "source", "quote", "relevant"]
@@ -370,27 +268,6 @@ def filter_trends(subgraph, problem_statement):
                 for result in results
             ]
         )
-
-        # for i, trends in enumerate(subgraph):
-        #     print(f"\n {i} out of {len(subgraph)} \n")
-        #     format_trend(trends, problem_statement)
-        #         # trends_assesment["number_of_validated_trends"] += 1
-        #         trends_output["trends"].append(
-        #             [
-        #                 {k: v for k, v in statement.items() if k in klist}
-        #                 for statement in statements
-        #                 if statement["relevant"]
-        #             ]
-        #         )
-        # evaluation["Explanation"]
-        # trends_assesment["trends"].append(
-        #     {
-        #         "trend": trend["summary"],
-        #         "validation": evaluation["Validated"],
-        #         "explanation": evaluation["Explanation"],
-        #         "statements": evaluation["Statements"],
-        #     }
-        # )
 
     return trends_output
 
@@ -423,8 +300,7 @@ def save_curated_trend_data(company_name, gics_code, problem_statement, trend_da
         json.dumps(trend_data).replace("'", "\\'"),
     )
     rag_graph.kg.query(query)
-
-
+    
 def get_curated_trend_data(company_name, gics_code, problem_statement):
     query = """
     MATCH (c:Company {name: '%s'})-[:HAS_CURATED_TREND]->(ctd:CuratedTrendData)
@@ -439,3 +315,48 @@ def get_curated_trend_data(company_name, gics_code, problem_statement):
     if result:
         return json.loads(result[0]["trend_data"])
     return None
+
+    
+def save_condensed_trend_data(company_name, problem_statement, trend_data):
+    for trend in trend_data:
+        query = """
+        MATCH (c:Company {name: '%s'})
+        MERGE (ctd:CondensedTrendData {problem_statement: '%s', idCondesedTrendData: '%s'})
+        SET ctd.trend_data = '%s', ctd.last_updated = datetime()
+        MERGE (c)-[:HAS_CONDENSED_TREND]->(ctd)
+        """ % (
+            company_name,
+            problem_statement,
+            str(uuid.uuid4()),
+            trend,
+        )
+        rag_graph.kg.query(query)
+
+def get_condensed_trend_data(company_name, problem_statement):
+    query = """
+    MATCH (c:Company {name: '%s'})-[:HAS_CONDENSED_TREND]->(ctd:CondensedTrendData)
+    WHERE ctd.problem_statement = '%s'
+    RETURN ctd.trend_data AS trend_data, ctd.last_updated AS last_updated
+    """ % (
+        company_name,
+        problem_statement,
+    )
+    result = rag_graph.kg.query(query)
+    if result:
+        return json.loads(result[0]["trend_data"])
+    return None
+
+def save_condensed_company_data(company_name, problem_statement, company_data):
+    for data in company_data:
+        query = """
+        MATCH (c:Company {name: '%s'})
+        MERGE (ctd:CondensedCompanyData {problem_statement: '%s', idCondesedCompanyData: '%s'})
+        SET ctd.company_data = '%s', ctd.last_updated = datetime()
+        MERGE (c)-[:HAS_CONDENSED_COMPANY]->(ctd)
+        """ % (
+            company_name,
+            problem_statement,
+            str(uuid.uuid4()),
+            data,
+        )
+        rag_graph.kg.query(query)

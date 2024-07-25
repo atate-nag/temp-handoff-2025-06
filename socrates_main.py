@@ -7,9 +7,14 @@ from agent_workflow_manager import AgentManager
 from debug import dprint
 from graph_workflow.full_graph import (
     dump_company_graph_to_plain_txt,
+    dump_company_graph_to_json,
     get_trends_from_gics_code,
     save_curated_trend_data,
     get_curated_trend_data,
+    save_condensed_trend_data,
+    get_condensed_trend_data,
+    save_condensed_company_data,
+    get_condensed_company_data,
 )
 from filehandler import FileHandler
 from graph_workflow.build_graph import fill_graph
@@ -25,7 +30,7 @@ from openai_asst import (
     delete_files_less_than_1_hour,
 )
 
-from utility import dict_to_plain_text, json_to_markdown, dict_to_markdown, retry
+from utility import dict_to_plain_text, json_to_markdown, dict_to_markdown, retry, condense
 
 
 client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
@@ -95,6 +100,8 @@ def get_step_function(step_name):
         # graph manipulation and display routines
         "fill_graph": fill_graph,
         "getInsights": get_insights,
+        "condenseTrends": condense_trends,
+        "condenseCompanyData": condense_company_data,
         "getCapabilities": generate_capabilities_per_cluster,
         "getTrends": generate_trends,
         "clusterTrends": cluster_trends,
@@ -105,7 +112,43 @@ def get_step_function(step_name):
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
 
-
+def condense_trends(company_name, problemsFile):
+    gics_code, _ = get_gics_code_and_name(company_name)
+    trends = get_curated_trend_data(company_name, gics_code, problemsFile)
+    problem = get_problem(company_name, problemsFile)
+    context = problem
+    subject = f"""
+The trends impacting {company_name}
+    """
+    condensed_trends = condense(
+        trends,
+        "statement",
+        context,
+        subject,
+        number_of_clusters=10,
+        number_of_processes=5,)
+    
+    save_condensed_trend_data(company_name, problem, condensed_trends)
+    
+def condense_company_data(company_name, problemsFile):
+    company_data = get_company_data(company_name)
+    problem = get_problem(company_name, problemsFile)
+    context = problem
+    subject = f"""
+The insights and capabilities of {company_name}
+    """
+    
+    condensed_company_data = condense(
+        company_data,
+        "statement",
+        context,
+        subject,
+        number_of_clusters=50,
+        number_of_processes=5,
+    )
+    save_condensed_company_data(company_name, problem, condensed_company_data)
+    
+    
 def get_problem(company_name, problemsFile):
     """
     Retrieves the problem statement for a given company from a JSON file.
@@ -150,7 +193,7 @@ def get_company_data(companyName):
     """
     Retrieves the full data for a given company
     """
-    company_full_data = dump_company_graph_to_plain_txt(companyName)
+    company_full_data = dump_company_graph_to_json(companyName)
     dprint(f"company_full_data: {company_full_data}")
     # implement validation and checking of trends
 
