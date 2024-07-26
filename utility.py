@@ -199,7 +199,8 @@ def condense(
     # Partant d'une liste de dictionnaires, on extrait les embeddings de chaque dictionnaire
     # et on les regroupe en clusters
     # On cree un dataframe avec les embeddings et les labels des clusters
-    print()
+    print(f"Start condensing {subject}..\n\n")
+    data = [node for nodes in data if nodes for node in nodes]
     X = [embed(text=node[key], model="text-embedding-3-large") for node in data]
 
     X = np.stack(X)
