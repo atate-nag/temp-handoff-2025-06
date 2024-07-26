@@ -121,6 +121,14 @@ is what is supported so far
         "problemsFile" : "./problem_statements.json"
       }
     },
+- "runStrategyDynamicReport" : {
+      "step": "runStrategyDynamicReport",
+      "enabled": true,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
 - "runFrameworks": run_frameworks,
 - "runScenarios": run_scenarios,
 

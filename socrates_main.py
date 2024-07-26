@@ -648,7 +648,7 @@ def run_strategy_chains(companyName, problemsFile):
 
     print(output_report)
     # Define the output file path
-    output_file = "report.txt"
+    output_file = f"Strategic Reports/report_{companyName}.txt"
 
     # Write the report to the output file
     with open(output_file, "w") as file:
@@ -763,13 +763,15 @@ Trends:
         )
         # print(report)
         # assert 1 ==2
-    with open("report_TESLA.json", "w") as file:
+    with open(f"Strategic Reports/report_{companyName}.json", "w") as file:
         json.dump(report, file)
 
     print(report)
     markdown = report_to_markdown(report["plan"], "")
 
-    with open("report_TESLA_technical_assessment.md", "w") as file:
+    with open(
+        f"Strategic Reports/report_{companyName}_technical_assessment.md", "w"
+    ) as file:
         file.write(markdown)
 
 
