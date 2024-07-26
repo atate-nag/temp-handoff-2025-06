@@ -249,6 +249,27 @@ def wait_for_sec(t):
     return t
 
 
+def report_to_markdown(data, level=""):
+    markdown = ""
+    if isinstance(data, list):
+        for item in data:
+            markdown += report_to_markdown(item, level)
+    elif isinstance(data, dict):
+        level = level + "#"
+        if "name" in data:
+            markdown += level + f" {data['name']}\n"
+        if "content" in data:
+            if isinstance(data["content"], list):
+                for item in data["content"]:
+                    markdown += report_to_markdown(item, level)
+            # if isinstance(data["content"], dict):
+            #     if "content_statement" in data["content"]:
+            #         markdown += f"{data['content_statement']}\n\n"
+        if "content_generated" in data:
+            markdown += f"{data['content_generated']}\n\n"
+    return markdown
+
+
 if __name__ == "__main__":
     print("start waiting test")
     print(wait_for_sec(1))

@@ -4,6 +4,7 @@ from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import json
+from report import Report, contentSection
 
 # from utility import dict_to_plain_text, invoke
 
@@ -662,6 +663,182 @@ def get_problem(company_name, problemsFile):
             f"Problem statement not found for the specified company {company_name}."
         )
 
+
+########### Summary Chain
+
+
+summary_model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+summary_parser = StrOutputParser()
+summary_prompt = ChatPromptTemplate.from_template(
+    template="""
+Giving this problem statement for the company {company}:
+***
+{problem_statement}
+***
+
+Make a short summary of the following data to extract potential strategic insights:
+***
+{data}
+***
+"""
+)
+
+summary_chain = summary_prompt | summary_model | summary_parser
+
+
+def build_writing_chain():
+    model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+    parser = JsonOutputParser(pydantic_object=contentSection)
+    prompt = PromptTemplate(
+        template="""You are working on a report with a team. Every one has a part to write. 
+Make sure the part you just write is well formatted without too much line breaks or empty lines.
+When writing the part, make sure to use the data provided to write the content of the section; and quote the the sources of the data.
+This is the high level structure of the report:
+***
+{report_structure}
+***
+
+This is the data you have to use to write the part:
+***
+{data_input}
+***
+
+This is the part you have to write: 
+***
+{content_section}
+***
+
+{format_instructions}
+""",
+        input_variables=["report_structure", "content_section", "data_input"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
+
+    return prompt | model | parser
+
+
+class ValidationModel(BaseModel):
+    validation: bool = Field("The validation if the input is valid or not")
+    explaination: str = Field(
+        "The explaination of the validation, and why it is valid or not, and how to fix it."
+    )
+
+
+class ValidationList(BaseModel):
+    validations: List[ValidationModel] = Field("The list of validations")
+
+
+def build_assessing_chain():
+    model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+    parser = JsonOutputParser(pydantic_object=ValidationList)
+    prompt = PromptTemplate(
+        template="""You have to validate the input given some constraints.
+The constraints are:
+***
+{constraints}
+***
+
+This is the input to assess: 
+***
+{input}
+***
+
+{format_instructions}
+""",
+        input_variables=["constraints", "input"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
+
+    return prompt | model | parser
+
+
+class Content(BaseModel):
+    content_statement: str = Field(description="The statement for the subsection.")
+
+
+class Subsubsection(BaseModel):
+    name: str = Field(description="The name of the subsubsection in the report.")
+    content: Content = Field(
+        description="The plan for the content of the subsubsection."
+    )
+
+
+class Subsection(BaseModel):
+    name: str = Field(description="The name of the subsection in the report")
+    content: List[Subsubsection] | Content = Field(
+        description="The plan for the content of the subsection."
+    )
+
+
+class Section(BaseModel):
+    name: str = Field(description="The name of the section in the report.")
+    content: List[Subsection] | Content = Field(
+        description="The plan for the content of the section."
+    )
+
+
+class reportPlan(BaseModel):
+    plan: List[Section] = Field(description="The plan for generating the report.")
+
+
+parser_generate_report_plan = JsonOutputParser(pydantic_object=reportPlan)
+
+prompt_generate_report_plan = PromptTemplate(
+    template="""Considering the following problem statement for the company {company}:
+***
+{problem_statement}
+***
+
+Using the following data summary, generate a plan for the report:
+***
+{data_summary}
+***
+
+The plan has to contain the following sections:
+***
+Introduction
+Detailed analysis
+Prioritization
+Barriers, Risks and Challenges
+Executive Summary
+***
+
+
+{format_instructions}
+""",
+    input_variables=["data_summary", "problem_statement", "company"],
+    partial_variables={
+        "format_instructions": parser_generate_report_plan.get_format_instructions()
+    },
+)
+
+
+model_generate_report_plan = ChatOpenAI(model="gpt-4o", temperature=0.1)
+generate_report_plan = (
+    prompt_generate_report_plan
+    | model_generate_report_plan
+    | parser_generate_report_plan
+)
+
+########
+
+summary_model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+summary_parser = StrOutputParser()
+summary_prompt = ChatPromptTemplate.from_template(
+    template="""
+Giving this problem statement for the company {company}:
+***
+{problem_statement}
+***
+
+Make a short summary of the following data to extract potential strategic insights:
+***
+{data}
+***
+"""
+)
+
+summary_chain = summary_prompt | summary_model | summary_parser
 
 # if __name__ == "__main__":
 #     problem_data = get_problem("Tesla", "./problem_statements.json")

@@ -22,7 +22,15 @@ from graph_workflow.extract_insights import get_insights
 from graph_workflow.trends.trends_analyser import generate_trends
 from graph_workflow.trends.clustering_trend import cluster_trends
 from graph_workflow.clustering import generate_capabilities_per_cluster
-from chains import chain_scenario, chain_framework, chain_report
+from chains import (
+    chain_scenario,
+    chain_framework,
+    chain_report,
+    summary_chain,
+    generate_report_plan,
+)
+from report_agent import Agent as ReportAgent
+from report_agent import get_subsections, find_and_fill
 import json, re
 from openai_asst import (
     delete_assistants_clones,
@@ -38,6 +46,7 @@ from utility import (
     retry,
     condense,
     invoke,
+    report_to_markdown,
 )
 
 
@@ -117,6 +126,7 @@ def get_step_function(step_name):
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
         "runStrategyChains": run_strategy_chains,
+        "runStrategyDynamicReport": run_strategy_report_agent,
     }
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
@@ -643,6 +653,124 @@ def run_strategy_chains(companyName, problemsFile):
     # Write the report to the output file
     with open(output_file, "w") as file:
         file.write(output_report)
+
+
+def run_strategy_report_agent(companyName, problemsFile):
+    rp_ag = ReportAgent("reporter")
+    rp_ag.set_tools([])
+    rp_ag.build()
+    companyName = companyName.replace(" ", "_").replace(".", "").replace("'", "")
+    problem_data = get_problem(companyName, problemsFile)
+
+    # Get the files and paths for the necessary files related to the company and problem
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        companyName, problemsFile
+    )
+
+    with open(trends_file_path, "r") as file:
+        trends_data = json.load(file)
+    with open(company_file_path, "r") as file:
+        company_data = json.load(file)
+
+    summary_company = summary_chain.invoke(
+        {
+            "company": companyName,
+            "problem_statement": problem_data,
+            "data": dict_to_plain_text(company_data),
+        }
+    )
+    summary_trends = summary_chain.invoke(
+        {
+            "company": companyName,
+            "problem_statement": problem_data,
+            "data": dict_to_plain_text(trends_data),
+        }
+    )
+
+    # with open("company_summary.txt", "r") as file:
+    #     summary_company = file.read()
+    # with open("trends_summary.txt", "r") as file:
+    #     summary_trends = file.read()
+
+    # Write summaries to text files
+    with open(f"Intermediates/{companyName}_company_summary.txt", "w") as file:
+        file.write(summary_company)
+    with open(f"Intermediates/{companyName}_trends_summary.txt", "w") as file:
+        file.write(summary_trends)
+
+    data_summary = (
+        "Company data summary: "
+        + summary_company
+        + "\n"
+        + "Trends data summary: "
+        + summary_trends
+    )
+    print(
+        {
+            "data_summary": data_summary,
+            "problem_statement": problem_data,
+            "company": companyName,
+        }
+    )
+    plan_data = {
+        "data_summary": data_summary,
+        "problem_statement": problem_data,
+        "company": companyName,
+    }
+    # plan = evaluate_capability_cluster.invoke(plan_data)
+    # print(plan)
+    plan = generate_report_plan.invoke(plan_data)
+    print(json.dumps(plan, indent=4))
+    with open("plan.json", "w") as file:
+        file.write(json.dumps(plan, indent=4))
+    report = plan.copy()
+    print(plan)
+    for title, content in get_subsections(plan["plan"], "content_statement"):
+        data_input = f"""
+company data:
+{company_data}
+
+Trends:
+{trends_data}
+"""
+
+        output = invoke(
+            rp_ag.writing_chain,
+            {
+                "report_structure": plan,
+                "data_input": data_input,
+                "content_section": title + ": " + content + "\n\n" + problem_data,
+            },
+        )
+        print("************")
+        print(output)
+        print(len(output["content"]))
+        print(len(output["summary"]))
+        print("************")
+        print(title + ": " + content)
+        # contentSection.model_validate(output)
+        print("************")
+        print("\n\n\n")
+        # print(report)
+        print("\n\n\n")
+        find_and_fill(
+            report,
+            title,
+            output["title"],
+            output["content"],
+            output["data_needed"],
+            output["content_statements"],
+        )
+        # print(report)
+        # assert 1 ==2
+    with open("report_TESLA.json", "w") as file:
+        json.dump(report, file)
+
+    print(report)
+    markdown = report_to_markdown(report["plan"], "")
+
+    with open("report_TESLA_technical_assessment.md", "w") as file:
+        file.write(markdown)
 
 
 if __name__ == "__main__":
