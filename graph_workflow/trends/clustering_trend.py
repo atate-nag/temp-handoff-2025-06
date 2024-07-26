@@ -161,6 +161,13 @@ def cluster_trends(compute_embeddings, number_of_processes=5):
     if compute_embeddings:
         rag_graph.compute_embeddings_parallel("Trend", "Description")
     # assert False
+    query = """
+MATCH (excluded:Cluster)
+WITH collect(excluded) as excluded
+MATCH (r:Trend)
+WHERE  r.gics_code IS NOT NULL and NONE(i in excluded WHERE (r)-[]->(i))
+RETURN r as trends
+"""
     trends = rag_graph.kg.query(query)
     trends = [trend["trends"] for trend in trends]
     trends_ = trends
@@ -170,7 +177,7 @@ def cluster_trends(compute_embeddings, number_of_processes=5):
         t["AffectedAreas"] = eval(t["AffectedAreas"])
     for trend in trends_:
         # print(trend)
-        print([aa["IndustryName"] for aa in trend["AffectedAreas"]])
+        # print([aa["IndustryName"] for aa in trend["AffectedAreas"]])
         # if len([aa for aa in trend['AffectedAreas'] if aa['IndustryName'] == 'IndustryName'])>0:
 
         trends.append(trend)
@@ -179,8 +186,9 @@ def cluster_trends(compute_embeddings, number_of_processes=5):
         t["AffectedAreas"] = str(t["AffectedAreas"])
 
     X = []
+    print(len(trends))
     for trend in trends:
-
+        # print(trend)
         for key, value in trend.items():
 
             if key == "DescriptionEmbedding":

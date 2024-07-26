@@ -1,9 +1,14 @@
 from graph_workflow.graph_rag_lc import RAG_graph
-from utility import dict_to_plain_text
+from utility import dict_to_plain_text, invoke
 import os
-from chains import evaluate_trend_cluster
+from chains import (
+    evaluate_trend_cluster,
+    evaluate_capability_cluster,
+    evaluate_insight_cluster,
+)
 import json
-
+import multiprocessing as mp
+import time
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
@@ -25,6 +30,25 @@ rag_graph = RAG_graph(
 )
 
 
+def remove_attribute_containing(subgraph, attribute):
+    if isinstance(subgraph, list):
+        for item in subgraph:
+            remove_attribute_containing(item, attribute)
+    elif isinstance(subgraph, dict):
+        for key, value in subgraph.copy().items():
+            if attribute in key:
+                subgraph.pop(key)
+            if isinstance(value, dict):
+                remove_attribute(value, attribute)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        remove_attribute(item, attribute)
+    else:
+        raise ValueError("subgraph must be a list or a dict")
+    return subgraph
+
+
 def remove_attribute(subgraph, attribute):
     for key, value in subgraph.items():
         if key == attribute:
@@ -36,6 +60,170 @@ def remove_attribute(subgraph, attribute):
                 if isinstance(item, dict):
                     remove_attribute(item, attribute)
     return subgraph
+
+
+def format_insight_and_capability(
+    cluster, problem_statement, company_name, klist=["statement", "source", "quote"]
+):
+    outputs = {"insights": [], "capabilities": []}
+    query = "match (i:Insight)-[]-(c:Cluster {{ clusterId: '{clusterId}' }}) return i as insight".format(
+        clusterId=cluster["clusterId"]
+    )
+    insights = rag_graph.kg.query(query)
+    for insight in insights:
+        insight = insight["insight"]
+        remove_attribute_containing(insight, "Embedding")
+    # insights_and_capabilities_assesment["number_of_insights"] += len(insights)
+    # print(insights[0]['insight'].keys())
+
+    query = "match (i:Capability)-[]-(c:Cluster {{ clusterId: '{clusterId}' }}) return i as capability".format(
+        clusterId=cluster["clusterId"]
+    )
+    capabilities = rag_graph.kg.query(query)
+    for capability in capabilities:
+        capability = capability["capability"]
+        remove_attribute_containing(capability, "Embedding")
+
+    evaluation_insights = invoke(
+        evaluate_insight_cluster,
+        {
+            "insights_summary": dict_to_plain_text(insights),
+            "problem_statement": problem_statement,
+            "company": company_name,
+        },
+    )
+    # evaluation_insights = evaluate_insight_cluster.invoke(
+    #     {
+    #         "insights_summary": dict_to_plain_text(insights),
+    #         "problem_statement": problem_statement,
+    #         "company": company_name,
+    #     }
+    # )
+
+    if evaluation_insights["Validated"]:
+        statements = [
+            {k: v for k, v in statement.items() if k in klist}
+            for statement in evaluation_insights["Statements"]
+            if statement["relevant"]
+        ]
+
+        outputs["insights"].extend(statements)
+
+    evaluation_capabilities = invoke(
+        evaluate_capability_cluster,
+        {
+            "capabilities_summary": dict_to_plain_text(capabilities),
+            "problem_statement": problem_statement,
+            "company": company_name,
+        },
+    )
+    # evaluation_capabilities = evaluate_capability_cluster.invoke(
+    #     {
+    #         "capabilities_summary": dict_to_plain_text(capabilities),
+    #         "problem_statement": problem_statement,
+    #         "company": company_name,
+    #     }
+    # )
+    if evaluation_capabilities["Validated"]:
+        statements = [
+            {k: v for k, v in statement.items() if k in klist}
+            for statement in evaluation_capabilities["Statements"]
+            if statement["relevant"]
+        ]
+        outputs["capabilities"].extend(statements)
+    return outputs
+
+
+def filter_insights_and_capabilities(subgraph, problem_statement, company_name):
+    # insights_and_capabilities_assesment = {
+    #     "number_of_validated_insights_and_capabilities": 0,
+    #     "number_of_insights_and_capabilities": len(subgraph) * 2,
+    #     "number_of_statements": 0,
+    #     "number_of_validated_statements": 0,
+    #     "insights_and_capabilities": [],
+    #     "number_of_insights": 0,
+    #     "number_of_capabilities": 0,
+    #     "problem_statement": problem_statement,
+    # }
+    insights_and_capabilities_output = {"insights": [], "capabilities": []}
+    klist = ["statement", "source", "quote"]
+    with mp.Pool(5) as p:
+        results = [
+            p.apply_async(
+                format_insight_and_capability,
+                (insight_or_capability, problem_statement, company_name),
+            )
+            for insight_or_capability in subgraph
+        ]
+        while not all([r.ready() for r in results]):
+            print(
+                f"insights_and_capabilities {[r.ready() for r in results].count(True)} / {len(results)} filtered."
+            )
+            time.sleep(5)
+        results = [r.get() for r in results if r.get() != []]
+        # print(results)
+
+        # if evaluation_capabilities["Validated"]:
+        # statements = [
+        #     {k: v for k, v in statement.items() if k in klist}
+        #     for statement in evaluation_capabilities["Statements"]
+        #     if statement["relevant"]
+        # ]
+        # outputs["capabilities"].extend(statements)
+        # print([result for result in results])
+        # print([insights for result in results for insights in result["insights"]])
+        # print("statements:")
+        # for result in results:
+        #     for insights in result["insights"]:
+        #         print(insights)
+        #         print("\n")
+        # print([insights for result in results for insights in result["insights"]])
+        # print(results)
+        insights_and_capabilities_output["insights"].extend(
+            [
+                [
+                    {k: v for k, v in statement.items() if k in klist}
+                    for statement in result["insights"]
+                ]
+                for result in results
+            ]
+        )
+        insights_and_capabilities_output["capabilities"].extend(
+            [
+                [
+                    {k: v for k, v in statement.items() if k in klist}
+                    for statement in result["capabilities"]
+                ]
+                for result in results
+            ]
+        )
+
+        #
+    # for i, cluster in enumerate(subgraph):
+    #     # print(f"Cluster: {cluster}")
+    #     print(f"\n {i} out of {len(subgraph)} \n")
+
+    # insights_and_capabilities_assesment[
+    #     "number_of_validated_insights_and_capabilities"
+    # ] += 1
+
+    # insights_and_capabilities_assesment["number_of_statements"] += len(
+    #     evaluation_capabilities["Statements"]
+    # )
+
+    # insights_and_capabilities_assesment[
+    #     "number_of_validated_statements"
+    # ] += len(statements)
+    # insights_and_capabilities_assesment["insights_and_capabilities"].append(
+    #     {
+    #         "insight": dict_to_plain_text(capabilities),
+    #         "validation": evaluation_capabilities["Validated"],
+    #         "explanation": evaluation_capabilities["Explanation"],
+    #         "statements": evaluation_capabilities["Statements"],
+    #     }
+    # )
+
+    return insights_and_capabilities_output
 
 
 def remove_attribute_containing(subgraph, attribute):
@@ -57,67 +245,163 @@ def remove_attribute_containing(subgraph, attribute):
     return subgraph
 
 
-def dump_company_graph_to_plain_txt(company_name):
+def dump_company_graph_to_plain_txt(company_name, problem_statement):
     subgraph = rag_graph.company_sub_graph(
         company_name,
-        label_filters=["Insight", "Capability"],
+        label_filters=["Cluster"],
         relationship_exclusions=["SIMILAR"],
     )
 
     remove_attribute_containing(subgraph, "embedding")
     remove_attribute_containing(subgraph, "Embedding")
 
+    subgraph = filter_insights_and_capabilities(
+        subgraph, problem_statement, company_name
+    )
+
     return dict_to_plain_text(subgraph)
 
 
+def dump_company_graph_to_json(company_name, problem_statement):
+    subgraph = rag_graph.company_sub_graph(
+        company_name,
+        label_filters=["Cluster"],
+        relationship_exclusions=["SIMILAR"],
+    )
+
+    remove_attribute_containing(subgraph, "embedding")
+    remove_attribute_containing(subgraph, "Embedding")
+
+    subgraph = filter_insights_and_capabilities(
+        subgraph, problem_statement, company_name
+    )
+
+    return subgraph
+
+
+# def filter_trends(subgraph, problem_statement):
+#     number_of_trends = len(subgraph)
+#     trends_assesment = {
+#         "number_of_validated_trends": 0,
+#         "number_of_trends": number_of_trends,
+#         "trends": [],
+#         "problem_statement": problem_statement,
+#     }
+#     trends_output = {"trends": []}
+#     for trends in subgraph:
+#         trend = trends["trends"]
+#         evaluation = evaluate_trend_cluster.invoke(
+#             {
+#                 "trend_summary": dict_to_plain_text(trend),
+#                 "problem_statement": problem_statement,
+#             }
+#         )
+#         if evaluation["Validated"]:
+#             trends_assesment["number_of_validated_trends"] += 1
+#             trends_output["trends"].append(evaluation["Statements"])
+#         evaluation["Explanation"]
+#         trends_assesment["trends"].append(
+#             {
+#                 "trend": trend["summary"],
+#                 "validation": evaluation["Validated"],
+#                 "explanation": evaluation["Explanation"],
+#                 "statements": evaluation["Statements"],
+#             }
+#         )
+#     # Convert trends_assesment to JSON
+#     trends_assesment_json = json.dumps(trends_assesment)
+#     with open("trends_assesment.json", "w") as f:
+#         f.write(trends_assesment_json)
+
+#     return trends_output
+
+
+def format_trend(trends, problem_statement):
+    trend = trends["trends"]
+    evaluation = invoke(
+        evaluate_trend_cluster,
+        {
+            "trend_summary": dict_to_plain_text(trend),
+            "problem_statement": problem_statement,
+        },
+    )
+    # evaluation = evaluate_trend_cluster.invoke(
+    #     {
+    #         "trend_summary": dict_to_plain_text(trend),
+    #         "problem_statement": problem_statement,
+    #     }
+    # )
+    statements = [
+        statement for statement in evaluation["Statements"] if statement["relevant"]
+    ]
+    return statements if evaluation["Validated"] else []
+
+
 def filter_trends(subgraph, problem_statement):
-    number_of_trends = len(subgraph)
-    trends_assesment = {
-        "number_of_validated_trends": 0,
-        "number_of_trends": number_of_trends,
-        "trends": [],
-        "problem_statement": problem_statement,
-    }
+    # number_of_trends = len(subgraph)
+    # trends_assesment = {
+    #     "number_of_validated_trends": 0,
+    #     "number_of_trends": number_of_trends,
+    #     "trends": [],
+    #     "problem_statement": problem_statement,
+    # }
     trends_output = {"trends": []}
-    for trends in subgraph:
-        trend = trends["trends"]
-        evaluation = evaluate_trend_cluster.invoke(
-            {
-                "trend_summary": dict_to_plain_text(trend),
-                "problem_statement": problem_statement,
-            }
-        )
-        if evaluation["Validated"]:
-            trends_assesment["number_of_validated_trends"] += 1
-            trends_output["trends"].append(evaluation["Statements"])
-        evaluation["Explanation"]
-        trends_assesment["trends"].append(
-            {
-                "trend": trend["summary"],
-                "validation": evaluation["Validated"],
-                "explanation": evaluation["Explanation"],
-                "statements": evaluation["Statements"],
-            }
-        )
-    # Convert trends_assesment to JSON
-    trends_assesment_json = json.dumps(trends_assesment)
-    with open("trends_assesment.json", "w") as f:
-        f.write(trends_assesment_json)
 
-    # Print the JSON
-    # print(trends_assesment_json)
+    klist = ["statement", "source", "quote", "relevant"]
+    with mp.Pool(5) as p:
+        results = [
+            p.apply_async(format_trend, (trends, problem_statement))
+            for trends in subgraph
+        ]
+        while not all([r.ready() for r in results]):
+            print(
+                f"trends {[r.ready() for r in results].count(True)} / {len(results)} filtered."
+            )
+            time.sleep(5)
+        results = [r.get() for r in results if r.get() != []]
+        print(results)
+        trends_output["trends"].extend(
+            [
+                [
+                    {k: v for k, v in statement.items() if k in klist}
+                    for statement in result
+                    if statement["relevant"]
+                ]
+                for result in results
+            ]
+        )
 
-    # for trend in trends['trends']:
-    #     if trend['name'] in problem_statement:
-    #         return trends
+        # for i, trends in enumerate(subgraph):
+        #     print(f"\n {i} out of {len(subgraph)} \n")
+        #     format_trend(trends, problem_statement)
+        #         # trends_assesment["number_of_validated_trends"] += 1
+        #         trends_output["trends"].append(
+        #             [
+        #                 {k: v for k, v in statement.items() if k in klist}
+        #                 for statement in statements
+        #                 if statement["relevant"]
+        #             ]
+        #         )
+        # evaluation["Explanation"]
+        # trends_assesment["trends"].append(
+        #     {
+        #         "trend": trend["summary"],
+        #         "validation": evaluation["Validated"],
+        #         "explanation": evaluation["Explanation"],
+        #         "statements": evaluation["Statements"],
+        #     }
+        # )
+
     return trends_output
 
 
 def get_trends_from_gics_code(gics_code, problem_statement):
     condition = " OR ".join([f"'{code}' in c.gics_codes" for code in gics_code])
+    # print(condition)
     subgraph = rag_graph.kg.query(
         "match (c:Cluster) where {} return distinct c as trends".format(condition)
     )
+    # print(subgraph)
     remove_attribute_containing(subgraph, "embedding")
     remove_attribute_containing(subgraph, "Embedding")
     # print(len(subgraph))
