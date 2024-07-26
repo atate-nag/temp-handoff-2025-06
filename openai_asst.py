@@ -58,10 +58,13 @@ class AgentThread:
             file_ids.append(agent_output)
 
         if file_ids:
+            print(f"the assistant id before is {self.agent_id}")
             my_updated_assistant = self.client.beta.assistants.update(
                 self.agent_id,
                 tool_resources={"code_interpreter": {"file_ids": file_ids}},
             )
+            print(f"the assistant id after is {my_updated_assistant}")
+
         run = RunObj(
             parent=parent, input_files=input_files, retrieval_limit=retrieval_limit
         )
@@ -79,7 +82,7 @@ class AgentThread:
             agent_schema_errors=agent_schema_errors,
             file_paths=file_paths,
         )
-        dprint(f"created new run prompt")
+        dprint(f"created new run prompt {run_prompt} ")
         self.add_message(run_prompt)
         run.create_run()
         dprint(f"created new run")
@@ -303,6 +306,7 @@ class RunObj(BaseModel):
             else:
                 value_str = str(value)
             prompt = prompt.replace(f"{{{placeholder}}}", value_str)
+        print("generated prompt is: ", prompt)
         self.set_run_prompt(prompt)
         return prompt
 

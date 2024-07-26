@@ -94,6 +94,7 @@ def get_step_function(step_name):
         "cleanUp": clean_up,
         # graph manipulation and display routines
         "fill_graph": fill_graph,
+        "runModel": run_model,
         "getInsights": get_insights,
         "getCapabilities": generate_capabilities_per_cluster,
         "getTrends": generate_trends,
@@ -321,6 +322,59 @@ def run_scenarios(companyName, problemsFile):
 
     return scenarios_return_file, scenarios_response_file
 
+def run_model(companyName, problemsFile):
+    """
+    Runs the stand-alone scenarios analysis for a single company
+    """
+    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
+    )
+    dprint(f"problem_file_path: {problem_file_path} trends_file_path: "
+           f"{trends_file_path} company_file_path: {company_file_path}")
+
+    # define the key parameters of the model
+
+    model_return_file, model_response_file = generate_model(
+    company_name, problem_file_path, trends_file_path, company_file_path
+    )
+    #
+    # dprint(f"model_return_file: {model_return_file} model_response_file: {model_response_file}")
+
+    # scenarios_return_file, scenarios_response_file = generate_scenarios(
+    #     company_name, problem_file_path, trends_file_path, company_file_path
+    # )
+    # Add validation and quality checks of scenarios outputs
+
+    return
+
+def generate_model(
+    company_name, problem_file_path, trends_file_path, company_file_path
+):
+    """
+    Executes the model agent  for a single company
+    """
+    agent_configs = [{"agent_type": "model_agent"}]
+    model_manager = AgentManager(
+        client,
+        file_handler,
+        agent_configs,
+        [problem_file_path, company_file_path],
+        use_qm_agents=True,
+    )
+    model_manager.run_workflow()
+    model_return = model_manager.return_dict()
+    model_response = model_manager.return_response
+    model_return_file = file_handler.write_local_json(
+        f"model_return_{company_name}", json.dumps(model_return)
+    )
+    response_dict = {"response_text": model_response}
+    model_response_file = file_handler.write_local_json(
+        f"scenarios_response_{company_name}", json.dumps(response_dict)
+    )
+    print(f"completed model for {company_name}")
+    return model_response_file, model_return_file
+
 
 def generate_scenarios(
     company_name, problem_file_path, trends_file_path, company_file_path
@@ -328,6 +382,7 @@ def generate_scenarios(
     """
     Executes the scenarios agent  for a single company
     """
+
     agent_configs = [{"agent_type": "full_graph_scenario_agent"}]
     scenarios_manager = AgentManager(
         client,

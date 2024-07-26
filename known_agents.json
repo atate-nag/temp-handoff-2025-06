@@ -336,6 +336,132 @@
   },
       "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
     },
+    "model_agent": {
+      "agent_id" : "asst_iUIY5oRN51A4t4KrOsIInlzs",
+      "description": "Model Agent",
+      "output_schema": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Model Definition and Coefficient Estimation",
+  "type": "object",
+  "properties": {
+    "problem_statement": {
+      "type": "string",
+      "description": "The original problem statement provided."
+    },
+    "problem_statement_breakdown": {
+      "type": "object",
+      "properties": {
+        "main_task": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The main tasks identified from the problem statement."
+        },
+        "main_objective": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The main objectives identified from the problem statement."
+        },
+        "constraints_requirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The constraints and requirements identified from the problem statement."
+        },
+        "information_context": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The informational context relevant to the problem statement."
+        },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Definitions of key terms and concepts relevant to the problem statement."
+        },
+        "concepts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Key concepts identified from the problem statement."
+        }
+      },
+      "required": ["main_task", "main_objective", "constraints_requirements", "information_context", "definitions", "concepts"]
+    },
+    "key_variables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "variable_name": {
+            "type": "string",
+            "description": "The name of the key variable."
+          },
+          "description": {
+            "type": "string",
+            "description": "A brief description of the key variable."
+          }
+        },
+        "required": ["variable_name", "description"]
+      }
+    },
+    "functions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "function_name": {
+            "type": "string",
+            "description": "The name of the function."
+          },
+          "function_type": {
+            "type": "string",
+            "enum": ["linear", "non-linear"],
+            "description": "The type of the function (linear or non-linear)."
+          },
+          "expression": {
+            "type": "string",
+            "description": "The mathematical expression of the function."
+          },
+          "coefficients": {
+            "type": "object",
+            "properties": {
+              "intercept": {
+                "type": "number",
+                "description": "The intercept of the linear model."
+              },
+              "variables": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "description": "The coefficients for each variable in the function."
+              }
+            },
+            "required": ["intercept", "variables"],
+            "description": "The coefficients used in the function."
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Reasoning and method for how the coefficients were estimated."
+          }
+        },
+        "required": ["function_name", "function_type", "expression", "coefficients", "reasoning"]
+      }
+    }
+  },
+  "required": ["problem_statement", "problem_statement_breakdown", "key_variables", "functions"]
+},
+      "prompt" : "Generate the model for the problem statement and company represented in files: {INPUT_FILES}"
+    },
     "full_graph_frameworks_agent": {
       "agent_id" : "asst_FsNGA3T3mrCtmh1SZVVahpCC",
       "description": "Frameworks Agent",

@@ -466,6 +466,8 @@ class FileHandler:
         s = re.sub(r"\\$", "", s)
         # Remove newlines within strings
         s = re.sub(r"(?<!\\)(\\n|\\r)", " ", s)
+        # Remove trailing commas before closing braces or brackets
+        s = re.sub(r',\s*([\]}])', r'\1', s)
         return s
 
     def extract_json_from_response(self, client, thread):
@@ -554,7 +556,9 @@ class FileHandler:
         """
         # Example: Fixes for missing commas between objects, extra trailing commas, etc.
         repaired = re.sub(r"\}\s*,\s*\{", "}, {", json_string.strip().rstrip(","))
-        return "[" + repaired + "]"
+        # Ensure property names are quoted
+        repaired = re.sub(r"([{,]\s*)(\w+)(\s*:)", r'\1"\2"\3', repaired)
+        return repaired
 
     def retrieve_file_content_str(self, client, agent_id, file):
         """

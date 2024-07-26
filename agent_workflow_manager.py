@@ -64,6 +64,7 @@ class AgentManager:
                     qm_output = qm_agent.run()
                     if qm_output:
                         completed, qm_instructions = self.evaluate_qm_output(qm_output)
+                        dprint("after evaluate QM, qm_instructions: ", qm_instructions)
                 else:
                     completed = True
                 print(
@@ -103,30 +104,30 @@ class AgentManager:
         Evaluate the QM output to decide if the operational agent's output has passed the required conditions,
         extract any instructions for re-running the agent, and determine if the workflow should continue or the agent needs to be rerun.
         """
-        # print("evaluate_qm_output: the output to assess is : ", qm_output)
-        if "structured_output" in qm_output:
-            dict_output = qm_output["structured_output"]
-            completed = dict_output.get("completed", False)
-            print("evaluate_qm_output: the completed str is ", completed)
+        # Print the input for debugging
+        print("evaluate_qm_output: the output to assess is:", qm_output)
 
-            # Ensure 'completed' is treated as a boolean
-            if isinstance(completed, str):
-                completed = completed.lower() == "true"
+        # Use the appropriate key depending on the structure
+        dict_output = qm_output.get("structured_output", qm_output)
 
-            dprint(f"pulled out the completed value of {completed}")
-            print(
-                f"pulled out the completed value of {completed} type is {type(completed)}"
-            )
-            qm_instructions = dict_output.get("agent instructions", None)
-            dprint(f"pulled out the agent instructions of {qm_instructions}")
-            print(f"pulled out the agent instructions of {qm_instructions}")
+        # Print the intermediate dictionary for debugging
+        print("evaluate_qm_output: the dict_output is:", dict_output)
 
-            return completed, qm_instructions
-        else:
-            # Log an error if the expected output structure is not met
-            dprint("Error: QM output is missing 'structured_output'.")
-            print("Error: QM output is missing 'structured_output'.")
-            return False, None
+        completed = dict_output.get("completed", False)
+        print("evaluate_qm_output: the completed str is", completed)
+
+        # Ensure 'completed' is treated as a boolean
+        if isinstance(completed, str):
+            completed = completed.lower() == "true"
+
+        dprint(f"pulled out the completed value of {completed}")
+        print(f"pulled out the completed value of {completed} type is {type(completed)}")
+
+        qm_instructions = dict_output.get("agent instructions", None)
+        dprint(f"pulled out the agent instructions of {qm_instructions}")
+        print(f"pulled out the agent instructions of {qm_instructions}")
+
+        return completed, qm_instructions
 
     def create_agent(self, agent_type, input_files, qm_id=None):
         """Factory method to instantiate agents."""
