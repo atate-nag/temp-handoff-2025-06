@@ -198,7 +198,6 @@ def get_subsections(data, section_name="content"):
     subsections = []
 
     if isinstance(data, dict):
-        print(data)
         print(data.keys())
         if isinstance(data["content"], dict):
             if section_name in data["content"].keys():

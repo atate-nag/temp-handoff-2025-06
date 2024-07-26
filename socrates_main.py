@@ -737,15 +737,16 @@ Trends:
         output = invoke(
             rp_ag.writing_chain,
             {
-                "report_structure": plan,
+                "report_structure": dict_to_plain_text(plan),
                 "data_input": data_input,
                 "content_section": title + ": " + content + "\n\n" + problem_data,
             },
         )
         print("************")
-        print(output)
+        # print(output)
+        print(output.keys())
         print(len(output["content"]))
-        print(len(output["summary"]))
+        print(len(output["content_summary"]))
         print("************")
         print(title + ": " + content)
         # contentSection.model_validate(output)

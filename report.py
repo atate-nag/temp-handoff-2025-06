@@ -20,9 +20,11 @@ class contentSection(BaseModel):
     )
     content: str = Field(
         "The content of the subpart. A content subart should be very precised and complete, with exemples and illustrations.",
-        min_length=3000,
+        min_length=2000,
     )
-    summary: str = Field("A summary of the section", max_length=300)
+    content_summary: str = Field(
+        "A summary of the section's content. This is mandatory", max_length=300
+    )
     data_needed: List[str] = Field(
         "The data needed to write the section to improve the content of the section and the quality of the report"
     )

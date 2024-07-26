@@ -703,11 +703,12 @@ This is the data you have to use to write the part:
 {data_input}
 ***
 
-This is the part you have to write: 
+This is the part you have to write. Make sure to focus only on that part: 
 ***
 {content_section}
 ***
 
+Respect strictly the format of the output:
 {format_instructions}
 """,
         input_variables=["report_structure", "content_section", "data_input"],
