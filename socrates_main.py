@@ -215,7 +215,7 @@ def get_trends(company_name, problemFile, force_recreate=False):
         trend_data = condense_trends(company_name, problemFile)
     else:
         curated_trend_data = get_trends_from_gics_code(gics_code, problem)
-        dprint(f"Generated trends: {json.dumps(trend_data, indent=2)}")
+        dprint(f"Generated trends: {json.dumps(curated_trend_data, indent=2)}")
         save_curated_trend_data(company_name, gics_code, problem, curated_trend_data)
         dprint(f"Saved trends to archive: {trend_data}")
         trend_data = condense_trends(company_name, problemFile)
