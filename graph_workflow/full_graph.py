@@ -329,7 +329,8 @@ def save_condensed_trend_data(company_name, problem_statement, trend_data):
             company_name,
             problem_statement,
             str(uuid.uuid4()),
-            trend,
+            # trend.replace("'", "\\'").replace('"', '\\"'),
+            json.dumps(trend).replace("'", "\\'"),
         )
         rag_graph.kg.query(query)
 
@@ -343,9 +344,9 @@ def get_condensed_trend_data(company_name, problem_statement):
         company_name,
         problem_statement,
     )
-    result = rag_graph.kg.query(query)
-    if result:
-        return json.loads(result[0]["trend_data"])
+    results = rag_graph.kg.query(query)
+    if results:
+        return [result["trend_data"] for result in results]
     return None
 
 
@@ -358,23 +359,28 @@ def save_condensed_company_data(company_name, problem_statement, company_data):
         MERGE (c)-[:HAS_CONDENSED_COMPANY]->(ctd)
         """ % (
             company_name,
-            problem_statement,
+            json.dumps(problem_statement).replace("'", "\\'"),
             str(uuid.uuid4()),
-            data,
+            json.dumps(data).replace("'", "\\'"),
         )
         rag_graph.kg.query(query)
+    print(query)
 
 
 def get_condensed_company_data(company_name, problem_statement):
     query = """
     MATCH (c:Company {name: '%s'})-[:HAS_CONDENSED_COMPANY]->(ctd:CondensedCompanyData)
     WHERE ctd.problem_statement = '%s'
-    RETURN ctd.company_data AS company_data, ctd.last_updated AS last_updated
+    RETURN ctd.company_data AS company_data
     """ % (
         company_name,
-        problem_statement,
+        json.dumps(problem_statement).replace("'", "\\'"),
     )
-    result = rag_graph.kg.query(query)
-    if result:
-        return json.loads(result[0]["company_data"])
+    results = rag_graph.kg.query(query)
+    print(query)
+    print("results: ")
+    print(str(results)[:100])
+    print("****")
+    if results:
+        return [result["company_data"] for result in results]
     return None
