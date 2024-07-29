@@ -110,7 +110,29 @@ is what is supported so far
         "number_of_processes" : 5
       }
     },
-- "runStrategy": run_strategy,
+- "runStrategy" : {
+      "enabled": false,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
+- "runStrategyChain" : {
+      "step": "runStrategyChains",
+      "enabled": true,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
+- "runStrategyDynamicReport" : {
+      "step": "runStrategyDynamicReport",
+      "enabled": true,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile" : "./problem_statements.json"
+      }
+    },
 - "runFrameworks": run_frameworks,
 - "runScenarios": run_scenarios,
 

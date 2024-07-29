@@ -4,7 +4,9 @@ from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import json
-from utility import dict_to_plain_text, invoke
+from report import Report, contentSection
+
+# from utility import dict_to_plain_text, invoke
 
 
 def build_chain_action(tools):
@@ -597,9 +599,10 @@ Do not generalise or speak in high-level terms.  Be precise and use the availabl
 
 
 
-The QM will ensure that you meet the minimum character length requirements. Those targets should not be challenging to hit if you provide sufficiently rich and accurate descriptions of how the analysis was obtained, and from where the trends and capabilities were derived. Do not worry about patronising the client, explain everything as though there was no background context available and your report were the only source of truth. 
+Those targets should not be challenging to hit if you provide sufficiently rich and accurate descriptions of how the analysis was obtained, and from where the trends and capabilities were derived. Do not worry about patronising the client, explain everything as though there was no background context available and your report were the only source of truth. 
 Provide the strongest citations possible - state the document name, or the source of the information. When you refer to strategic analysis don't just say "Analysis reveals" say that "Background detailed analysis has been performed and has shown that ...." This will differentiate your results from those generic results available elsewhere. When you reference scenairio analysis, speak in detail about the costs, benefits, risks and risk sensitivity. This analysis is the specialist of your firm, and it is likely to make a huge differentiation. 
- Do not skip any sections. 
+Do not skip any sections. 
+Fortmat your output as markdown file.
 """
 
 get_report = PromptTemplate(
@@ -653,7 +656,7 @@ def get_problem(company_name, problemsFile):
         statement = ""
     if company_name in problem_statements:
         statement = problem_statements[company_name]
-        return statement
+        return json.dumps(statement).replace("'","\\'")
     else:
         print(f"Problem statement not found for the specified company {company_name}.")
         raise Exception(
@@ -661,78 +664,255 @@ def get_problem(company_name, problemsFile):
         )
 
 
-if __name__ == "__main__":
-    problem_data = get_problem("Tesla", "./problem_statements.json")
-    trends_file_path = "Intermediates/condensed_trends.json"
-    company_file_path = "Intermediates/condensed_company_data.json"
+########### Summary Chain
 
-    trends_data = json.load(open(trends_file_path))
-    company_data = json.load(open(company_file_path))
-    print("starting scenario chain")
-    print(
-        [
-            len(x)
-            for x in [
-                dict_to_plain_text(problem_data),
-                dict_to_plain_text(trends_data),
-                dict_to_plain_text(company_data),
-            ]
-        ]
+
+summary_model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+summary_parser = StrOutputParser()
+summary_prompt = ChatPromptTemplate.from_template(
+    template="""
+Giving this problem statement for the company {company}:
+***
+{problem_statement}
+***
+
+Make a short summary of the following data to extract potential strategic insights:
+***
+{data}
+***
+"""
+)
+
+summary_chain = summary_prompt | summary_model | summary_parser
+
+
+def build_writing_chain():
+    model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+    parser = JsonOutputParser(pydantic_object=contentSection)
+    prompt = PromptTemplate(
+        template="""You are working on a report with a team. Every one has a part to write. 
+Make sure the part you just write is well formatted without too much line breaks or empty lines.
+When writing the part, make sure to use the data provided to write the content of the section; and quote the the sources of the data.
+This is the high level structure of the report:
+***
+{report_structure}
+***
+
+This is the data you have to use to write the part:
+***
+{data_input}
+***
+
+This is the part you have to write. Make sure to focus only on that part: 
+***
+{content_section}
+***
+
+Respect strictly the format of the output:
+{format_instructions}
+""",
+        input_variables=["report_structure", "content_section", "data_input"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
     )
 
-    output_scenario = invoke(
-        chain_scenario,
-        {
-            "problem_statement": dict_to_plain_text(problem_data),
-            "trend_document": dict_to_plain_text(trends_data),
-            "company_data": dict_to_plain_text(company_data),
-            "company_name": "Tesla",
-        },
+    return prompt | model | parser
+
+
+class ValidationModel(BaseModel):
+    validation: bool = Field("The validation if the input is valid or not")
+    explaination: str = Field(
+        "The explaination of the validation, and why it is valid or not, and how to fix it."
     )
 
-    print("starting framework chain")
 
-    output_framework = invoke(
-        chain_framework,
-        {
-            "problem_statement": dict_to_plain_text(problem_data),
-            "trend_document": dict_to_plain_text(trends_data),
-            "company_data": dict_to_plain_text(company_data),
-            "company_name": "Tesla",
-        },
-    )
-    with open("Intermediates/scenario_output.json", "w") as file:
-        json.dump(output_scenario, file, indent=4)
+class ValidationList(BaseModel):
+    validations: List[ValidationModel] = Field("The list of validations")
 
-    with open("Intermediates/framework_output.json", "w") as file:
-        json.dump(output_framework, file, indent=4)
 
-    print("starting report chain")
-    print(
-        [
-            len(x)
-            for x in [
-                dict_to_plain_text(company_data),
-                dict_to_plain_text(output_scenario),
-                dict_to_plain_text(output_framework),
-                dict_to_plain_text(trends_data),
-            ]
-        ]
-    )
-    output_report = invoke(
-        chain_report,
-        {
-            "company_data": dict_to_plain_text(company_data),
-            "scenario_analysis": dict_to_plain_text(output_scenario),
-            "framework_analysis": dict_to_plain_text(output_framework),
-            "trends": dict_to_plain_text(trends_data),
-        },
+def build_assessing_chain():
+    model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+    parser = JsonOutputParser(pydantic_object=ValidationList)
+    prompt = PromptTemplate(
+        template="""You have to validate the input given some constraints.
+The constraints are:
+***
+{constraints}
+***
+
+This is the input to assess: 
+***
+{input}
+***
+
+{format_instructions}
+""",
+        input_variables=["constraints", "input"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
     )
 
-    print(output_report)
-    # Define the output file path
-    output_file = "report.txt"
+    return prompt | model | parser
 
-    # Write the report to the output file
-    with open(output_file, "w") as file:
-        file.write(output_report)
+
+class Content(BaseModel):
+    content_statement: str = Field(description="The statement for the subsection.")
+
+
+class Subsubsection(BaseModel):
+    name: str = Field(description="The name of the subsubsection in the report.")
+    content: Content = Field(
+        description="The plan for the content of the subsubsection."
+    )
+
+
+class Subsection(BaseModel):
+    name: str = Field(description="The name of the subsection in the report")
+    content: List[Subsubsection] | Content = Field(
+        description="The plan for the content of the subsection."
+    )
+
+
+class Section(BaseModel):
+    name: str = Field(description="The name of the section in the report.")
+    content: List[Subsection] | Content = Field(
+        description="The plan for the content of the section."
+    )
+
+
+class reportPlan(BaseModel):
+    plan: List[Section] = Field(description="The plan for generating the report.")
+
+
+parser_generate_report_plan = JsonOutputParser(pydantic_object=reportPlan)
+
+prompt_generate_report_plan = PromptTemplate(
+    template="""Considering the following problem statement for the company {company}:
+***
+{problem_statement}
+***
+
+Using the following data summary, generate a plan for the report:
+***
+{data_summary}
+***
+
+The plan has to contain the following sections:
+***
+Introduction
+Detailed analysis
+Prioritization
+Barriers, Risks and Challenges
+Executive Summary
+***
+
+
+{format_instructions}
+""",
+    input_variables=["data_summary", "problem_statement", "company"],
+    partial_variables={
+        "format_instructions": parser_generate_report_plan.get_format_instructions()
+    },
+)
+
+
+model_generate_report_plan = ChatOpenAI(model="gpt-4o", temperature=0.1)
+generate_report_plan = (
+    prompt_generate_report_plan
+    | model_generate_report_plan
+    | parser_generate_report_plan
+)
+
+########
+
+summary_model = ChatOpenAI(model="gpt-4o", temperature=0.9)
+summary_parser = StrOutputParser()
+summary_prompt = ChatPromptTemplate.from_template(
+    template="""
+Giving this problem statement for the company {company}:
+***
+{problem_statement}
+***
+
+Make a short summary of the following data to extract potential strategic insights:
+***
+{data}
+***
+"""
+)
+
+summary_chain = summary_prompt | summary_model | summary_parser
+
+# if __name__ == "__main__":
+#     problem_data = get_problem("Tesla", "./problem_statements.json")
+#     trends_file_path = "Intermediates/condensed_trends.json"
+#     company_file_path = "Intermediates/condensed_company_data.json"
+
+#     trends_data = json.load(open(trends_file_path))
+#     company_data = json.load(open(company_file_path))
+#     print("starting scenario chain")
+#     print(
+#         [
+#             len(x)
+#             for x in [
+#                 dict_to_plain_text(problem_data),
+#                 dict_to_plain_text(trends_data),
+#                 dict_to_plain_text(company_data),
+#             ]
+#         ]
+#     )
+
+#     output_scenario = invoke(
+#         chain_scenario,
+#         {
+#             "problem_statement": dict_to_plain_text(problem_data),
+#             "trend_document": dict_to_plain_text(trends_data),
+#             "company_data": dict_to_plain_text(company_data),
+#             "company_name": "Tesla",
+#         },
+#     )
+
+#     print("starting framework chain")
+
+#     output_framework = invoke(
+#         chain_framework,
+#         {
+#             "problem_statement": dict_to_plain_text(problem_data),
+#             "trend_document": dict_to_plain_text(trends_data),
+#             "company_data": dict_to_plain_text(company_data),
+#             "company_name": "Tesla",
+#         },
+#     )
+#     with open("Intermediates/scenario_output.json", "w") as file:
+#         json.dump(output_scenario, file, indent=4)
+
+#     with open("Intermediates/framework_output.json", "w") as file:
+#         json.dump(output_framework, file, indent=4)
+
+#     print("starting report chain")
+#     print(
+#         [
+#             len(x)
+#             for x in [
+#                 dict_to_plain_text(company_data),
+#                 dict_to_plain_text(output_scenario),
+#                 dict_to_plain_text(output_framework),
+#                 dict_to_plain_text(trends_data),
+#             ]
+#         ]
+#     )
+#     output_report = invoke(
+#         chain_report,
+#         {
+#             "company_data": dict_to_plain_text(company_data),
+#             "scenario_analysis": dict_to_plain_text(output_scenario),
+#             "framework_analysis": dict_to_plain_text(output_framework),
+#             "trends": dict_to_plain_text(trends_data),
+#         },
+#     )
+
+#     print(output_report)
+#     # Define the output file path
+#     output_file = "report.txt"
+
+#     # Write the report to the output file
+#     with open(output_file, "w") as file:
+#         file.write(output_report)

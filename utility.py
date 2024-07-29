@@ -199,7 +199,8 @@ def condense(
     # Partant d'une liste de dictionnaires, on extrait les embeddings de chaque dictionnaire
     # et on les regroupe en clusters
     # On cree un dataframe avec les embeddings et les labels des clusters
-    print()
+    print(f"Start condensing {subject}..\n\n")
+    data = [node for nodes in data if nodes for node in nodes]
     X = [embed(text=node[key], model="text-embedding-3-large") for node in data]
 
     X = np.stack(X)
@@ -231,15 +232,6 @@ def condense(
 @timeout(120)
 def invoke(chain, parameters):
     return chain.invoke(parameters)
-    # start = time.time()
-
-    # p = mp.Process(target=chain.invoke, args=(parameters,))
-    # p.start()
-
-    # while p.is_alive():
-    #     if time.time() - start > timeout:
-    #         raise Exception("timeout", f"chain: {chain} failed")
-    #     time.sleep(0.2)
 
 
 @retry(number_of_retry=10)
@@ -255,6 +247,27 @@ def wait_for_sec(t):
     time.sleep(t)
     print("finish waiting")
     return t
+
+
+def report_to_markdown(data, level=""):
+    markdown = ""
+    if isinstance(data, list):
+        for item in data:
+            markdown += report_to_markdown(item, level)
+    elif isinstance(data, dict):
+        level = level + "#"
+        if "name" in data:
+            markdown += level + f" {data['name']}\n"
+        if "content" in data:
+            if isinstance(data["content"], list):
+                for item in data["content"]:
+                    markdown += report_to_markdown(item, level)
+            # if isinstance(data["content"], dict):
+            #     if "content_statement" in data["content"]:
+            #         markdown += f"{data['content_statement']}\n\n"
+        if "content_generated" in data:
+            markdown += f"{data['content_generated']}\n\n"
+    return markdown
 
 
 if __name__ == "__main__":
