@@ -234,6 +234,7 @@ def invoke(chain, parameters):
     return chain.invoke(parameters)
 
 
+
 @retry(number_of_retry=10)
 @timeout(15)
 def embed(text: str, model: str = "text-embedding-3-large", timeout=5):

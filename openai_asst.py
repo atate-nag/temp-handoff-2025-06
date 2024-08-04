@@ -12,8 +12,9 @@ from agent_configs import AgentConfigs
 class AgentThread:
     """A thread of execution and management of one Agent"""
 
-    def __init__(self, client, agent_id, initial_prompt, file_handler):
-        self.client = client
+    def __init__(self, connector, agent_id, initial_prompt, file_handler):
+        self.connector = connector
+        self.client = connector.client
         self.agent_id = agent_id
         self.id = uuid.uuid4()  # Generates a unique identifier
         self.initial_prompt = initial_prompt
@@ -24,7 +25,7 @@ class AgentThread:
         self.file_handler = file_handler
         self.thread = self.client.beta.threads.create()
         dprint(f"created initial thread {self.thread.id}")
-        self.last_timestamp = 0
+        # self.last_timestamp = 0
         self.full_response = []
 
     def runs_made(self):
@@ -46,22 +47,22 @@ class AgentThread:
         dprint("creating new run")
         file_ids = []
 
+        connector = parent.connector
+
         if input_files:
             file_ids.extend(input_files)
 
         if agent_response:
-            print("agent_response to pass to run is: ", agent_response)
+            print("agent_response to pass to run is detected")
             file_ids.append(agent_response)
 
         if agent_output:
-            print("agent_output to pass to run is: ", agent_output)
+            print("agent_output to pass to run is detected")
             file_ids.append(agent_output)
 
         if file_ids:
-            my_updated_assistant = self.client.beta.assistants.update(
-                self.agent_id,
-                tool_resources={"code_interpreter": {"file_ids": file_ids}},
-            )
+            my_updated_assistant = connector.upload_file_ids(agent_id=self.agent_id, file_ids=file_ids)
+
         run = RunObj(
             parent=parent, input_files=input_files, retrieval_limit=retrieval_limit
         )
@@ -89,7 +90,7 @@ class AgentThread:
         return run
 
     def get_output(self):
-        # The only valid output is the one that specifically relates to the last
+        # The only valid output is the one that specifically relates to the last run
         if self.runobjs[-1].ran:
             rtuple = self.returnobjs[-1]
             return rtuple
@@ -99,91 +100,115 @@ class AgentThread:
 
     def retrieve(self, qm_id=None):
         """retrieves an existing run via the runobj
-        and extracts the response, output and json"""
+        and extracts the response, output and inline json. If Qm then it also
+        sets the completion structure """
         self.runobjs[-1].retrieve()
         # switch the runobj to ran state, can't be modified or reran
         self.runobjs[-1].ran = True
         # should we retrieve from qm_id or agent_id?
-        if qm_id:
-            target_id = qm_id
-        else:
-            target_id = self.agent_id
-        asst_file_agent_output = self.file_handler.retrieve_output_file_id(
-            self.client,
-            self.agent_id,
-            self.thread,
-            target_id,
-            f"output_file_Run{self.runobjs[-1].id}",
-        )
-        agent_response = self.get_new_messages()
-        self.full_response.append(agent_response)
-        # print(f"agent response is: \n***********\n{agent_response}\n***********\n")
+        # TODO - we retrieve only from self.id in new approach
+        # if qm_id:
+        #     target_id = qm_id
+        # else:
+        #     target_id = self.agent_id
+        #
+        # output_file_id = self.connector.retrieve_file_by_id(
+        #     self.client,
+        #     self.agent_id,
+        #     self.thread,
+        #     self.agent_id,
+        #     f"output_file_Run{self.runobjs[-1].id}")
+        # # asst_file_agent_output = self.file_handler.retrieve_output_file_id(
+        # #     self.client,
+        # #     self.agent_id,
+        # #     self.thread,
+        # #     target_id,
+        # #     f"output_file_Run{self.runobjs[-1].id}",
+        # # )
+        # # TODO replace with connector.get_message
+        # latest_response = self.connector.get_new_messages()
+        #
+        # # agent_response = self.get_new_messages()
+        # self.full_response.append(latest_response)
+        # # print(f"agent response is: \n***********\n{agent_response}\n***********\n")
+        # try:
+        #     # asst_file_response = self.connector.txt_to_asst_file(
+        #     #     self.client, agent_response, "agent_response", target_id
+        #     # )
+        #     #
+        #     # asst_file_response = self.file_handler.txt_to_asst_file(
+        #     #     self.client, agent_response, "agent_response", target_id
+        #     # )
+        #     # TODO replace with connector.retrieve_response
+        #
+        #     structured_output = self.file_handler.3(
+        #         self.client,
+        #         self.agent_id,
+        #         latest_response,
+        #         latest_output,
+        #         f"_runobj{self.runobjs[-1].id}",
+        #     )
         try:
-            asst_file_response = self.file_handler.txt_to_asst_file(
-                self.client, agent_response, "agent_response", target_id
-            )
-            structured_output = self.file_handler.retrieve_direct_agent_content(
-                self.client,
-                self.agent_id,
-                agent_response,
-                asst_file_agent_output,
-                f"_runobj{self.runobjs[-1].id}",
-            )
+            agent_output = self.connector.agent_retrieve(self.agent_id, self.thread)
+            dprint(f"structured output is #{agent_output}")
         except Exception as e:
             dprint(f"Error retrieving output: {e}")
-            structured_output = None
-            asst_file_response = None
-        dprint(f"structured_output: {structured_output}")
-        if structured_output is None:
+            agent_output = None
+        dprint(f"structured_output: {agent_output}")
+        if agent_output is None:
             dprint(f"No JSON in responses, need to reissue")
             self.output_dict = None
             self.returnobjs.append(None)
             return None
-        # TODO structured_output could be too large to be passed in a dict and
-        # should be a new assistant_file ?
+
         self.output_dict = {
             "run_obj": self.runobjs[-1],
-            "response_file": asst_file_response.id,
-            "output_file": asst_file_agent_output,
-            "structured_output": structured_output,
+            "response_file": agent_output["response_file"],
+            "output_file": agent_output["output_file"],
+            "inline_dict": agent_output["inline_dict"],
         }
         self.returnobjs.append(self.output_dict)
-        dprint(f"output dict is {self.output_dict}, returning it")
-        print(f"output dict is {self.output_dict}, returning it")
+        self.full_response.append(agent_output["response_file"])
+        #dprint(f"output dict is {self.output_dict}, returning it")
+        #print(f"output dict is {self.output_dict}, returning it")
         return self.output_dict
 
     def add_message(self, instructions, input_files=None):
         """
         add a message {prompt} to the thread
         """
+        # TODO move into connector
+
         self.client.beta.threads.messages.create(
             thread_id=self.thread.id, role="user", content=instructions
         )
 
-    def get_new_messages(self):
-        """
-        just return the latest messages, i.e the last response
-        """
-        # Fetch all messages from the thread
-        messages = self.client.beta.threads.messages.list(thread_id=self.thread.id).data
-        # Sort the messages by the created_at timestamp just in case they are not in order
-        messages.sort(key=lambda msg: msg.created_at)
-        # Gather new messages
-        new_messages = [msg for msg in messages if msg.created_at > self.last_timestamp]
-        response = ""
-        for message in new_messages:
-            if message.role == "assistant" and message.content[0].type == "text":
-                response += message.content[0].text.value
-        # Update the last timestamp
-        if new_messages:
-            self.last_timestamp = new_messages[-1].created_at
-        return response
+    # def get_new_messages(self):
+    #     """
+    #     just return the latest messages, i.e the last response
+    #     """
+    #     # Fetch all messages from the thread
+    #     # TODO move into connector
+    #     messages = self.client.beta.threads.messages.list(thread_id=self.thread.id).data
+    #     # Sort the messages by the created_at timestamp just in case they are not in order
+    #     messages.sort(key=lambda msg: msg.created_at)
+    #     # Gather new messages
+    #     new_messages = [msg for msg in messages if msg.created_at > self.last_timestamp]
+    #     response = ""
+    #     for message in new_messages:
+    #         if message.role == "assistant" and message.content[0].type == "text":
+    #             response += message.content[0].text.value
+    #     # Update the last timestamp
+    #     if new_messages:
+    #         self.last_timestamp = new_messages[-1].created_at
+    #     return response
 
 
 class RunObj(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     parent: Any
-    input_files: Optional[List[str]] = None
+#    input_files: Optional[List[str]] = None
+    input_files: Any
     openai_run: Optional[str] = None
     retrieval_limit: int = Field(default=3, gt=0)
     run_prompt: Optional[str] = None
@@ -215,6 +240,7 @@ class RunObj(BaseModel):
     def create_run(self):
         if self.openai_run is None:
             client = self.parent.client
+            # TODO replace with connector.run
             openai_run = client.beta.threads.runs.create(
                 thread_id=self.parent.thread.id,
                 assistant_id=self.parent.agent_id,
@@ -222,12 +248,11 @@ class RunObj(BaseModel):
                 tools=[{"type": "code_interpreter"}],
             )
             self.set_openai_run(openai_run)
-            print(f"Created run {self.openai_run}")
+            print(f"Created run {self.openai_run.id}")
         else:
             print("Run already created.")
 
     def retrieve(self):
-        print(f"Attempting to run: {self.openai_run}")
         if not self.ran:
             self.retrieve_run()
             self.ran = True
@@ -281,6 +306,7 @@ class RunObj(BaseModel):
         Generate a prompt using runtime information. Note placeholder values
         appear in the prompt in known_agents.json in the "prompt" field.
         """
+
         if file_paths is None:
             doc_path = ""
         else:
@@ -312,6 +338,7 @@ class RunObj(BaseModel):
 
 def clone_assistant(client, source_assistant_id):
     # Retrieve the list of assistants
+    # TODO replace with connector.clone
     my_assistants = client.beta.assistants.list(order="desc", limit=100).data
     # Find the assistant by IDg
     source_assistant = None
