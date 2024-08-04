@@ -23,7 +23,7 @@ from langchain_core.prompts import PromptTemplate
 
 # import pydantic.datetime as pydantic_datetime
 import json, re
-from openai_asst import (
+from agent_thread import (
     delete_assistants_clones,
     delete_all_uploaded_files,
     delete_not_known_assistants,

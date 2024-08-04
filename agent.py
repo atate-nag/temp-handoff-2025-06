@@ -4,12 +4,7 @@ from import_files import InputFilesModel, AsstFilesModel
 from data_validation import UnvalidatedData, ValidatedData
 from debug import dprint
 from collections import defaultdict
-from openai_asst import (
-    AgentThread,
-    clone_assistant,
-    delete_existing_assistant_files,
-    delete_oldest_assistant_files,
-)
+from agent_thread import AgentThread
 from agent_state_machine_config import AgentStateMachineConfig
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
@@ -149,13 +144,17 @@ class Agent:
 
             # TODO replace this with connector.clone.agent
 
-            my_assistant = clone_assistant(
-                self.validated.workflow_context.connector.client,
+            my_agent = self.connector.agent_clone(
                 self.validated.agent_context.agent_id,
             )
 
-            if my_assistant:
-                self.validated.agent_context.agent_id = my_assistant.id
+            # my_assistant = clone_assistant(
+            #     self.validated.workflow_context.connector.client,
+            #     self.validated.agent_context.agent_id,
+            # )
+
+            if my_agent:
+                self.validated.agent_context.agent_id = my_agent.id
             else:
                 dprint("Agent clone was not created - Aborting")
                 raise Exception("Agent clone was not created")

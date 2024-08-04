@@ -105,49 +105,6 @@ class AgentThread:
         self.runobjs[-1].retrieve()
         # switch the runobj to ran state, can't be modified or reran
         self.runobjs[-1].ran = True
-        # should we retrieve from qm_id or agent_id?
-        # TODO - we retrieve only from self.id in new approach
-        # if qm_id:
-        #     target_id = qm_id
-        # else:
-        #     target_id = self.agent_id
-        #
-        # output_file_id = self.connector.retrieve_file_by_id(
-        #     self.client,
-        #     self.agent_id,
-        #     self.thread,
-        #     self.agent_id,
-        #     f"output_file_Run{self.runobjs[-1].id}")
-        # # asst_file_agent_output = self.file_handler.retrieve_output_file_id(
-        # #     self.client,
-        # #     self.agent_id,
-        # #     self.thread,
-        # #     target_id,
-        # #     f"output_file_Run{self.runobjs[-1].id}",
-        # # )
-        # # TODO replace with connector.get_message
-        # latest_response = self.connector.get_new_messages()
-        #
-        # # agent_response = self.get_new_messages()
-        # self.full_response.append(latest_response)
-        # # print(f"agent response is: \n***********\n{agent_response}\n***********\n")
-        # try:
-        #     # asst_file_response = self.connector.txt_to_asst_file(
-        #     #     self.client, agent_response, "agent_response", target_id
-        #     # )
-        #     #
-        #     # asst_file_response = self.file_handler.txt_to_asst_file(
-        #     #     self.client, agent_response, "agent_response", target_id
-        #     # )
-        #     # TODO replace with connector.retrieve_response
-        #
-        #     structured_output = self.file_handler.3(
-        #         self.client,
-        #         self.agent_id,
-        #         latest_response,
-        #         latest_output,
-        #         f"_runobj{self.runobjs[-1].id}",
-        #     )
         try:
             agent_output = self.connector.agent_retrieve(self.agent_id, self.thread)
             dprint(f"structured output is #{agent_output}")
@@ -183,33 +140,12 @@ class AgentThread:
             thread_id=self.thread.id, role="user", content=instructions
         )
 
-    # def get_new_messages(self):
-    #     """
-    #     just return the latest messages, i.e the last response
-    #     """
-    #     # Fetch all messages from the thread
-    #     # TODO move into connector
-    #     messages = self.client.beta.threads.messages.list(thread_id=self.thread.id).data
-    #     # Sort the messages by the created_at timestamp just in case they are not in order
-    #     messages.sort(key=lambda msg: msg.created_at)
-    #     # Gather new messages
-    #     new_messages = [msg for msg in messages if msg.created_at > self.last_timestamp]
-    #     response = ""
-    #     for message in new_messages:
-    #         if message.role == "assistant" and message.content[0].type == "text":
-    #             response += message.content[0].text.value
-    #     # Update the last timestamp
-    #     if new_messages:
-    #         self.last_timestamp = new_messages[-1].created_at
-    #     return response
-
-
 class RunObj(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     parent: Any
 #    input_files: Optional[List[str]] = None
     input_files: Any
-    openai_run: Optional[str] = None
+    model_run: Optional[str] = None
     retrieval_limit: int = Field(default=3, gt=0)
     run_prompt: Optional[str] = None
     ran: bool = Field(default=False)
@@ -219,10 +155,10 @@ class RunObj(BaseModel):
     #     t = AsstFilesModel(input_files=v)
     #     return v
 
-    @validator("openai_run", always=True)
-    def validate_openai_run(cls, v):
+    @validator("model_run", always=True)
+    def validate_model_run(cls, v):
         if v is not None and not isinstance(v, str):
-            raise ValueError("openai_run must be a valid run identifier string.")
+            raise ValueError("model_run must be a valid run identifier string.")
         return v
 
     @validator("run_prompt", always=True)
@@ -231,24 +167,24 @@ class RunObj(BaseModel):
             raise ValueError("run_prompt must be a string.")
         return v
 
-    def set_openai_run(self, run_details: dict):
-        self.openai_run = run_details  # Validation triggered here
+    def set_model_run(self, run_details: dict):
+        self.model_run = run_details  # Validation triggered here
 
     def set_run_prompt(self, prompt: str):
         self.run_prompt = prompt  # Validation triggered here
 
     def create_run(self):
-        if self.openai_run is None:
+        if self.model_run is None:
             client = self.parent.client
             # TODO replace with connector.run
-            openai_run = client.beta.threads.runs.create(
+            model_run = client.beta.threads.runs.create(
                 thread_id=self.parent.thread.id,
                 assistant_id=self.parent.agent_id,
                 # model="gpt-4-turbo-preview",
                 tools=[{"type": "code_interpreter"}],
             )
-            self.set_openai_run(openai_run)
-            print(f"Created run {self.openai_run.id}")
+            self.set_model_run(model_run)
+            print(f"Created run {self.model_run.id}")
         else:
             print("Run already created.")
 
@@ -260,11 +196,11 @@ class RunObj(BaseModel):
             print("Run has already been executed; RunObj cannot be reused.")
 
     def retrieve_run(self):
-        if self.openai_run is None:
+        if self.model_run is None:
             print("No run to retrieve.")
             return None
         start_time = time.time()
-        retrieve = self.retrieve_run_and_wait(self.openai_run.id)
+        retrieve = self.retrieve_run_and_wait(self.model_run.id)
         end_time = time.time()
         print("Retrieve time: " + str(end_time - start_time))
         return retrieve
@@ -275,9 +211,12 @@ class RunObj(BaseModel):
         thread_id = self.parent.thread.id
         while retries < self.retrieval_limit:
             try:
-                retrieve = client.beta.threads.runs.retrieve(
+                retrieve = self.parent.connector.retrieve(
                     thread_id=thread_id, run_id=run_id
                 )
+                # retrieve = client.beta.threads.runs.retrieve(
+                #     thread_id=thread_id, run_id=run_id
+                # )
                 dprint(f"Assistant status: {retrieve.status}")
                 if retrieve.status == "completed":
                     return retrieve
@@ -336,53 +275,53 @@ class RunObj(BaseModel):
         arbitrary_types_allowed = True  # Allows 'Any' and other arbitrary types
 
 
-def clone_assistant(client, source_assistant_id):
-    # Retrieve the list of assistants
-    # TODO replace with connector.clone
-    my_assistants = client.beta.assistants.list(order="desc", limit=100).data
-    # Find the assistant by IDg
-    source_assistant = None
-    for assistant in my_assistants:
-        if assistant.id == source_assistant_id:
-            source_assistant = assistant
-            break
-
-    if source_assistant is None:
-        print("Assistant not found.")
-        return
-
-    # Prepare the payload for creating a new assistant
-    # Copy all relevant fields except the ID and created_at
-    assistant_data = {
-        "name": "Adrian Cloned Agent",
-        "description": source_assistant.description,
-        "model": "gpt-4o",  #'gpt-3.5-turbo', #"gpt-4o",
-        "instructions": source_assistant.instructions,
-        "tools": [{"type": "code_interpreter"}],
-        "temperature": source_assistant.temperature,
-        "top_p": source_assistant.top_p,
-    }
-    # model = "gpt-4o",
-    # tools = [{"type": "code_interpreter"}]
-    # TODO there is a bug in assistants API, how to set temperature?
-    # modify_data = {
-    #     "temperature": 0.5,
-    #     "top_p": 1.0,
-    #     "response_format": source_assistant.response_format
-    # }
-    # Create a new assistant with the copied data
-    new_assistant = client.beta.assistants.create(**assistant_data)
-    # # copy any uploaded files to the new assistant
-    #
-    # my_updated_assistant = client.beta.assistants.update(
-    #     new_assistant.id,
-    #     tool_resources={
-    #         "code_interpreter": {
-    #             "file_ids": source_assistant.tool_resources.code_interpreter.file_ids
-    #         }
-    #     }
-    # )    # my_updated_assistant = client.beta.assistants.update(**modify_data, id=new_assistant.id)
-    return new_assistant
+# def clone_assistant(client, source_assistant_id):
+#     # Retrieve the list of assistants
+#     # TODO replace with connector.clone
+#     my_assistants = client.beta.assistants.list(order="desc", limit=100).data
+#     # Find the assistant by IDg
+#     source_assistant = None
+#     for assistant in my_assistants:
+#         if assistant.id == source_assistant_id:
+#             source_assistant = assistant
+#             break
+#
+#     if source_assistant is None:
+#         print("Assistant not found.")
+#         return
+#
+#     # Prepare the payload for creating a new assistant
+#     # Copy all relevant fields except the ID and created_at
+#     assistant_data = {
+#         "name": "Adrian Cloned Agent",
+#         "description": source_assistant.description,
+#         "model": "gpt-4o",  #'gpt-3.5-turbo', #"gpt-4o",
+#         "instructions": source_assistant.instructions,
+#         "tools": [{"type": "code_interpreter"}],
+#         "temperature": source_assistant.temperature,
+#         "top_p": source_assistant.top_p,
+#     }
+#     # model = "gpt-4o",
+#     # tools = [{"type": "code_interpreter"}]
+#     # TODO there is a bug in assistants API, how to set temperature?
+#     # modify_data = {
+#     #     "temperature": 0.5,
+#     #     "top_p": 1.0,
+#     #     "response_format": source_assistant.response_format
+#     # }
+#     # Create a new assistant with the copied data
+#     new_assistant = client.beta.assistants.create(**assistant_data)
+#     # # copy any uploaded files to the new assistant
+#     #
+#     # my_updated_assistant = client.beta.assistants.update(
+#     #     new_assistant.id,
+#     #     tool_resources={
+#     #         "code_interpreter": {
+#     #             "file_ids": source_assistant.tool_resources.code_interpreter.file_ids
+#     #         }
+#     #     }
+#     # )    # my_updated_assistant = client.beta.assistants.update(**modify_data, id=new_assistant.id)
+#     return new_assistant
 
 
 def delete_existing_assistant_files(client, agent_id):

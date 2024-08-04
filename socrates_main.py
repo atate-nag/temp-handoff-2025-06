@@ -32,12 +32,13 @@ from chains import (
 from report_agent import Agent as ReportAgent
 from report_agent import get_subsections, find_and_fill
 import json, re
-from openai_asst import (
+from agent_thread import (
     delete_assistants_clones,
     delete_all_uploaded_files,
     delete_not_known_assistants,
     delete_files_less_than_1_hour,
 )
+
 from model_connector import ModelConnectorFactory
 from utility import (
     dict_to_plain_text,

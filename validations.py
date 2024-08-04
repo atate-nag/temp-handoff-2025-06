@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from openai import OpenAI
 from filehandler import FileHandler
 from typing import Any, Optional, List, Dict
-from openai_asst import AgentThread
+from agent_thread import AgentThread
 from model_connector import ModelConnector
 from import_files import InputFilesModel, AsstFilesModel
 import json

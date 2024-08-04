@@ -16,11 +16,53 @@ class ModelConnector(ABC):
     def generate_response(self, prompt):
         pass
 
+    @abstractmethod
+    def retrieve(self, thread, run):
+        pass
 
 class OpenAIAssistantsConnector(ModelConnector):
     def initialize_client(self):
         client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
         return client
+
+
+    def retrieve(self, thread_id, run_id):
+        retrieve = self.client.beta.threads.runs.retrieve(
+            thread_id=thread_id, run_id=run_id
+        )
+        return retrieve
+
+    def agent_clone(self, agent):
+        source_assistant_id = agent
+        client = self.client
+        # Retrieve the list of assistants
+        # TODO replace with connector.clone
+        my_assistants = client.beta.assistants.list(order="desc", limit=100).data
+        # Find the assistant by IDg
+        source_assistant = None
+        for assistant in my_assistants:
+            if assistant.id == source_assistant_id:
+                source_assistant = assistant
+                break
+
+        if source_assistant is None:
+            print("Assistant not found.")
+            return
+
+        # Prepare the payload for creating a new assistant
+        # Copy all relevant fields except the ID and created_at
+        assistant_data = {
+            "name": "Adrian Cloned Agent",
+            "description": source_assistant.description,
+            # TODO abstract model choice
+            "model": "gpt-4o",  # 'gpt-3.5-turbo', #"gpt-4o",
+            "instructions": source_assistant.instructions,
+            "tools": [{"type": "code_interpreter"}],
+            "temperature": source_assistant.temperature,
+            "top_p": source_assistant.top_p,
+        }
+        new_assistant = client.beta.assistants.create(**assistant_data)
+        return new_assistant
 
     def upload_file_ids(self,agent_id, file_ids):
         # modifies the assistant by uploading files
