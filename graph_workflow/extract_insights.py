@@ -23,12 +23,7 @@ from langchain_core.prompts import PromptTemplate
 
 # import pydantic.datetime as pydantic_datetime
 import json, re
-from agent_thread import (
-    delete_assistants_clones,
-    delete_all_uploaded_files,
-    delete_not_known_assistants,
-    delete_files_less_than_1_hour,
-)
+
 
 client = openai.OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),

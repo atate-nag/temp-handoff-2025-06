@@ -32,12 +32,6 @@ from chains import (
 from report_agent import Agent as ReportAgent
 from report_agent import get_subsections, find_and_fill
 import json, re
-from agent_thread import (
-    delete_assistants_clones,
-    delete_all_uploaded_files,
-    delete_not_known_assistants,
-    delete_files_less_than_1_hour,
-)
 
 from model_connector import ModelConnectorFactory
 from utility import (
@@ -272,14 +266,15 @@ def get_company_data(companyName, problem_statement):
     return company_full_data
 
 def clean_up():
-    # Aggressive Cleanup of assistants and files
-    # except for those and all files
-    deleted = delete_assistants_clones(client)
-    deleted = deleted_files = None
-    # deleted = delete_not_known_assistants(client)
-    # deleted_files = delete_files_less_than_1_hour(client)
-    # deleted_files = delete_all_uploaded_files(client)
-    # dprint(f"Deleted {deleted} assistants and {deleted_files} files")
+    connector.clean_up()
+    # # Aggressive Cleanup of assistants and files
+    # # except for those and all files
+    # deleted = delete_assistants_clones(client)
+    # deleted = deleted_files = None
+    # # deleted = delete_not_known_assistants(client)
+    # # deleted_files = delete_files_less_than_1_hour(client)
+    # # deleted_files = delete_all_uploaded_files(client)
+    # # dprint(f"Deleted {deleted} assistants and {deleted_files} files")
 
 
 def create_json_filename(company_name):
