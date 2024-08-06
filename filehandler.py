@@ -205,21 +205,32 @@ class FileHandler:
         """
         Cleans a JSON string in common ways that JSON is often invalid.
         """
-        # Fix unquoted keys
-        s = re.sub(r"([{,]\s*)(\w+)(\s*:)", r'\1"\2"\3', s)
+        # Fix unquoted keys (assumes keys are valid Python identifiers)
+        s = re.sub(r'([{,]\s*)([a-zA-Z_]\w*)(\s*:)', r'\1"\2"\3', s)
+
         # Fix booleans
-        s = re.sub(r"\b(True|False)\b", lambda m: m.group(0).lower(), s)
+        s = re.sub(r'\b(True|False|null)\b', lambda m: m.group(0).lower(), s)
+
         # Fix escaping issues
-        s = re.sub(r"\\'", "'", s)  # Single quotes should not be escaped in JSON
+        s = s.replace("\\'", "'")  # Single quotes should not be escaped in JSON
         s = s.replace("\\\\", "\\")  # Unescape escaped backslashes
         s = s.replace("\\/", "/")  # Unescape escaped slashes
+
         # Remove stray backslashes not followed by a valid escape sequence
-        s = re.sub(r'\\([^"\\/bfnrtu])', r"\1", s)
+        s = re.sub(r'\\([^"\\/bfnrtu])', r'\1', s)
+
         # Fix issues with trailing backslashes
-        s = re.sub(r"\\$", "", s)
-        # Remove newlines within strings
-        s = re.sub(r"(?<!\\)(\\n|\\r)", " ", s)
-        return s
+        s = re.sub(r'\\$', '', s)
+
+        # Remove newlines within strings (only the escaped newlines)
+        s = re.sub(r'\\n', ' ', s)
+        s = re.sub(r'\\r', ' ', s)
+
+        # Remove trailing commas in objects and arrays
+        s = re.sub(r',\s*}', '}', s)
+        s = re.sub(r',\s*]', ']', s)
+
+        return s.strip()
 
     def extract_json_from_response(self, client, thread):
         """
@@ -302,8 +313,14 @@ class FileHandler:
 
     def attempt_to_repair_json(self, json_string):
         """
-        Attempt to repair common issues in JSON strings that prevent parsing
+        Attempt to repair a JSON string that could not be decoded.
+        This might involve fixing common JSON formatting issues.
         """
-        # Example: Fixes for missing commas between objects, extra trailing commas, etc.
-        repaired = re.sub(r"\}\s*,\s*\{", "}, {", json_string.strip().rstrip(","))
-        return "[" + repaired + "]"
+        try:
+            # Try to load with trailing commas removed
+            json_data = json.loads(json_string)
+            return json.dumps(json_data)  # Serialize back to string to clean it
+        except json.JSONDecodeError:
+            pass
+        repaired_json_string = self.clean_json_string(json_string)
+        return repaired_json_string

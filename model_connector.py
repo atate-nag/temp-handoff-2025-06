@@ -9,6 +9,7 @@ class ModelConnector(ABC):
         self.client = self.initialize_client()
         self.last_timestamp = 0
         self.filehandler = filehandler
+        self.model = config.get("model")
 
     @abstractmethod
     def initialize_client(self):
@@ -60,7 +61,7 @@ class OpenAIAssistantsConnector(ModelConnector):
             "name": "Adrian Cloned Agent",
             "description": source_assistant.description,
             # TODO abstract model choice
-            "model": "gpt-4o",  # 'gpt-3.5-turbo', #"gpt-4o",
+            "model": self.model,
             "instructions": source_assistant.instructions,
             "tools": [{"type": "code_interpreter"}],
             "temperature": source_assistant.temperature,
@@ -89,7 +90,7 @@ class OpenAIAssistantsConnector(ModelConnector):
 
     def clean_up(self):
         self.delete_assistants_clones()
-        self.delete_assistants_less_than_x_days()
+        self.delete_files_less_than_1_hour()
 
     def generate_response(self, prompt):
         pass

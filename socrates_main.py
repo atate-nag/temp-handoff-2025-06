@@ -49,7 +49,7 @@ model_config = {
     'model_type': 'openai_assistants',
     'api_key': os.getenv("OPENAI_API_KEY"),
     'model': 'gpt-4o',
-    'max_tokens': 150
+    #'model': 'gpt-3.5-turbo',
 }
 file_handler = FileHandler()
 
@@ -275,7 +275,6 @@ def clean_up():
     # # deleted_files = delete_files_less_than_1_hour(client)
     # # deleted_files = delete_all_uploaded_files(client)
     # # dprint(f"Deleted {deleted} assistants and {deleted_files} files")
-
 
 def create_json_filename(company_name):
     """

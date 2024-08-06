@@ -193,23 +193,29 @@ class RunObj(BaseModel):
         retries = 0
         client = self.parent.client
         thread_id = self.parent.thread.id
+
         while retries < self.retrieval_limit:
             try:
-                retrieve = self.parent.connector.retrieve(
-                    thread_id=thread_id, run_id=run_id
-                )
+                retrieve = self.parent.connector.retrieve(thread_id=thread_id, run_id=run_id)
                 dprint(f"Assistant status: {retrieve.status}")
+
                 if retrieve.status == "completed":
+                    dprint(f"Run {run_id} completed successfully.")
                     return retrieve
                 elif retrieve.status in ["failed", "incomplete", "expired"]:
-                    dprint(f"Run {run_id} failed.")
-                    return "Run {run_id} failed."
+                    dprint(f"Run {run_id} failed with status: {retrieve.status}")
+                    return None
+
                 time.sleep(5)
             except Exception as e:
                 print(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
+                dprint(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
                 retries += 1
                 time.sleep(5)
+
         print(f"Run {run_id} did not complete after {self.retrieval_limit} queries.")
+        dprint(f"Run {run_id} did not complete after {self.retrieval_limit} queries.")
+
         return None
 
     def generate_runtime_prompt(
