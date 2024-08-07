@@ -38,6 +38,7 @@ from openai_asst import (
     delete_not_known_assistants,
     delete_files_less_than_1_hour,
 )
+import datetime
 
 from utility import (
     dict_to_plain_text,
@@ -48,6 +49,8 @@ from utility import (
     invoke,
     report_to_markdown,
 )
+
+from config.conf import setup_config
 
 
 client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
@@ -87,6 +90,7 @@ def execute_workflow():
         step = details.get("step", step_name)
         if details.get("enabled", False):
             func = get_step_function(step)
+            setup_config(**{"run_id": step_name + "_" + str(datetime.datetime.now())})
             if func:
                 # Unpack all parameters dynamically for the function
                 parameters = details.get("parameters", {})

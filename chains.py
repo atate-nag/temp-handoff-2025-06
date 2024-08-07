@@ -656,7 +656,7 @@ def get_problem(company_name, problemsFile):
         statement = ""
     if company_name in problem_statements:
         statement = problem_statements[company_name]
-        return json.dumps(statement).replace("'","\\'")
+        return json.dumps(statement).replace("'", "\\'")
     else:
         print(f"Problem statement not found for the specified company {company_name}.")
         raise Exception(

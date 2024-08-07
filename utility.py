@@ -13,8 +13,13 @@ import multiprocessing as mp
 import threading
 import concurrent.futures
 import time
+import datetime
+import tiktoken
+from config.conf import setup_config, read_config
 
 client = OpenAI()
+now = str(datetime.datetime.now())
+conf = read_config()
 
 
 def clean_text(text):
@@ -202,7 +207,6 @@ def condense(
     print(f"Start condensing {subject}..\n\n")
     data = [node for nodes in data if nodes for node in nodes]
     X = [embed(text=node[key], model="text-embedding-3-large") for node in data]
-
     X = np.stack(X)
     print(f"Start computing clusters..")
     labels = KMeans(n_clusters=number_of_clusters, random_state=0).fit_predict(X)
@@ -228,9 +232,50 @@ def condense(
     return [r.get() for r in results]
 
 
+def save_metadata(data):
+    path = "explainability/data_store/input/" + str(datetime.datetime.now()) + ".json"
+    with open(path, "w") as f:
+        json.dump(data, f)
+
+
+def num_tokens_from_string(string: str, model: str = "gpt-3.5-turbo") -> int:
+    """Returns the number of tokens in a text string."""
+    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
+
+
 @retry(number_of_retry=5)
 @timeout(120)
-def invoke(chain, parameters):
+def invoke(chain, parameters, log=True, id=now):
+    if log:
+        output = chain.invoke(parameters)
+        input_tokens = 0
+        print(f"Keys in parameters: {parameters.keys()}")
+        print(chain)
+        for key, value in parameters.items():
+            print(f"Num tokens from {key}: {num_tokens_from_string(str(value))}")
+            input_tokens += num_tokens_from_string(value)
+        save_metadata(
+            {
+                "id": conf["run_id"],
+                # "chain_used": str(chain.__name__),
+                # "parameters": str(parameters),
+                "data": {},
+                # "output": output,
+                "type": "llm_call",
+                "type_used": "llm_call",
+                "input_tokens_count": input_tokens,
+                "input_tokens_detail": str(
+                    {
+                        key + "_count": num_tokens_from_string(str(value))
+                        for key, value in parameters.items()
+                    }
+                ),
+                "output_tokens_count": num_tokens_from_string(str(output)),
+            }
+        )
+        return output
     return chain.invoke(parameters)
 
 
