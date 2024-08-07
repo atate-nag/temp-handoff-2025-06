@@ -82,10 +82,8 @@ class Agent:
     ):
         if agent_output:
             self.user_data["agent_output"] = agent_output
-            self.user_data["agent_output"] = agent_output
             # print("receive input: set agent output to ",agent_output)
         if qm_instructions:
-            self.user_data["qm_instructions"] = qm_instructions
             self.user_data["qm_instructions"] = qm_instructions
             print("receive input: set qm_instructions to ", qm_instructions)
 
@@ -132,8 +130,8 @@ class Agent:
             agent_configs_valid = AgentConfigs.get_agent_details(
                 validated_workflow_context.agent_type
             )
-            # here if the agent is condigured to generate a new assistant instead of an existing, then it will
-            # need to do so and genearate the agent_id
+            # here if the agent is configured to generate a new assistant instead of an existing, then it will
+            # need to do so and generate the agent_id
 
             qm_id = validated_workflow_context.qm_id
 
@@ -408,23 +406,38 @@ class Agent:
             unvalidated_data = self.unvalidated_data.get_data_for_state("Running")
             # Insert specific validation logic for data pertinent to this transition
             # did the run produce the right outputs and response?
-            raw_output_dict = self.validated.agent_thread.get_output()
-
+            output_dict = self.validated.agent_thread.get_output()
+            dprint("output dict is ", output_dict)
             # print(f"running_to_retrieved_validation: raw output from agent = {raw_output_dict}")
 
-            # dprint(f"raw output from agent = {raw_output_dict}")
+            dprint(f"raw output from agent")
+            dprint(f"the runobj is {output_dict['run_obj']}")
+            dprint(f"the output file is {output_dict['output_file']}")
+            dprint(f"the inline dict is {output_dict['inline_dict']}")
+
             # if not, it will get reissued
             # TODO validate output_dict
             # TODO Much of the following is not validation logic - move to after
 
-            if raw_output_dict:
-                output_dict = self.normalize_agent_output(raw_output_dict)
+            if output_dict['output_file']:
+                dprint(f"output file detected {output_dict['output_file']}")
+                output_file = output_dict['output_file']
+                output_content = self.connector.retrieve_file_content(output_file)
                 self.validated.set_data("retrieve_output", output_dict)
-                dprint("Good JSON output - validating state")
+                dprint("Good JSON output from file - validating state")
                 print(
                     "running_to_retrieved_validation: Good JSON output - validating state"
                 )
-
+                return True
+            elif output_dict['inline_dict']:
+                raw_output = output_dict['inline_dict']
+                dprint("inline dict detected")
+                inline_dict = self.normalize_agent_output(raw_output)
+                self.validated.set_data("retrieve_output", output_dict)
+                dprint("Good JSON from inline - validating state")
+                print(
+                    "running_to_retrieved_validation: Good JSON inline - validating state"
+                )
                 return True
             else:
                 instructions = (

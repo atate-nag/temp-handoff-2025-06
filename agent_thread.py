@@ -115,7 +115,7 @@ class AgentThread:
             return None
 
         self.output_dict = {
-            "run_obj": self.runobjs[-1],
+            "run_obj": self.runobjs[-1].id,
             "response_file": agent_output["response_file"],
             "output_file": agent_output["output_file"],
             "inline_dict": agent_output["inline_dict"],

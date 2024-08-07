@@ -101,11 +101,18 @@ class OpenAIAssistantsConnector(ModelConnector):
         including output file and response text
         """
         new_messages = self.get_new_messages(thread)
+        for message in new_messages:
+            dprint(f"message: {message}")
         file_id = self.retrieve_file_annotation(new_messages)
+        dprint("after retrieve_file_annotation, the file_id spotted is ", file_id)
         latest_response = self.get_response(new_messages)
+        dprint(f"latest response is {latest_response}")
         uploaded_response = self.upload_text_to_file(latest_response)
+        dprint(f"uploaded response is {uploaded_response}")
         inline_json = self.filehandler.extract_json_from_response_text(latest_response)
+        dprint(f"inline json is {inline_json}")
         agent_output = {"output_file": file_id, "response_file" : uploaded_response, "inline_dict": inline_json }
+        dprint(f"agent_output is {agent_output}")
         return agent_output
 
     def retrieve_direct_agent_content(
@@ -155,11 +162,9 @@ class OpenAIAssistantsConnector(ModelConnector):
         local = self.filehandler.write_local_json(content, tag)
         return local
 
-    def retrieve_file_content(self,client,
-            agent_id, thread,
-            target_id,
-            file_path ):
-        content = self.retrieve_output_file_id(client, agent_id, thread)
+    def retrieve_file_content(self, file):
+        dprint(f"in retrieve_file_content  with file {file}")
+        content = self.client.files.content(file)
         return content
 
     def get_new_messages(self, thread):

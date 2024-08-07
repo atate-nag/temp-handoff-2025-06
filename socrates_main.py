@@ -129,6 +129,7 @@ def get_step_function(step_name):
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
+        "runReport": run_report,
         "runStrategyChains": run_strategy_chains,
         "runStrategyDynamicReport": run_strategy_report_agent,
     }
@@ -267,14 +268,6 @@ def get_company_data(companyName, problem_statement):
 
 def clean_up():
     connector.clean_up()
-    # # Aggressive Cleanup of assistants and files
-    # # except for those and all files
-    # deleted = delete_assistants_clones(client)
-    # deleted = deleted_files = None
-    # # deleted = delete_not_known_assistants(client)
-    # # deleted_files = delete_files_less_than_1_hour(client)
-    # # deleted_files = delete_all_uploaded_files(client)
-    # # dprint(f"Deleted {deleted} assistants and {deleted_files} files")
 
 def create_json_filename(company_name):
     """
@@ -297,7 +290,6 @@ def create_json_filename(company_name):
 
     # Add the .json extension
     filename += ".json"
-
     return filename
 
 
@@ -450,23 +442,13 @@ def generate_scenarios(
     scenarios_manager.run_workflow()
     scenarios_return_data = scenarios_manager.return_dict()
     scenarios_response = scenarios_manager.agent_response
-
     scenarios_output = scenarios_return_data.get("output_file")
-    # scenarios_return_file = file_handler.write_local_json(
-    #     f"scenarios_return_{company_name}", json.dumps(scenarios_return)
-    # )
-    # response_dict = {"response_text": scenarios_response}
-    # scenarios_response_file = file_handler.write_local_json(
-    #     f"scenarios_response_{company_name}", json.dumps(response_dict)
-    # )
-    # TODO no need to download and write  unless there is an intermediate file requested
     scenarios_response_file = file_handler.write_local_json(
         f"scenarios_{company_name}", json.dumps(scenarios_response)
     )
     scenarios_return_file = connector.download_and_write_local(f"_scenarios_output_{company_name}", scenarios_output )
     print(f"completed scenarios for {company_name}")
     return scenarios_response_file, scenarios_return_file
-
 
 def run_frameworks(companyName, problemsFile):
     """
@@ -502,19 +484,30 @@ def generate_frameworks(
     )
     frameworks_manager.run_workflow()
     frameworks_dictionary_return = frameworks_manager.return_dict()
-    frameworks_file_path = file_handler.write_local_json(
-        f"frameworks_file_{company_name}", json.dumps(frameworks_dictionary_return)
-    )
-    return frameworks_file_path
+    frameworks_output = frameworks_dictionary_return.get("output_file")
+    frameworks_return_file = connector.download_and_write_local(f"_frameworks_output_{company_name}", frameworks_output)
+    return frameworks_return_file
 
 
-def run_report(company_name, problemsFile):
+def run_report(companyName, problemsFile):
     """
     Runs a stand-alone report generation for a single company
     """
-    company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
+    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
         company_name, problemsFile
+    )
+
+    scenarios_response_file = f"./Intermediates/local_scenarios_response_{company_name}.json"
+    scenarios_return_file = f"./Intermediates/local_scenarios_return_{company_name}.json"
+    frameworks_file_path = f"./Intermediates/local_frameworks_file_{company_name}.json"
+
+    reporting_return_file = generate_report(
+        company_name,
+        scenarios_response_file,
+        scenarios_return_file,
+        frameworks_file_path,
+        trends_file_path,
     )
 
     # retrieve stored Scenarios
@@ -535,14 +528,7 @@ def generate_report(
     Executes the report generation for a single company
     """
     print(f"agent_type: full_graph_reporting_agent")
-    agent_configs = [{"agent_type": "reporting_agent_strong"}]
-    for path in [
-        scenarios_response_file,
-        scenarios_return_file,
-        frameworks_file_path,
-        trends_file_path,
-    ]:
-        print(f"Path: {path}")
+    agent_configs = [{"agent_type": "full_graph_reporting_agent"}]
     reporting_manager = AgentManager(
         connector,
         file_handler,
@@ -557,9 +543,9 @@ def generate_report(
     )
     reporting_manager.run_workflow()
     reporting_return = reporting_manager.return_dict()
-    reporting_response = reporting_manager.return_response
-    return reporting_return, reporting_response
-
+    #reporting_response = reporting_manager.agent_response
+    reporting_output_file = reporting_return('output_file')
+    return reporting_output_file
 
 @retry(number_of_retry=1)  # Retry the function once in case of failure
 def run_strategy(companyName, problemsFile):
@@ -575,30 +561,33 @@ def run_strategy(companyName, problemsFile):
         company_name, problemsFile
     )
     # Generate scenarios using the scenarios agent
-    scenarios_return_file, scenarios_response_file = generate_scenarios(
+    scenarios_response_file, scenarios_return_file = generate_scenarios(
         companyName, problem_file_path, trends_file_path, company_file_path
     )
     # Generate frameworks using the frameworks agent
     frameworks_file_path = generate_frameworks(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
-    report_path = f"./Strategic Reports/{companyName}_strategic_report.json"
     # Generate a strategic report using the reporting agent
-    reporting_return, reporting_response = generate_report(
+    reporting_return_file = generate_report(
         company_name,
         scenarios_response_file,
         scenarios_return_file,
         frameworks_file_path,
         trends_file_path,
     )
-    with open(report_path, "w") as file:
-        file.write(json.dumps(reporting_return))
-    # Convert the report to markdown format
-    markdown = dict_to_markdown(reporting_return)
-    markdown = "# " + companyName + " Strategic Report\n\n" + markdown
-    # Write the markdown report to a file
-    with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
-        file.write(markdown)
+    report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
+
+    # with open(report_path, "w") as file:
+    #     file.write(json.dumps(reporting_return))
+    # # Convert the report to markdown format
+    # markdown = dict_to_markdown(reporting_return)
+    # markdown = "# " + companyName + " Strategic Report\n\n" + markdown
+    # # Write the markdown report to a file
+    # with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
+    #     file.write(markdown)
+
+
 def run_data(companyName, problemsFile):
     companyName = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     problem_data = get_problem(companyName, problemsFile)

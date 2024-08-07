@@ -48,7 +48,33 @@
     "full_graph_reporting_agent": {
     "agent_id" : "asst_eS7XZdkDewHarsETkEV9SIsN",
     "description": "Final Reporting Agent",
-    "output_schema": {},
+      "output_schema": {"$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "introduction": {
+      "type": "string",
+      "description": "Outline the problem with as much context and detail as possible (minimum 1000 words)."
+    },
+    "detailed_analysis": {
+      "type": "string",
+      "description": "Detailed analysis showing the entire reasoning that the agent has performed, including subtleties, deviations, contingencies, and real numbers with calculations (minimum 5000 words)."
+    },
+    "prioritization": {
+      "type": "string",
+      "description": "Prioritization of the company's actions based on previous scenarios and utilities, providing the answer to the original problem statement (minimum 2000 words)."
+    },
+    "barriers_risks_challenges": {
+      "type": "string",
+      "description": "Description of the barriers, risks, and challenges the company will face when implementing the suggested approach, including what the company should monitor for changes that may affect the plan (minimum 2000 words)."
+    }
+  },
+  "required": [
+    "introduction",
+    "detailed_analysis",
+    "prioritization",
+    "barriers_risks_challenges"
+  ]
+},
     "prompt" : "Perform the detailed analytical report for the problem, as revealed by the files: {INPUT_FILES}"
     },
     "problem_agent": {
@@ -453,7 +479,108 @@
     "full_graph_frameworks_agent": {
       "agent_id" : "asst_FsNGA3T3mrCtmh1SZVVahpCC",
       "description": "Frameworks Agent",
-        "output_schema": {},
+          "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "ProblemStatement": {
+        "type": "string"
+      },
+      "ProblemStatementBreakdown": {
+        "type": "object",
+        "properties": {
+          "MainTask": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "MainObjective": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ConstraintsRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "InformationContext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Definitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Concepts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "MainTask",
+          "MainObjective",
+          "ConstraintsRequirements",
+          "InformationContext",
+          "Definitions",
+          "Concepts"
+        ]
+      },
+      "StrategicFrameworks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "NameOfStrategicFramework": { "type": "string" },
+            "Description": { "type": "string" },
+            "TrendsReferenced": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "NameOfStrategicFramework",
+            "Description",
+            "TrendsReferenced"
+          ]
+        }
+      },
+      "Prioritization": {
+        "type": "string"
+      },
+      "Analysis": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "NameOfStrategicFramework": { "type": "string" },
+            "AnalysisDetails": { "type": "string" }
+          },
+          "required": [
+            "NameOfStrategicFramework",
+            "AnalysisDetails"
+          ]
+        }
+      }
+    },
+    "required": [
+      "ProblemStatement",
+      "ProblemStatementBreakdown",
+      "StrategicFrameworks",
+      "Prioritization",
+      "Analysis"
+    ]
+  },
       "prompt" : "Perform the strategic analysis for the problem as described in the problem statement, trend data and detailed company data in {INPUT_FILES}"
       },
     "frameworks_agent": {
