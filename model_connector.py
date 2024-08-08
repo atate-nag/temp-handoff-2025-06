@@ -159,7 +159,10 @@ class OpenAIAssistantsConnector(ModelConnector):
 
     def download_and_write_local(self, tag, file):
         content = self.client.files.content(file)
-        local = self.filehandler.write_local_json(tag,content)
+        data_bytes = content.read()
+        dprint(f"content is {content}")
+        local = self.filehandler.write_local_json(tag,data_bytes)
+        dprint(f"local is {local}")
         return local
 
     def retrieve_file_content(self, file):
@@ -172,7 +175,6 @@ class OpenAIAssistantsConnector(ModelConnector):
         just return the latest messages, i.e the last response
         """
         # Fetch all messages from the thread
-        # TODO move into connector
         messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
         # Sort the messages by the created_at timestamp just in case they are not in order
         messages.sort(key=lambda msg: msg.created_at)

@@ -58,6 +58,7 @@ class AgentManager:
                 self.print_state()
 
                 self.agent_output = agent_output
+                # TODO instead of raising an exception, repeat the run
                 if agent_output is None:
                     dprint(f"None returned from operational agent {agent.agent_type} - Aborting")
                     raise Exception
@@ -74,7 +75,12 @@ class AgentManager:
                     dprint(f"Loaded QM agent {qm_agent.agent_type} with initial_run={initial_run}")
                     self.print_state()
                     qm_output = qm_agent.run()
+                    # TODO instead of raising an exception, repeat the run
+                    if qm_output is None:
+                        dprint(f"None returned from operational agent {qm_agent.agent_type} - Aborting")
+                        raise Exception
                     dprint(f"Ran QM agent {qm_agent.agent_type} with output: {qm_output}")
+
                     self.print_state()
                     if qm_output:
                         completed, qm_instructions = self.evaluate_qm_output(qm_output)
@@ -100,12 +106,7 @@ class AgentManager:
                 else:
                     dprint(f"{agent.agent_type} completed successfully.")
                     print(f"{agent.agent_type} completed successfully.")
-                    agent.cleanup()
-                    dprint(f"Cleaned up agent {agent.agent_type}")
 
-                    if self.use_qm_agents:
-                        qm_agent.cleanup()
-                        dprint(f"Cleaned up QM agent {qm_agent.agent_type}")
             except Exception as e:
                 dprint(f"Error processing {agent.agent_type}: {str(e)} Aborting")
                 return None

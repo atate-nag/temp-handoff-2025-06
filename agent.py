@@ -48,15 +48,6 @@ class Agent:
         self.connector = self.user_data["connector"]
         self.initial_trigger(self.unvalidated_data)
 
-    # def load(
-    #     self,
-    #     initial_run,
-    #     agent_output=None,
-    #     qm_instructions=None,
-    #     agent_requirements=None,
-    # ):
-    #     self.user_data["initial_run"] = initial_run
-
     def load(
         self,
         initial_run,
@@ -94,9 +85,17 @@ class Agent:
         self.reissue_trigger(self.unvalidated_data)
 
     def run(self):
+        # run automatically triggers retrieve, hence
+        # the state will be checked to be in Retrieved state
+        # before returning the output and None if it is still in
+        # Running as this indicates a failure
         self.run_trigger(self.unvalidated_data)
-        return self.validated.retrieve_output
+        if self.state == "Retrieved":
+            return self.validated.retrieve_output
+        else:
+            return None
 
+    # TODO not sure that we need a separate retrieve method
     def retrieve(self):
         self.retrieve_trigger(self.unvalidated_data)
         return self.validated.retrieve_output
@@ -145,11 +144,6 @@ class Agent:
             my_agent = self.connector.agent_clone(
                 self.validated.agent_context.agent_id,
             )
-
-            # my_assistant = clone_assistant(
-            #     self.validated.workflow_context.connector.client,
-            #     self.validated.agent_context.agent_id,
-            # )
 
             if my_agent:
                 self.validated.agent_context.agent_id = my_agent.id
@@ -353,12 +347,6 @@ class Agent:
                 else:
                     prompt = self.validated.agent_context.instructions
 
-            # delete some old assistant files to make room
-
-            # delete_oldest_assistant_files(
-            #     self.validated.workflow_context.client,
-            #     self.validated.agent_context.agent_id)
-
             # check if we have hit the limit of how many runs to make
             dprint("checking limit is not hit")
 
@@ -367,7 +355,7 @@ class Agent:
                 raise Exception
             # generate a new run object for this specific run
             dprint("generating run object")
-
+            # run_object includes self-validation so is done here in the validation routine
             run_object = self.validated.agent_thread.new_runobj(
                 parent=self.validated.agent_thread,
                 retrieval_limit=20,
@@ -380,9 +368,6 @@ class Agent:
                 prompt=prompt,
                 # file_paths=self.validated.file_paths
             )
-            # TODO temporary fix, please remove
-            dprint("setting runobj")
-
             self.validated.set_data("run_object", run_object)
             return True
         except Exception as e:
@@ -537,11 +522,4 @@ class Agent:
         # Normalize other fields as needed
         return output
 
-    def cleanup(self):
-        # TODO remove from here, should not be cleanup in Agent?
-        client = self.validated.workflow_context.connector.client
-        agent_id = self.validated.agent_context.agent_id
-        # # delete_oldest_assistant_files(client, agent_id)
-        # dprint(f"Deleted old Assistant files on {agent_id}")
-        # client.beta.assistants.delete(agent_id)
-        # dprint(f"Deleted {agent_id}")
+
