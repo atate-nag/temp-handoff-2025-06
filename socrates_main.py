@@ -676,19 +676,28 @@ def run_strategy_report_agent(companyName, problemsFile):
     with open(company_file_path, "r") as file:
         company_data = json.load(file)
 
-    summary_company = summary_chain.invoke(
+    # summary_company = summary_chain.invoke(
+    #     {
+    #         "company": companyName,
+    #         "problem_statement": problem_data,
+    #         "data": dict_to_plain_text(company_data),
+    #     }
+    # )
+    summary_company = invoke(
+        summary_chain,
         {
             "company": companyName,
             "problem_statement": problem_data,
             "data": dict_to_plain_text(company_data),
-        }
+        },
     )
-    summary_trends = summary_chain.invoke(
+    summary_trends = invoke(
+        summary_chain,
         {
             "company": companyName,
             "problem_statement": problem_data,
             "data": dict_to_plain_text(trends_data),
-        }
+        },
     )
 
     # with open("company_summary.txt", "r") as file:
@@ -723,7 +732,8 @@ def run_strategy_report_agent(companyName, problemsFile):
     }
     # plan = evaluate_capability_cluster.invoke(plan_data)
     # print(plan)
-    plan = generate_report_plan.invoke(plan_data)
+    # plan = generate_report_plan.invoke(plan_data)
+    plan = invoke(generate_report_plan, plan_data)
     print(json.dumps(plan, indent=4))
     with open("plan.json", "w") as file:
         file.write(json.dumps(plan, indent=4))

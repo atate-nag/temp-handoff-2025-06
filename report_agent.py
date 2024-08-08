@@ -11,7 +11,7 @@ import json
 from string import Template
 from dotenv import load_dotenv
 from chains import build_chain_action, build_writing_chain, build_assessing_chain
-from utility import dict_to_plain_text, retry
+from utility import dict_to_plain_text, retry, invoke
 from report import Report
 
 load_dotenv()
@@ -176,13 +176,22 @@ class Agent:
         thread.start()
 
         logger.info(f"State of the tool use: {dict_to_plain_text(self.tools_output)}")
-        response = self.chain_speaker.invoke(
+        # response = self.chain_speaker.invoke(
+        #     {
+        #         "query": query,
+        #         "history": history,
+        #         "tools_state": dict_to_plain_text(self.tools_output),
+        #         "plan_instruction": self.current_instruction,
+        #     }
+        # )
+        response = invoke(
+            self.chain_speaker,
             {
                 "query": query,
                 "history": history,
                 "tools_state": dict_to_plain_text(self.tools_output),
                 "plan_instruction": self.current_instruction,
-            }
+            },
         )
 
         return response

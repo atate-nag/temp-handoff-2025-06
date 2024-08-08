@@ -8,7 +8,7 @@ load_dotenv()
 
 from graph_workflow.graph_rag_lc import RAG_graph
 from filehandler import FileHandler
-from utility import retry
+from utility import retry, invoke
 import time
 
 # from dochandler import import_data_files
@@ -420,7 +420,8 @@ chain_detection = (
 
 def add_insight(name, text, dict):
     # print("Adding insight")
-    response_insight = chain_insights.invoke({"company": name, "document": text})
+    # response_insight = chain_insights.invoke({"company": name, "document": text})
+    response_insight = invoke(chain_insights, {"company": name, "document": text})
     # print(response_insight)
     insights = [
         {

@@ -63,7 +63,7 @@ app.layout = html.Div(
     [
         dcc.Interval(
             id="interval-component",
-            interval=1 * 2000,  # in milliseconds
+            interval=1 * 3000,  # in milliseconds
             n_intervals=0,
         ),
         dash_table.DataTable(data_table, labels, id="tbl"),

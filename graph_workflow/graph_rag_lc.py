@@ -17,22 +17,22 @@ import time
 from tika import parser
 
 tika.initVM()
-import openai
-import keybert.llm as llm
-from keybert import KeyBERT
+# import openai
+# import keybert.llm as llm
+# from keybert import KeyBERT
 import os
 import uuid
 import multiprocessing as mp
 
 
-def extract_keywords(documents):
+# def extract_keywords(documents):
 
-    kw_model = KeyBERT()
-    keywords = kw_model.extract_keywords([documents])
+#     kw_model = KeyBERT()
+#     keywords = kw_model.extract_keywords([documents])
 
-    # keywords.extend(kw_model.extract_keywords([documents], keyphrase_ngram_range=(1, 2), stop_words=None))
-    # print(f"keywords: {[keyword[0] for keyword in keywords]}")
-    return [keyword[0] for keyword in keywords]
+#     # keywords.extend(kw_model.extract_keywords([documents], keyphrase_ngram_range=(1, 2), stop_words=None))
+#     # print(f"keywords: {[keyword[0] for keyword in keywords]}")
+#     return [keyword[0] for keyword in keywords]
 
 
 class graph_explorer:
@@ -138,11 +138,15 @@ class RAG_graph:
         #     docstore=self.store,
         #     child_splitter=self.text_chunkers,
         # )
+        self.NEO4J_USERNAME = NEO4J_USERNAME
+        self.NEO4J_PASSWORD = NEO4J_PASSWORD
+        self.NEO4J_DATABASE = NEO4J_DATABASE
+        self.NEO4J_URI = NEO4J_URI
         self.kg = Neo4jGraph(
-            url=NEO4J_URI,
-            username=NEO4J_USERNAME,
-            password=NEO4J_PASSWORD,
-            database=NEO4J_DATABASE,
+            url=self.NEO4J_URI,
+            username=self.NEO4J_USERNAME,
+            password=self.NEO4J_PASSWORD,
+            database=self.NEO4J_DATABASE,
         )
         self.db = NEO4J_DATABASE
         self.indexes = {}
@@ -186,6 +190,8 @@ class RAG_graph:
                     t.Description = $trendParam.Description,
                     t.AffectedAreas = $trendParam.AffectedAreas,
                     t.EvidencedBy = $trendParam.EvidencedBy,
+                    c.gics_code = $trendParam.gics_code,
+                    c.gics_name = $trendParam.gics_name,
                     t.source =$trendParam.source,
                     t.created =$trendParam.created
             RETURN t
@@ -260,6 +266,25 @@ class RAG_graph:
     #      "OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'} }", params={})
 
     #     self.indexes[index_name] = {'node': node, 'properties': property, 'type': 'vector_index'}
+    def __enter__(self):
+        self.kg._driver.close()
+        self.kg = Neo4jGraph(
+            url=self.NEO4J_URI,
+            username=self.NEO4J_USERNAME,
+            password=self.NEO4J_PASSWORD,
+            database=self.NEO4J_DATABASE,
+        )
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.kg._driver.close()
+        self.kg = Neo4jGraph(
+            url=self.NEO4J_URI,
+            username=self.NEO4J_USERNAME,
+            password=self.NEO4J_PASSWORD,
+            database=self.NEO4J_DATABASE,
+        )
+
     def create_vector_index(self, index_name, node, property):
         self.kg.query(
             f"""

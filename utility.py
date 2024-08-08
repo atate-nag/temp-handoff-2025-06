@@ -249,12 +249,11 @@ def num_tokens_from_string(string: str, model: str = "gpt-3.5-turbo") -> int:
 @timeout(120)
 def invoke(chain, parameters, log=True, id=now):
     if log:
+        # output = chain.invoke(parameters)
         output = chain.invoke(parameters)
         input_tokens = 0
-        print(f"Keys in parameters: {parameters.keys()}")
-        print(chain)
         for key, value in parameters.items():
-            print(f"Num tokens from {key}: {num_tokens_from_string(str(value))}")
+            # print(f"Num tokens from {key}: {num_tokens_from_string(str(value))}")
             input_tokens += num_tokens_from_string(value)
         save_metadata(
             {

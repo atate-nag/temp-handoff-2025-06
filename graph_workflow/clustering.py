@@ -14,6 +14,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import multiprocessing as mp
 import time
+from utility import invoke
 
 load_dotenv()
 import uuid
@@ -221,11 +222,18 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
     sources = list(set(sources))
     descriptions = list(set(descriptions))
 
-    summary = chain_summary.invoke(
+    # summary = chain_summary.invoke(
+    #     {
+    #         "company": company_name,
+    #         "insights": " ***** " + "\n ***** \n".join(descriptions) + " ***** ",
+    #     }
+    # )
+    summary = invoke(
+        chain_summary,
         {
             "company": company_name,
             "insights": " ***** " + "\n ***** \n".join(descriptions) + " ***** ",
-        }
+        },
     )
     # print(list(set(categories)))
     cluster = {
@@ -245,8 +253,11 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
             insight["insightId"], cluster["clusterId"]
         )
 
-    capabilities = chain_capabilities.invoke(
-        {"company": company_name, "document": summary}
+    # capabilities = chain_capabilities.invoke(
+    #     {"company": company_name, "document": summary}
+    # )
+    capabilities = invoke(
+        chain_capabilities, {"company": company_name, "document": summary}
     )
 
     for capability in capabilities["capabilities"]:

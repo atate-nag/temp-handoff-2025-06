@@ -18,18 +18,17 @@ def list_files_in_folder(folder_path):
 
 def update_mdata(data, metadata):
     keys = data.keys()
-    print(f"\n\data keys: {data.keys()}\n\n")
-    print(f"\n\metadata keys: {metadata.keys()}\n\n")
+
     for key, value in metadata.items():
-        print(f"\n\nKEY: {key}\n\n")
+
         # print(f'\n\data keys: {data.keys()}\n\n')
         if key.endswith("used"):
-            print(f"\n\nkey used: {key}")
+
             if value in data:
-                print("ADDING TO DATA")
+
                 data[value] += 1
             else:
-                print("Creating TO DATA")
+
                 data[value] = 1
         elif key not in keys:
             data[key] = value
@@ -126,6 +125,7 @@ class Data_store:
                     metadata = json.load(f)
                 except json.JSONDecodeError:
                     metadata = []
+                    raise Exception("Cannot load metadata")
             print(f"loaded metadata: {metadata}")
             print(f"data: {data}")
 
