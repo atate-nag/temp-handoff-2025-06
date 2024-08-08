@@ -110,18 +110,3 @@ def test_get_trends(monkeypatch):
         company_name, [25], "sample problem", {"trend": "new trend data"}
     )
 
-
-# def test_execute_workflow(monkeypatch):
-#     def mock_dprint(msg):
-#         pass
-#
-#     monkeypatch.setattr("main_program.dprint", mock_dprint)
-#
-#     # Assuming workflow_config has some steps enabled
-#     for step in workflow_config:
-#         workflow_config[step]["enabled"] = True
-#
-#     execute_workflow()
-#
-#     # Add appropriate assertions based on the expected outcome
-#     assert True

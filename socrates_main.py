@@ -124,7 +124,6 @@ def get_step_function(step_name):
         "condenseCompanyData": condense_company_data,
         "getCapabilities": get_capabilities,
         "getTrends": generate_trends,
-        "runData": run_data,
         "clusterTrends": cluster_trends,
         "runStrategy": run_strategy,
         "runFrameworks": run_frameworks,
