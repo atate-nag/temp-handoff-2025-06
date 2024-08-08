@@ -1,34 +1,97 @@
 {
   "workflow": {
     "cleanUp": {
-      "enabled": false
+      "enabled": true
     },
-    "getTrends" : {
+    "getInsights_Tesla": {
+      "step": "getInsights",
+      "enabled": false,
+      "parameters": {
+        "companies": [
+          "Tesla"
+        ],
+        "delete_existing_insights": false
+      }
+    },
+    "get_capabilities_tesla" : {
+      "step": "getCapabilities",
+      "enabled": false,
+      "parameters": {
+        "companyName": "Tesla",
+         "problemsFile": "./problem_statements.json"
+      }
+    },
+    "runData": {
+      "step" : "runData",
+      "enabled": false,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile": "./problem_statements.json"
+      }
+    },
+    "getTrends": {
+      "step" : "getTrends",
+      "enabled": false,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile": "./problem_statements.json"
+      }
+    },
+    "runStrategyChain": {
+      "step": "runStrategyChains",
+      "enabled": false,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile": "./problem_statements.json"
+      }
+    },
+    "runStrategyDynamicReport": {
+      "step": "runStrategyDynamicReport",
+      "enabled": false,
+      "parameters": {
+        "companyName": "Tesla",
+        "problemsFile": "./problem_statements.json"
+      }
+    },
+    "fillGraph": {
+      "step": "fillGraph",
+      "enabled": false,
+      "parameters": {
+        "companies": [
+          "nag"
+        ]
+      }
+    },
+    "runScenarios": {
+      "step" : "runScenarios",
       "enabled": false,
       "parameters": {
         "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
+        "problemsFile": "./problem_statements.json"
       }
     },
-     "runFrameworks" : {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
-      }
-    },
-    "runScenarios" : {
-      "enabled": false,
-      "parameters": {
-        "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
-      }
-    },
-    "runStrategy" : {
+     "runFrameworks": {
+      "step" : "runFrameworks",
       "enabled": true,
       "parameters": {
         "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
+        "problemsFile": "./problem_statements.json"
+      }
+    },
+    "runReport": {
+      "step" : "runReport",
+      "enabled": false,
+      "parameters": {
+        "companyName": "Citigroup",
+        "problemsFile": "./problem_statements.json"
+      }
+    },
+    "runStrategy": {
+      "step" : "runStrategy",
+      "enabled": false,
+      "parameters": {
+        "companyName": "Citigroup",
+        "problemsFile": "./problem_statements.json"
       }
     }
   }

@@ -420,7 +420,6 @@ def run_scenarios(companyName, problemsFile):
 
     # Add validation and quality checks of scenarios outputs
     dprint(f"The final scenarios output is available in file {scenarios_return_file}")
-    return scenarios_return_file, scenarios_response_file
 
 
 def generate_scenarios(
@@ -457,11 +456,11 @@ def run_frameworks(companyName, problemsFile):
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
         company_name, problemsFile
     )
-    frameworks_file_path = generate_frameworks(
+    frameworks_file = generate_frameworks(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
+    dprint(f"the frameworks output file is {frameworks_file}")
     # Add validation and quality checks of frameworks outputs
-    return frameworks_file_path
 
 
 def generate_frameworks(
@@ -483,8 +482,9 @@ def generate_frameworks(
     frameworks_manager.run_workflow()
     frameworks_dictionary_return = frameworks_manager.return_dict()
     frameworks_output = frameworks_dictionary_return.get("output_file")
-    frameworks_return_file = connector.download_and_write_local(f"_frameworks_output_{company_name}", frameworks_output)
-    return frameworks_return_file
+    dprint(f"the frameworks output file is {frameworks_output}")
+    # frameworks_return_file = connector.download_and_write_local(f"_frameworks_output_{company_name}", frameworks_output)
+    return frameworks_output
 
 
 def run_report(companyName, problemsFile):
@@ -508,8 +508,8 @@ def run_report(companyName, problemsFile):
         trends_file_path,
     )
     if reporting_return_file:
-        report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-        dprint(f"completed report generation for {company_name}")
+        # report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
+        dprint(f"completed report generation for {company_name} at file {reporting_return_file}")
     else:
         dprint(f"Error: Report generation for {company_name} failed")
 
@@ -571,8 +571,8 @@ def run_strategy(companyName, problemsFile):
         frameworks_file_path,
         trends_file_path,
     )
-    report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-    dprint(f"completed strategic analysis for {company_name}")
+    #report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
+    dprint(f"completed strategic analysis for {company_name} at file {reporting_return_file}")
     # with open(report_path, "w") as file:
     #     file.write(json.dumps(reporting_return))
     # # Convert the report to markdown format
@@ -582,19 +582,6 @@ def run_strategy(companyName, problemsFile):
     # with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
     #     file.write(markdown)
 
-
-def run_data(companyName, problemsFile):
-    companyName = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_data = get_problem(companyName, problemsFile)
-    # Get the files and paths for the necessary files related to the company and problem
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        companyName, problemsFile
-    )
-
-    with open(trends_file_path, "r") as file:
-        trends_data = json.load(file)
-    with open(company_file_path, "r") as file:
-        company_data = json.load(file)
 
 
 if __name__ == "__main__":
