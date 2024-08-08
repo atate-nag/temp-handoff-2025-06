@@ -174,8 +174,9 @@ class RunObj(BaseModel):
 
     def retrieve(self):
         if not self.ran:
-            self.retrieve_run()
+            completed = self.retrieve_run()
             self.ran = True
+            return completed
         else:
             print("Run has already been executed; RunObj cannot be reused.")
 
@@ -201,7 +202,7 @@ class RunObj(BaseModel):
 
                 if retrieve.status == "completed":
                     dprint(f"Run {run_id} completed successfully.")
-                    return retrieve
+                    return True
                 elif retrieve.status in ["failed", "incomplete", "expired"]:
                     dprint(f"Run {run_id} failed with status: {retrieve.status}")
                     return None

@@ -199,8 +199,6 @@ class Agent:
     def before_initialised_to_loaded(self, unvalidated_data):
         """Prepare data specifically for the 'Initialised2Loaded' state transition."""
         dprint(f"Generating state data for state {self.state}")
-        # TODO replace with connector or client from connector
-
         client = self.validated.workflow_context.connector.client
         agent_id = self.validated.agent_context.agent_id
         file_handler = self.validated.workflow_context.file_handler
@@ -395,18 +393,33 @@ class Agent:
 
     def before_running_to_retrieved(self, unvalidated_data):
         """Actions to prepare for the 'Running2Retreived' state transition."""
-        dprint("Preparing for the Running state")
-        self.validated.agent_thread.retrieve(qm_id=self.validated.qm_id)
+        dprint("Preparing for the Retrieved state")
+        completed = self.validated.agent_thread.retrieve(qm_id=self.validated.qm_id)
+        output_dict = self.validated.agent_thread.get_output()
+        dprint(f"setting data for Retrieved state: completed = {completed}")
+        self.unvalidated_data.set_data_for_state(
+            "Running",
+            run_completed=completed,
+            output_dict=output_dict
+        )
         self.agent_response = self.validated.agent_thread.full_response
+
 
     def running_to_retrieved_validation(self, unvalidated_data):
         """Validate data when transitioning from 'Running' to 'Retrieved'."""
         dprint("Running validations for state transition from Running to Retrieved")
         try:
             unvalidated_data = self.unvalidated_data.get_data_for_state("Running")
+            dprint("Retrieved unvalidated data for 'Running' state.")
             # Insert specific validation logic for data pertinent to this transition
             # did the run produce the right outputs and response?
-            output_dict = self.validated.agent_thread.get_output()
+            run_completed = unvalidated_data["run_completed"]
+            dprint("run_completed in validation is ", run_completed)
+            self.validated.set_data("run_completed", run_completed)
+            if not run_completed:
+                dprint("Run Failed or did not complete")
+                raise Exception
+            output_dict = unvalidated_data["output_dict"]
             dprint("output dict is ", output_dict)
             # print(f"running_to_retrieved_validation: raw output from agent = {raw_output_dict}")
 
@@ -476,13 +489,13 @@ class Agent:
         self.validated.set_data("agent_response_file", None)
         self.validated.set_data("agent_inline_dict", None)
 
+
+
     def after_validation_running_to_retrieved(self, unvalidated_data):
         """Execute AFTER validation but before state transition"""
-        current_state = self.state
-        # TODO replace with connector or client from connector
-
-        client = self.validated.workflow_context.connector.client
-        agent_id = self.validated.agent_context.agent_id
+        # current_state = self.state
+        # client = self.validated.workflow_context.connector.client
+        # agent_id = self.validated.agent_context.agent_id
         # delete_oldest_assistant_files(client, agent_id)
         return
 

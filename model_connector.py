@@ -159,7 +159,7 @@ class OpenAIAssistantsConnector(ModelConnector):
 
     def download_and_write_local(self, tag, file):
         content = self.client.files.content(file)
-        local = self.filehandler.write_local_json(content, tag)
+        local = self.filehandler.write_local_json(tag,content)
         return local
 
     def retrieve_file_content(self, file):

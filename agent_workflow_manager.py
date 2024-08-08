@@ -55,7 +55,7 @@ class AgentManager:
 
                 agent_output = agent.run()
                 dprint(f"Ran agent {agent.agent_type} with output ")
-                agent.print_state()
+                self.print_state()
 
                 self.agent_output = agent_output
                 if agent_output is None:
@@ -72,10 +72,10 @@ class AgentManager:
 
                     qm_agent.load(initial_run=initial_run)
                     dprint(f"Loaded QM agent {qm_agent.agent_type} with initial_run={initial_run}")
-                    qm_agent.print_state()
+                    self.print_state()
                     qm_output = qm_agent.run()
                     dprint(f"Ran QM agent {qm_agent.agent_type} with output: {qm_output}")
-                    qm_agent.print_state()
+                    self.print_state()
                     if qm_output:
                         completed, qm_instructions = self.evaluate_qm_output(qm_output)
                         dprint(f"Evaluated QM output: completed={completed}, qm_instructions={qm_instructions}")
@@ -108,7 +108,7 @@ class AgentManager:
                         dprint(f"Cleaned up QM agent {qm_agent.agent_type}")
             except Exception as e:
                 dprint(f"Error processing {agent.agent_type}: {str(e)} Aborting")
-                raise Exception
+                return None
             finally:
                 initial_run = False
 

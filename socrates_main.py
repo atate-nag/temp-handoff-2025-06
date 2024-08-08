@@ -462,7 +462,6 @@ def run_frameworks(companyName, problemsFile):
         company_name, problem_file_path, trends_file_path, company_file_path
     )
     # Add validation and quality checks of frameworks outputs
-
     return frameworks_file_path
 
 
@@ -509,12 +508,12 @@ def run_report(companyName, problemsFile):
         frameworks_file_path,
         trends_file_path,
     )
+    if reporting_return_file:
+        report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
+        dprint(f"completed report generation for {company_name}")
+    else:
+        dprint(f"Error: Report generation for {company_name} failed")
 
-    # retrieve stored Scenarios
-
-    # retrieve stored Frameworks
-
-    # generate report
 
 
 def generate_report(
@@ -543,17 +542,14 @@ def generate_report(
     )
     reporting_manager.run_workflow()
     reporting_return = reporting_manager.return_dict()
-    #reporting_response = reporting_manager.agent_response
-    reporting_output_file = reporting_return('output_file')
+    reporting_output_file = reporting_return['output_file']
     return reporting_output_file
 
 @retry(number_of_retry=1)  # Retry the function once in case of failure
 def run_strategy(companyName, problemsFile):
     """
     Executes the strategic analysis process for a given company.
-
     (this is the full workload automation)
-
     """
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     # Get the files and paths for the necessary files related to the company and problem
@@ -577,7 +573,7 @@ def run_strategy(companyName, problemsFile):
         trends_file_path,
     )
     report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-
+    dprint(f"completed strategic analysis for {company_name}")
     # with open(report_path, "w") as file:
     #     file.write(json.dumps(reporting_return))
     # # Convert the report to markdown format
