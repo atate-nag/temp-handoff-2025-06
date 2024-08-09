@@ -57,7 +57,9 @@ class AgentThread:
             file_ids.append(agent_output)
 
         if file_ids:
-            my_updated_assistant = connector.upload_file_ids(agent_id=self.agent_id, file_ids=file_ids)
+            my_updated_assistant = connector.upload_file_ids(
+                agent_id=self.agent_id, file_ids=file_ids
+            )
 
         run = RunObj(
             parent=parent, input_files=input_files, retrieval_limit=retrieval_limit
@@ -77,7 +79,7 @@ class AgentThread:
             file_paths=file_paths,
         )
         dprint(f"created new run prompt")
-        self.connector.add_message(self.thread,run_prompt)
+        self.connector.add_message(self.thread, run_prompt)
         run.create_run()
         dprint(f"created new run")
         self.runobjs.append(run)
@@ -97,7 +99,7 @@ class AgentThread:
     def retrieve(self, qm_id=None):
         """retrieves an existing run via the runobj
         and extracts the response, output and inline json. If Qm then it also
-        sets the completion structure """
+        sets the completion structure"""
         self.runobjs[-1].retrieve()
         # switch the runobj to ran state, can't be modified or reran
         self.runobjs[-1].ran = True
@@ -124,10 +126,11 @@ class AgentThread:
         self.full_response.append(agent_output["response_file"])
         return self.output_dict
 
+
 class RunObj(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     parent: Any
-#    input_files: Optional[List[str]] = None
+    #    input_files: Optional[List[str]] = None
     input_files: Any
     model_run: Optional[str] = None
     retrieval_limit: int = Field(default=3, gt=0)
@@ -197,7 +200,9 @@ class RunObj(BaseModel):
 
         while retries < self.retrieval_limit:
             try:
-                retrieve = self.parent.connector.retrieve(thread_id=thread_id, run_id=run_id)
+                retrieve = self.parent.connector.retrieve(
+                    thread_id=thread_id, run_id=run_id
+                )
                 dprint(f"Assistant status: {retrieve.status}")
 
                 if retrieve.status == "completed":

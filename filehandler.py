@@ -13,7 +13,6 @@ class FileHandler:
         self.base_path = base_path
         # self.uploaded_file_ids = {}  # Changed to a dictionary to store files by a unique key
 
-
     @staticmethod
     def extract_context(json_string, pos, context_len=100):
         """
@@ -175,6 +174,15 @@ class FileHandler:
         return file_path
 
     @staticmethod
+    def write_local_bin_to_json(tag, data):
+        file_path = f"./Intermediates/local_{tag}.json"
+        file_data_bytes = data.read()
+        # Open the file in binary mode for writing; encode the text to bytes
+        with open(file_path, "wb") as file:
+            file.write(file_data_bytes)
+        return file_path
+
+    @staticmethod
     def write_local_txt(tag, data):
         # TODO - pass dictionary data not a string?
         # sdata is already a serialised json string
@@ -206,10 +214,10 @@ class FileHandler:
         Cleans a JSON string in common ways that JSON is often invalid.
         """
         # Fix unquoted keys (assumes keys are valid Python identifiers)
-        s = re.sub(r'([{,]\s*)([a-zA-Z_]\w*)(\s*:)', r'\1"\2"\3', s)
+        s = re.sub(r"([{,]\s*)([a-zA-Z_]\w*)(\s*:)", r'\1"\2"\3', s)
 
         # Fix booleans
-        s = re.sub(r'\b(True|False|null)\b', lambda m: m.group(0).lower(), s)
+        s = re.sub(r"\b(True|False|null)\b", lambda m: m.group(0).lower(), s)
 
         # Fix escaping issues
         s = s.replace("\\'", "'")  # Single quotes should not be escaped in JSON
@@ -217,18 +225,18 @@ class FileHandler:
         s = s.replace("\\/", "/")  # Unescape escaped slashes
 
         # Remove stray backslashes not followed by a valid escape sequence
-        s = re.sub(r'\\([^"\\/bfnrtu])', r'\1', s)
+        s = re.sub(r'\\([^"\\/bfnrtu])', r"\1", s)
 
         # Fix issues with trailing backslashes
-        s = re.sub(r'\\$', '', s)
+        s = re.sub(r"\\$", "", s)
 
         # Remove newlines within strings (only the escaped newlines)
-        s = re.sub(r'\\n', ' ', s)
-        s = re.sub(r'\\r', ' ', s)
+        s = re.sub(r"\\n", " ", s)
+        s = re.sub(r"\\r", " ", s)
 
         # Remove trailing commas in objects and arrays
-        s = re.sub(r',\s*}', '}', s)
-        s = re.sub(r',\s*]', ']', s)
+        s = re.sub(r",\s*}", "}", s)
+        s = re.sub(r",\s*]", "]", s)
 
         return s.strip()
 

@@ -186,6 +186,8 @@ class RAG_graph:
                     t.Description = $trendParam.Description,
                     t.AffectedAreas = $trendParam.AffectedAreas,
                     t.EvidencedBy = $trendParam.EvidencedBy,
+                    t.gics_code = $trendParam.gics_code,
+                    t.gics_name = $trendParam.gics_name,
                     t.source =$trendParam.source,
                     t.created =$trendParam.created
             RETURN t

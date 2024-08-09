@@ -177,8 +177,10 @@ def fill_graph(companies):
             }
         except Exception as e:
             print(e)
-            company = {"name": company_name, "linkedin": ta.get_linkedin_url_company(company_name)}
-            
+            company = {
+                "name": company_name,
+                "linkedin": ta.get_linkedin_url_company(company_name),
+            }
 
         name = company["name"]
         company["name"] = (

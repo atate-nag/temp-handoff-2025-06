@@ -278,9 +278,7 @@ class Agent:
 
                 agent_inline_dict = unvalidated_data["agent_inline_dict"]
                 # dprint(f"Agent structured output retrieved from unvalidated data.{agent_inline_dict}")
-                dprint(
-                    f" Checking against schema"
-                )
+                dprint(f" Checking against schema")
                 # TODO schema not working for writer agents
                 agent_schema_errors = self.validate_schema(
                     agent_inline_dict, self.validated.agent_requirements
@@ -324,7 +322,7 @@ class Agent:
             # Insert specific validation logic for data pertinent to this transition
             # Validate and create a RunObjModel instance
             prompt = agent_requirements = None
-            if (self.user_data):
+            if self.user_data:
                 dprint("user data is provided")
             if (
                 self.user_data
@@ -383,12 +381,9 @@ class Agent:
         output_dict = self.validated.agent_thread.get_output()
         dprint(f"setting data for Retrieved state: completed = {completed}")
         self.unvalidated_data.set_data_for_state(
-            "Running",
-            run_completed=completed,
-            output_dict=output_dict
+            "Running", run_completed=completed, output_dict=output_dict
         )
         self.agent_response = self.validated.agent_thread.full_response
-
 
     def running_to_retrieved_validation(self, unvalidated_data):
         """Validate data when transitioning from 'Running' to 'Retrieved'."""
@@ -417,9 +412,9 @@ class Agent:
             # TODO validate output_dict
             # TODO Much of the following is not validation logic - move to after
 
-            if output_dict['output_file']:
+            if output_dict["output_file"]:
                 dprint(f"output file detected {output_dict['output_file']}")
-                output_file = output_dict['output_file']
+                output_file = output_dict["output_file"]
                 output_content = self.connector.retrieve_file_content(output_file)
                 self.validated.set_data("retrieve_output", output_dict)
                 dprint("Good JSON output from file - validating state")
@@ -427,8 +422,8 @@ class Agent:
                     "running_to_retrieved_validation: Good JSON output - validating state"
                 )
                 return True
-            elif output_dict['inline_dict']:
-                raw_output = output_dict['inline_dict']
+            elif output_dict["inline_dict"]:
+                raw_output = output_dict["inline_dict"]
                 dprint("inline dict detected")
                 inline_dict = self.normalize_agent_output(raw_output)
                 self.validated.set_data("retrieve_output", output_dict)
@@ -473,8 +468,6 @@ class Agent:
         self.validated.set_data("agent_output_file", None)
         self.validated.set_data("agent_response_file", None)
         self.validated.set_data("agent_inline_dict", None)
-
-
 
     def after_validation_running_to_retrieved(self, unvalidated_data):
         """Execute AFTER validation but before state transition"""
@@ -521,5 +514,3 @@ class Agent:
 
         # Normalize other fields as needed
         return output
-
-

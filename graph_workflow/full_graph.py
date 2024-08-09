@@ -387,6 +387,7 @@ def get_condensed_company_data(company_name, problem_statement):
         return [result["company_data"] for result in results]
     return None
 
+
 def get_tesla_capabilities():
     query = """
     MATCH (company:Company {name: 'Tesla'})-[]->(capability:Capability)
@@ -394,6 +395,7 @@ def get_tesla_capabilities():
     """
     results = rag_graph.kg.query(query)
     return results
+
 
 # from capabilities import plot_capabilities
 # # Example usage of the new function
@@ -408,4 +410,3 @@ def get_tesla_capabilities():
 # plot = plot_capabilities(caps)
 # plot.show()
 # print("shown fig")
-

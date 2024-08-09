@@ -3,6 +3,8 @@ from openai import OpenAI
 from debug import dprint
 from datetime import datetime, timedelta
 from agent_configs import AgentConfigs
+
+
 class ModelConnector(ABC):
     def __init__(self, config, filehandler):
         self.config = config
@@ -26,6 +28,7 @@ class ModelConnector(ABC):
     @abstractmethod
     def clean_up(self):
         pass
+
 
 class OpenAIAssistantsConnector(ModelConnector):
     def initialize_client(self):
@@ -70,7 +73,7 @@ class OpenAIAssistantsConnector(ModelConnector):
         new_assistant = client.beta.assistants.create(**assistant_data)
         return new_assistant
 
-    def upload_file_ids(self,agent_id, file_ids):
+    def upload_file_ids(self, agent_id, file_ids):
         # modifies the assistant by uploading files
         my_updated_assistant = self.client.beta.assistants.update(
             agent_id,
@@ -78,12 +81,11 @@ class OpenAIAssistantsConnector(ModelConnector):
         )
         return my_updated_assistant.id
 
-    def upload_locals(self, agent_id, file_paths ):
+    def upload_locals(self, agent_id, file_paths):
         uploaded_files = []
         for file in file_paths:
             u_file = self.client.files.create(
-                file=open(file, "rb"),
-                purpose="assistants"
+                file=open(file, "rb"), purpose="assistants"
             )
             uploaded_files.append(u_file.id)
         return uploaded_files
@@ -95,7 +97,7 @@ class OpenAIAssistantsConnector(ModelConnector):
     def generate_response(self, prompt):
         pass
 
-    def agent_retrieve( self, agent, thread):
+    def agent_retrieve(self, agent, thread):
         """
         returns all the relevant output from an agent run
         including output file and response text
@@ -111,20 +113,24 @@ class OpenAIAssistantsConnector(ModelConnector):
         dprint(f"uploaded response is {uploaded_response}")
         inline_json = self.filehandler.extract_json_from_response_text(latest_response)
         dprint(f"inline json is {inline_json}")
-        agent_output = {"output_file": file_id, "response_file" : uploaded_response, "inline_dict": inline_json }
+        agent_output = {
+            "output_file": file_id,
+            "response_file": uploaded_response,
+            "inline_dict": inline_json,
+        }
         dprint(f"agent_output is {agent_output}")
         return agent_output
 
-    def retrieve_direct_agent_content(
-        self, agent_id, response, output_file
-    ):
+    def retrieve_direct_agent_content(self, agent_id, response, output_file):
         """
         Retrieves the content from a file, annotations or set of messages.
         """
         # TODO make this more intelligent - get the best JSON from either
         dprint(f"output file is {output_file}")
         if output_file:
-            json_data = self.filehandler.retrieve_file_content_dict(agent_id, output_file)
+            json_data = self.filehandler.retrieve_file_content_dict(
+                agent_id, output_file
+            )
             if json_data:
                 return json_data
         dprint(f"going to json extraction")
@@ -157,10 +163,13 @@ class OpenAIAssistantsConnector(ModelConnector):
         dprint("No annotations for a file were found")
         return None
 
+    def download_file(self, file):
+        return self.client.files.content(file)
+
     def download_and_write_local(self, tag, file):
         content = self.client.files.content(file)
         dprint(f"content is {content}")
-        local = self.filehandler.write_local_json(tag,content)
+        local = self.filehandler.write_local_bin_to_json(tag, content)
         dprint(f"local is {local}")
         return local
 
@@ -367,11 +376,12 @@ class OpenAIAssistantsConnector(ModelConnector):
         except Exception as e:
             print(f"An error occurred: {e}")
 
+
 class ModelConnectorFactory:
     @staticmethod
     def create_connector(config, filehandler):
-        model_type = config['model_type']
-        if model_type == 'openai_assistants':
+        model_type = config["model_type"]
+        if model_type == "openai_assistants":
             return OpenAIAssistantsConnector(config, filehandler)
         else:
             raise "model not yet supported"

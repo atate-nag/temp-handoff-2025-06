@@ -46,12 +46,15 @@ class AgentManager:
         while not completed:
             try:
                 dprint(
-                    f"Starting run for agent {agent.agent_type} with initial_run={initial_run} and qm_instructions={qm_instructions}")
+                    f"Starting run for agent {agent.agent_type} with initial_run={initial_run} and qm_instructions={qm_instructions}"
+                )
                 agent.receive_input(qm_instructions=qm_instructions)
                 dprint(f"Received input for agent {agent.agent_type}")
 
                 agent.load(initial_run=initial_run)
-                dprint(f"Loaded agent {agent.agent_type} with initial_run={initial_run}")
+                dprint(
+                    f"Loaded agent {agent.agent_type} with initial_run={initial_run}"
+                )
 
                 agent_output = agent.run()
                 dprint(f"Ran agent {agent.agent_type} with output ")
@@ -60,7 +63,9 @@ class AgentManager:
                 self.agent_output = agent_output
                 # TODO instead of raising an exception, repeat the run
                 if agent_output is None:
-                    dprint(f"None returned from operational agent {agent.agent_type} - Aborting")
+                    dprint(
+                        f"None returned from operational agent {agent.agent_type} - Aborting"
+                    )
                     raise Exception
 
                 if self.use_qm_agents:
@@ -69,33 +74,48 @@ class AgentManager:
                         agent_requirements=agent.requirements(),
                     )
                     dprint(
-                        f"QM agent {qm_agent.agent_type} received agent_input and agent requirements: {agent.requirements()}")
+                        f"QM agent {qm_agent.agent_type} received agent_input and agent requirements: {agent.requirements()}"
+                    )
 
                     qm_agent.load(initial_run=initial_run)
-                    dprint(f"Loaded QM agent {qm_agent.agent_type} with initial_run={initial_run}")
+                    dprint(
+                        f"Loaded QM agent {qm_agent.agent_type} with initial_run={initial_run}"
+                    )
                     self.print_state()
                     qm_output = qm_agent.run()
                     # TODO instead of raising an exception, repeat the run
                     if qm_output is None:
-                        dprint(f"None returned from operational agent {qm_agent.agent_type} - Aborting")
+                        dprint(
+                            f"None returned from operational agent {qm_agent.agent_type} - Aborting"
+                        )
                         raise Exception
-                    dprint(f"Ran QM agent {qm_agent.agent_type} with output: {qm_output}")
+                    dprint(
+                        f"Ran QM agent {qm_agent.agent_type} with output: {qm_output}"
+                    )
 
                     self.print_state()
                     if qm_output:
                         completed, qm_instructions = self.evaluate_qm_output(qm_output)
-                        dprint(f"Evaluated QM output: completed={completed}, qm_instructions={qm_instructions}")
+                        dprint(
+                            f"Evaluated QM output: completed={completed}, qm_instructions={qm_instructions}"
+                        )
                 else:
                     completed = True
 
                 print(
-                    f"run_agent_workflow: completed={completed} of type {type(completed)} and qm_instructions={qm_instructions}")
+                    f"run_agent_workflow: completed={completed} of type {type(completed)} and qm_instructions={qm_instructions}"
+                )
                 dprint(
-                    f"run_agent_workflow: completed={completed} of type {type(completed)} and qm_instructions={qm_instructions}")
+                    f"run_agent_workflow: completed={completed} of type {type(completed)} and qm_instructions={qm_instructions}"
+                )
 
                 if not completed:
-                    dprint(f"{agent.agent_type} will be rerun with instructions: {qm_instructions}")
-                    print(f"{agent.agent_type} will be rerun with instructions: {qm_instructions}")
+                    dprint(
+                        f"{agent.agent_type} will be rerun with instructions: {qm_instructions}"
+                    )
+                    print(
+                        f"{agent.agent_type} will be rerun with instructions: {qm_instructions}"
+                    )
 
                     agent.reinitialise()
                     dprint(f"Reinitialised agent {agent.agent_type}")
@@ -137,7 +157,9 @@ class AgentManager:
                 completed = completed.lower() == "true"
 
             dprint(f"pulled out the completed value of {completed}")
-            print(f"pulled out the completed value of {completed} type is {type(completed)}")
+            print(
+                f"pulled out the completed value of {completed} type is {type(completed)}"
+            )
 
             qm_instructions = dict_output.get("agent instructions", "").strip()
             dprint(f"pulled out the agent instructions of {qm_instructions}")
@@ -145,8 +167,12 @@ class AgentManager:
 
             # Ensure qm_instructions are present when completed is False
             if not completed and not qm_instructions:
-                dprint("Error: 'agent instructions' must be provided when 'completed' is False.")
-                print("Error: 'agent instructions' must be provided when 'completed' is False.")
+                dprint(
+                    "Error: 'agent instructions' must be provided when 'completed' is False."
+                )
+                print(
+                    "Error: 'agent instructions' must be provided when 'completed' is False."
+                )
                 return False, None
 
             return completed, qm_instructions

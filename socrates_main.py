@@ -46,14 +46,14 @@ from utility import (
 
 # Example usage
 model_config = {
-    'model_type': 'openai_assistants',
-    'api_key': os.getenv("OPENAI_API_KEY"),
-    'model': 'gpt-4o',
+    "model_type": "openai_assistants",
+    "api_key": os.getenv("OPENAI_API_KEY"),
+    "model": "gpt-4o",
     #'model': 'gpt-3.5-turbo',
 }
 file_handler = FileHandler()
 
-connector = ModelConnectorFactory.create_connector( model_config, file_handler)
+connector = ModelConnectorFactory.create_connector(model_config, file_handler)
 client = connector.client
 
 uri = os.getenv("NEO4J_URL")
@@ -81,6 +81,7 @@ gics_mapping = {
 }
 
 # This is the local file handler. remote files are dealt with in ModelConnector
+
 
 def execute_workflow():
     """Executes the workflow steps based on the configuration."""
@@ -122,7 +123,7 @@ def get_step_function(step_name):
         "getInsights": get_insights,
         "condenseTrends": condense_trends,
         "condenseCompanyData": condense_company_data,
-        "getCapabilities": get_capabilities,
+        "getCapabilities": generate_capabilities_per_cluster,
         "getTrends": generate_trends,
         "clusterTrends": cluster_trends,
         "runStrategy": run_strategy,
@@ -145,9 +146,11 @@ def get_capabilities(companyName, problemsFile):
     )
     company_full_data = get_company_data(companyName, problem_data)
     capabilities = generate_capabilities_per_cluster(
-        company_name, problem_data)
-    dprint('capabilities:', capabilities)
+        [company_name], compute_embeddings=True, number_of_processes=5
+    )
+    dprint("capabilities:", capabilities)
     return capabilities
+
 
 def condense_trends(company_name, problemsFile):
     gics_code, _ = get_gics_code_and_name(company_name)
@@ -263,8 +266,10 @@ def get_company_data(companyName, problem_statement):
     # implement validation and checking of trends
     return company_full_data
 
+
 def clean_up():
     connector.clean_up()
+
 
 def create_json_filename(company_name):
     """
@@ -437,15 +442,37 @@ def generate_scenarios(
     )
     scenarios_manager.run_workflow()
     scenarios_return_data = scenarios_manager.return_dict()
-    scenarios_response = scenarios_manager.agent_response
+    print(f"scenarios_return_data: {str(scenarios_return_data)}")
+    # print(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
+    # scenarios_return_data
+    # scenarios_response = scenarios_manager.agent_response
+    # print(f"scenarios_response: {str(scenarios_response)}")
+    # print(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
+    # assert False
+    # scenarios_response = scenarios_manager.get("response_file")
+    print(f"scenarios_response: {scenarios_return_data}")
+    print(f"scenarios_return_data: {scenarios_manager}")
     scenarios_output = scenarios_return_data.get("output_file")
-    dprint(f"scenarios output = {scenarios_output}")
+    scenarios_response = scenarios_return_data.get("response_file")
+    print(f"scenarios_output: {scenarios_output}")
+    print(f"scenarios_response: {scenarios_response}")
+    # print(f"scenarios_output: {scenarios_output}")
+    scenarios_local_output = connector.download_and_write_local(
+        f"scenarios_output_{company_name}", scenarios_output
+    )
+    print(f"scenarios_local_output: {scenarios_local_output}")
+    # scenarios_local_response = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
+    # print(f"scenarios_local_response: {scenarios_local_response}")
+    # scenarios_response_file = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
+    # assert False
+    # dprint(f"scenarios output = {scenarios_output}")
     scenarios_response_file = file_handler.write_local_json(
         f"scenarios_{company_name}", json.dumps(scenarios_response)
     )
-    #scenarios_return_file = connector.download_and_write_local(f"_scenarios_output_{company_name}", scenarios_output )
-    print(f"completed scenarios for {company_name}")
-    return scenarios_output, scenarios_response_file
+    # #scenarios_return_file = connector.download_and_write_local(f"_scenarios_output_{company_name}", scenarios_output )
+    # print(f"completed scenarios for {company_name}")
+    return scenarios_local_output, scenarios_response_file
+
 
 def run_frameworks(companyName, problemsFile):
     """
@@ -482,8 +509,10 @@ def generate_frameworks(
     frameworks_dictionary_return = frameworks_manager.return_dict()
     frameworks_output = frameworks_dictionary_return.get("output_file")
     dprint(f"the frameworks output file is {frameworks_output}")
-    # frameworks_return_file = connector.download_and_write_local(f"_frameworks_output_{company_name}", frameworks_output)
-    return frameworks_output
+    frameworks_return_local_file = connector.download_and_write_local(
+        f"frameworks_output_{company_name}", frameworks_output
+    )
+    return frameworks_return_local_file
 
 
 def run_report(companyName, problemsFile):
@@ -495,8 +524,12 @@ def run_report(companyName, problemsFile):
         company_name, problemsFile
     )
 
-    scenarios_response_file = f"./Intermediates/local_scenarios_response_{company_name}.json"
-    scenarios_return_file = f"./Intermediates/local_scenarios_return_{company_name}.json"
+    scenarios_response_file = (
+        f"./Intermediates/local_scenarios_response_{company_name}.json"
+    )
+    scenarios_return_file = (
+        f"./Intermediates/local_scenarios_return_{company_name}.json"
+    )
     frameworks_file_path = f"./Intermediates/local_frameworks_file_{company_name}.json"
 
     reporting_return_file = generate_report(
@@ -507,11 +540,14 @@ def run_report(companyName, problemsFile):
         trends_file_path,
     )
     if reporting_return_file:
-        # report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-        dprint(f"completed report generation for {company_name} at file {reporting_return_file}")
+        report_content = connector.download_and_write_local(
+            f"strategic_report_{company_name}", reporting_return_file
+        )
+        dprint(
+            f"completed report generation for {company_name} at file {reporting_return_file}"
+        )
     else:
         dprint(f"Error: Report generation for {company_name} failed")
-
 
 
 def generate_report(
@@ -540,8 +576,12 @@ def generate_report(
     )
     reporting_manager.run_workflow()
     reporting_return = reporting_manager.return_dict()
-    reporting_output_file = reporting_return['output_file']
-    return reporting_output_file
+    reporting_output_file = reporting_return["output_file"]
+    reporting_output_local_file = connector.download_and_write_local(
+        f"strategic_report_{company_name}", reporting_output_file
+    )
+    return reporting_output_local_file
+
 
 @retry(number_of_retry=1)  # Retry the function once in case of failure
 def run_strategy(companyName, problemsFile):
@@ -555,14 +595,31 @@ def run_strategy(companyName, problemsFile):
         company_name, problemsFile
     )
     # Generate scenarios using the scenarios agent
-    scenarios_response_file, scenarios_return_file = generate_scenarios(
+    scenarios_response, scenarios_return_file = generate_scenarios(
         companyName, problem_file_path, trends_file_path, company_file_path
     )
+
+    scenarios_response_file = file_handler.write_local_json(
+        f"scenarios_{company_name}", json.dumps(scenarios_response)
+    )
+    print(f"scenarios_response_file: {scenarios_response_file}")
+
+    # print(connector.retrieve_file_content(scenarios_response_file))
+    # assert scenarios_response_file.startswith("./Intermediates")
+
+    # print(f"scenarios_return_file: {scenarios_return_file}")
+    # assert scenarios_return_file.startswith("./Intermediates")
     # Generate frameworks using the frameworks agent
     frameworks_file_path = generate_frameworks(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
+
+    # print(f"frameworks_file_path: {frameworks_file_path}")
+    # assert frameworks_file_path.startswith("./Intermediates")
     # Generate a strategic report using the reporting agent
+    print(f"scenarios_response_file: {scenarios_response_file}")
+    print(f"scenarios_return_file: {scenarios_return_file}")
+    print(f"frameworks_file_path: {frameworks_file_path}")
     reporting_return_file = generate_report(
         company_name,
         scenarios_response_file,
@@ -570,8 +627,13 @@ def run_strategy(companyName, problemsFile):
         frameworks_file_path,
         trends_file_path,
     )
-    #report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-    dprint(f"completed strategic analysis for {company_name} at file {reporting_return_file}")
+
+    print(f"reporting_return_file: {reporting_return_file}")
+    # assert reporting_return_file.startswith("./Intermediates")
+    # report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
+    dprint(
+        f"completed strategic analysis for {company_name} at file {reporting_return_file}"
+    )
     # with open(report_path, "w") as file:
     #     file.write(json.dumps(reporting_return))
     # # Convert the report to markdown format
@@ -580,7 +642,6 @@ def run_strategy(companyName, problemsFile):
     # # Write the markdown report to a file
     # with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
     #     file.write(markdown)
-
 
 
 if __name__ == "__main__":

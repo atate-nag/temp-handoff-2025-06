@@ -23,10 +23,7 @@ class AgentStateMachineConfig:
             "file_paths",
         ]
         self.permissions["Loaded"] = ["run_object"]
-        self.permissions["Running"] = [
-            "retrieve_output",
-            "run_completed"
-        ]
+        self.permissions["Running"] = ["retrieve_output", "run_completed"]
         self.permissions["Retrieved"] = [
             "asst_input_files",
             "agent_output_file",
