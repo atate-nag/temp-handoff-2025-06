@@ -3,10 +3,50 @@
     "cleanUp": {
       "enabled": false
     },
-    "getTrends" : {
-      "enabled": false,
+    "fill_graph": {
+      "step":"fill_graph",
+       "parameters": {
+      "companies": ["Tesla"]
+   },
+   "enabled": false
+  },
+  "getInsights": {"step": "getInsights",
+   "parameters": {
+      "companies": ["Tesla"],
+      "delete_existing_insights": false
+   },
+   "enabled": false
+  },
+  "getTrends": {
+    "step": "getTrends", 
+  "parameters": {
+      "folders": ["10. Energy", "25. Consumer Discretionary"],
+      "number_of_processes": 5
+   },
+   "enabled": false
+  },
+"clusterTrends": {
+"step": "clusterTrends",
+"parameters": {
+  "compute_embeddings": true,
+  "number_of_processes": 5
+},
+"enabled": false
+}, 
+"get_capabilities_tesla" : {
+"step": "getCapabilities",
+"enabled": false,
+"parameters": {
+  "companies": ["Tesla"],
+  "compute_embeddings" : false,
+  "number_of_processes" : 5
+}
+},
+    "runStrategy" : {
+      "step": "runStrategy",
+      "enabled": true,
       "parameters": {
-        "companyName": "Citigroup",
+        "companyName": "Tesla",
         "problemsFile" : "./problem_statements.json"
       }
     },
@@ -24,8 +64,8 @@
         "problemsFile" : "./problem_statements.json"
       }
     },
-    "runStrategy" : {
-      "enabled": true,
+    "runStrategy2" : {
+      "enabled": false,
       "parameters": {
         "companyName": "Citigroup",
         "problemsFile" : "./problem_statements.json"

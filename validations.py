@@ -11,7 +11,8 @@ from abc import ABC, abstractmethod
 from openai import OpenAI
 from filehandler import FileHandler
 from typing import Any, Optional, List, Dict
-from openai_asst import AgentThread
+from agent_thread import AgentThread
+from model_connector import ModelConnector
 from import_files import InputFilesModel, AsstFilesModel
 import json
 import re
@@ -38,17 +39,17 @@ class AgentFileContentModel(BaseModel):
 
 
 class WorkFlowContextModel(BaseModel):
-    client: Any
+    connector: Any
     file_handler: Any
     agent_type: str = Field()
     qm_id: Optional[str] = None
 
     # input_files: List = Field()
-    @field_validator("client")
+    @field_validator("connector")
     def check_client_type(cls, v):
-        dprint(f"Validating client")
-        if not isinstance(v, OpenAI):
-            raise ValueError("client must be an instance of OpenAI")
+        dprint(f"Validating connector")
+        if not isinstance(v, ModelConnector):
+            raise ValueError("client must be an instance of ModelConnector")
         dprint(f"Validated client")
         return v
 
@@ -64,7 +65,6 @@ class WorkFlowContextModel(BaseModel):
     def check_agent_type(cls, v):
         dprint(f"Validating agent type and known_agents")
         known_agents = AgentConfigs().get_known_agents()
-        dprint(f"Known agents: {known_agents}")
         if v not in known_agents:
             raise ValueError(
                 f"agent_type {v} is not valid. Must be one of {list(known_agents.keys())}"
