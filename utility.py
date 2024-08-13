@@ -233,7 +233,11 @@ def condense(
 
 
 def save_metadata(data):
-    path = "explainability/data_store/input/" + str(datetime.datetime.now()) + ".json"
+    path = (
+        "explainability/front/data_store/input/"
+        + str(datetime.datetime.now())
+        + ".json"
+    )
     with open(path, "w") as f:
         json.dump(data, f)
 

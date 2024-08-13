@@ -1,0 +1,1 @@
+{"id": "123", "data": {"timestamp": "2024-08-06 19:04:41.514149"}, "chain_used": "test_chain", "parameters": {"param1": "value1", "param2": "value2"}, "output": {"param1": "value1", "param2": "value2"}, "type": "llm_call", "input_tokens_count": 34, "output_tokens_count": 18}
