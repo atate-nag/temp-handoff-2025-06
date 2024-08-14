@@ -1,5 +1,6 @@
 from graph_workflow.graph_rag_lc import RAG_graph
 from utility import dict_to_plain_text, invoke
+
 import os
 from chains import (
     evaluate_trend_cluster,
@@ -10,6 +11,7 @@ import json
 import multiprocessing as mp
 import time
 import uuid
+
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
@@ -384,3 +386,27 @@ def get_condensed_company_data(company_name, problem_statement):
     if results:
         return [result["company_data"] for result in results]
     return None
+
+
+def get_tesla_capabilities():
+    query = """
+    MATCH (company:Company {name: 'Tesla'})-[]->(capability:Capability)
+    RETURN capability AS Capability
+    """
+    results = rag_graph.kg.query(query)
+    return results
+
+
+# from capabilities import plot_capabilities
+# # Example usage of the new function
+# tesla_capabilities = get_tesla_capabilities()
+# print("Tesla Capabilities:")
+# caps = []
+# for capability in tesla_capabilities:
+#     print(capability["Capability"])
+#     caps.append(capability["Capability"])
+#
+# print("done")
+# plot = plot_capabilities(caps)
+# plot.show()
+# print("shown fig")

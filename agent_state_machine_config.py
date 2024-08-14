@@ -17,18 +17,18 @@ class AgentStateMachineConfig:
             "asst_input_files",
             "agent_output_file",
             "agent_response_file",
-            "agent_structured_output",
+            "agent_inline_dict",
             "agent_requirements",
             "agent_schema_errors",
             "file_paths",
         ]
         self.permissions["Loaded"] = ["run_object"]
-        self.permissions["Running"] = ["retrieve_output"]
+        self.permissions["Running"] = ["retrieve_output", "run_completed"]
         self.permissions["Retrieved"] = [
             "asst_input_files",
             "agent_output_file",
             "agent_response_file",
-            "agent_structured_output",
+            "agent_inline_dict",
             "agent_requirements",
             "agent_schema_errors",
             "file_paths",
