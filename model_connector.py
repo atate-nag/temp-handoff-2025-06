@@ -308,7 +308,7 @@ class OpenAIAssistantsConnector(ModelConnector):
             assistants = client.beta.assistants.list(limit=100)
             dprint(f"Number of assistants is {len(assistants.data)}")
             for ass in assistants.data:
-                if ass.name == "Adrian Cloned Agent":
+                if ass.name == "Cloned Agent":
                     dprint(f"Assistant with name {ass.name}")
                     client.beta.assistants.delete(assistant_id=ass.id)
                     print(f"Deleted ass: {ass.id}, created at {ass.created_at}")

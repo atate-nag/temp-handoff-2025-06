@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 import json
+import requests
 
 workflows = {
     "cleanUp": {},
@@ -10,15 +11,22 @@ workflows = {
         "delete_existing_insights": "Bool",
         "number_of_processes": "Int",
     },
-    "condenseTrends": {},
-    "condenseCompanyData": {},
-    "getCapabilities": {},
-    "getTrends": {},
-    "clusterTrends": {},
-    "runStrategy": {},
-    "runFrameworks": {},
-    "runScenarios": {},
+    "condenseTrends": {"company_name": "Str", "problemsFile": "Str"},
+    "condenseCompanyData": {"company_name": "Str", "problem": "Str"},
+    # "getCapabilities": {},
+    "getTrends": {
+        "company_name": "Str",
+        "problemFile": "Str",
+        "force_recreate": "Bool",
+    },
+    "clusterTrends": {"compute_embeddings": "Bool", "number_of_processes": "Int"},
+    "runStrategy": {"companyName": "Str", "problemsFile": "Str"},
+    "runFrameworks": {"companyName": "Str", "problemsFile": "Str"},
+    "runScenarios": {"companyName": "Str", "problemsFile": "Str"},
 }
+
+url = "http://127.0.0.1:8000/run"
+
 
 st.set_page_config(
     page_title="Socrates",
@@ -59,12 +67,15 @@ for key, value in workflows[workflow].items():
         current_workflow["parameters"][key] = st.checkbox(f"Delete existing insights")
     elif value == "Int":
         current_workflow["parameters"][key] = st.number_input(f"Enter {key}")
+    elif value == "Str":
+        current_workflow["parameters"][key] = st.text_input(f"Enter {key}")
 # if workflows[workflow] == "List":
 #     companies = st.text_area("Enter companies")
 #     st.session_state['workflow_config'][workflow] = {"companies": companies}
 
 
 def add_workflow(name):
+    current_workflow["enabled"] = True
     st.session_state["workflow_config"][name] = current_workflow
 
 
@@ -81,6 +92,9 @@ def start_socrates(name):
     if st.session_state["running"]:
         st.session_state["running"] = False
     else:
+        p = requests.post(url, json=st.session_state["workflow_config"].copy())
+        st.session_state["workflow_config"] = {}
+        print(p.text)
         st.session_state["running"] = True
     print(st.session_state["running"])
 

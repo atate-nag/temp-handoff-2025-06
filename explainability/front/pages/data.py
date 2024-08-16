@@ -16,3 +16,57 @@ def file_selector(folder_path="."):
 
 filename = file_selector()
 st.write("You selected `%s`" % filename)
+
+
+uploaded_files = st.file_uploader(
+    "Select trend files to import", accept_multiple_files=True
+)
+for uploaded_file in uploaded_files:
+    bytes_data = uploaded_file.read()
+    st.write("filename:", uploaded_file.name)
+    st.write(bytes_data)
+    with open(uploaded_file.name, "wb") as f:
+        f.write(bytes_data)
+
+
+uploaded_files = st.file_uploader(
+    "Select perigon files to import", accept_multiple_files=True
+)
+for uploaded_file in uploaded_files:
+    bytes_data = uploaded_file.read()
+    st.write("filename:", uploaded_file.name)
+    st.write(bytes_data)
+    with open(uploaded_file.name, "wb") as f:
+        f.write(bytes_data)
+
+
+uploaded_files = st.file_uploader(
+    "Select reportLinker files to import", accept_multiple_files=True
+)
+for uploaded_file in uploaded_files:
+    bytes_data = uploaded_file.read()
+    st.write("filename:", uploaded_file.name)
+    st.write(bytes_data)
+    with open(uploaded_file.name, "wb") as f:
+        f.write(bytes_data)
+
+uploaded_files = st.file_uploader(
+    "Select wikipedia files to import", accept_multiple_files=True
+)
+for uploaded_file in uploaded_files:
+    bytes_data = uploaded_file.read()
+    st.write("filename:", uploaded_file.name)
+    st.write(bytes_data)
+    with open(uploaded_file.name, "wb") as f:
+        f.write(bytes_data)
+
+
+uploaded_files = st.file_uploader(
+    "Select data files to import", accept_multiple_files=True
+)
+for uploaded_file in uploaded_files:
+    bytes_data = uploaded_file.read()
+    st.write("filename:", uploaded_file.name)
+    st.write(bytes_data)
+    with open(uploaded_file.name, "wb") as f:
+        f.write(bytes_data)
