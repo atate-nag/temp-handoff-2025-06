@@ -5,7 +5,11 @@ import datetime
 import multiprocessing as mp
 import threading
 import time
+import copy
+import json
 from typing import Dict, Any
+
+mp.set_start_method("spawn")
 
 app = FastAPI()
 running_data = {}
@@ -20,11 +24,38 @@ running_data = {}
 
 
 def update_status(running_data=running_data):
+    # PROCESS
+
     for run_id, data in running_data.items():
         if not running_data[run_id]["status"] == "done":
-            if data["process"].ready():
+            if "process" in data:
+                if data["process"].is_alive():
+                    pass
+                else:
+                    running_data[run_id]["status"] = "done"
+                    running_data[run_id]["result"] = data["process"].exitcode
+                    print(
+                        f"Process {run_id} is done with exitcode {data['process'].exitcode}"
+                    )
+            else:
                 running_data[run_id]["status"] = "done"
-                running_data[run_id]["result"] = data["process"].get()
+                running_data[run_id]["result"] = "No process found"
+                print(f"Process {run_id} is done with no process found")
+
+    # POOL
+
+    # print("Updating status")
+    # for run_id, data in running_data.items():
+    #     if not running_data[run_id]["status"] == "done":
+    #         print("Checking status")
+    #         if "process" in data:
+    #             print("Updating if ready")
+    #             print(f"Is process ready: {data['process'].ready()}")
+    #             print(f"Is process ready: {data['process'].get()}")
+    #             if data["process"].ready():
+    #                 print("Updating...")
+    #                 running_data[run_id]["status"] = "done"
+    #                 running_data[run_id]["result"] = data["process"].get()
 
 
 # t = threading.Thread(target=update_status).start()
@@ -46,15 +77,33 @@ async def get_status(run_id):
     }
 
 
+@app.get("/get_all_status")
+async def get_status():
+    update_status()
+    print(f"running_data: {running_data}")
+    status = {}
+
+    for runid, data in running_data.items():
+        status[runid] = {
+            "status": data["status"],
+            "results": data["result"] if "result" in data else None,
+        }
+
+    print(f"status: {status}")
+    return {"message": "", "run_data": status}
+
+
 @app.post("/run")
 async def create_run(workflow_config: Dict[Any, Any]):
     print(workflow_config)
     run_id = str(datetime.datetime.now())
     print("Starting run", run_id)
 
-    with mp.Pool(processes=1) as pool:
+    p = mp.Process(target=execute_workflow, args=(workflow_config,))
+    p.start()
+    # with mp.Pool(processes=5) as pool:
 
-        p = pool.apply_async(execute_workflow, args=(workflow_config,))
+    #     p = pool.apply_async(execute_workflow, args=(workflow_config,))
 
     # with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
     #     future = executor.submit(execute_workflow, workflow_config)

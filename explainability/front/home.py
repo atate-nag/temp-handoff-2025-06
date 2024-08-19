@@ -2,6 +2,7 @@ import streamlit as st
 import time
 import json
 import requests
+import pandas as pd
 
 workflows = {
     "cleanUp": {},
@@ -40,6 +41,9 @@ if "running" not in st.session_state:
 
 if "workflow_config" not in st.session_state:
     st.session_state["workflow_config"] = {}
+
+if "all_status" not in st.session_state:
+    st.session_state["all_status"] = {}
 
 st.markdown(
     """
@@ -107,3 +111,28 @@ st.button(
 )
 
 st.write(f"Running: {st.session_state['running']}")
+
+
+def get_status():
+    url = "http://127.0.0.1:8000/get_all_status"
+    x = requests.get(url)
+    print(x.text)
+    st.session_state["all_status"] = json.loads(x.text)
+    return x.text
+
+
+st.button(
+    "Get runs status!",
+    on_click=get_status,
+)
+
+# st.write(f"Status: {json.dumps(st.session_state['all_status'], indent=4, sort_keys=True)}")
+st.table(
+    data=(
+        pd.DataFrame.from_dict(
+            st.session_state["all_status"]["run_data"], orient="index"
+        )
+        if "run_data" in st.session_state["all_status"]
+        else pd.DataFrame()
+    )
+)
