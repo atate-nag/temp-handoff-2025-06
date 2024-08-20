@@ -1,12 +1,15 @@
 import concurrent.futures
 from socrates_main import execute_workflow
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+
 import datetime
 import multiprocessing as mp
 import threading
 import time
 import copy
 import json
+import os
 from typing import Dict, Any
 
 mp.set_start_method("spawn")
@@ -21,6 +24,17 @@ running_data = {}
 #                 raise Exception("timeout", f"function: {fn.__name__} failed")
 #             time.sleep(0.2)
 #     future.result()
+
+
+@app.get("/get_file")
+def get_file(file_path):
+    return FileResponse(path=file_path, filename=file_path.split["/"][-1])
+
+
+@app.get("/list_files")
+def list_files(folder):
+    if folder == "Intermediates" or folder == "Strategic Reports":
+        return [file for file in os.listdir(folder)]
 
 
 def update_status(running_data=running_data):
