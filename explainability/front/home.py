@@ -3,6 +3,7 @@ import time
 import json
 import requests
 import pandas as pd
+import os
 
 workflows = {
     "cleanUp": {},
@@ -14,7 +15,11 @@ workflows = {
     },
     "condenseTrends": {"company_name": "Str", "problemsFile": "Str"},
     "condenseCompanyData": {"company_name": "Str", "problem": "Str"},
-    # "getCapabilities": {},
+    "getCapabilities": {
+        "companies": "List",
+        "compute_embeddings": "Bool",
+        "number_of_processes": "Int",
+    },
     "getTrends": {
         "company_name": "Str",
         "problemFile": "Str",
@@ -25,6 +30,13 @@ workflows = {
     "runFrameworks": {"companyName": "Str", "problemsFile": "Str"},
     "runScenarios": {"companyName": "Str", "problemsFile": "Str"},
 }
+
+
+def file_selector(folder_path="."):
+    filenames = os.listdir(folder_path)
+    selected_filename = st.selectbox("Select a file", filenames)
+    return os.path.join(folder_path, selected_filename)
+
 
 url = "http://127.0.0.1:8000/run"
 
@@ -54,6 +66,18 @@ st.markdown(
 
 st.write(json.dumps(st.session_state["workflow_config"], indent=4, sort_keys=True))
 
+
+uploaded_files = st.file_uploader(
+    "Select workflow config json file to upload", accept_multiple_files=True
+)
+for uploaded_file in uploaded_files:
+    bytes_data = uploaded_file.read()
+    st.write("filename:", uploaded_file.name)
+    st.write(bytes_data)
+    with open(uploaded_file.name, "wb") as f:
+        f.write(bytes_data)
+
+
 workflow = st.selectbox(label="Select a workflow", options=list(workflows.keys()))
 print(workflow)
 print(workflows[workflow])
@@ -66,13 +90,18 @@ workflow_name = st.text_input(
 current_workflow = {"step": workflow, "parameters": {}}
 for key, value in workflows[workflow].items():
     if value == "List":
-        current_workflow["parameters"][key] = st.text_area(f"Enter {key}").split("\n")
+        current_workflow["parameters"][key] = st.text_area(
+            f"Enter {key}", value="Tesla\nApple\nWalmart" if key == "companies" else ""
+        ).split("\n")
     elif value == "Bool":
         current_workflow["parameters"][key] = st.checkbox(f"Delete existing insights")
     elif value == "Int":
-        current_workflow["parameters"][key] = st.number_input(f"Enter {key}")
+        current_workflow["parameters"][key] = st.number_input(f"Enter {key}", value=1)
     elif value == "Str":
-        current_workflow["parameters"][key] = st.text_input(f"Enter {key}")
+        current_workflow["parameters"][key] = st.text_input(
+            f"Enter {key}",
+            value="./problem_statements.json" if key == "problemsFile" else "",
+        )
 # if workflows[workflow] == "List":
 #     companies = st.text_area("Enter companies")
 #     st.session_state['workflow_config'][workflow] = {"companies": companies}

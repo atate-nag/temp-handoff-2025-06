@@ -28,7 +28,8 @@ running_data = {}
 
 @app.get("/get_file")
 def get_file(file_path):
-    return FileResponse(path=file_path, filename=file_path.split["/"][-1])
+    print(f"File Path: {file_path}")
+    return FileResponse(path=file_path, filename=file_path.split("/")[-1])
 
 
 @app.get("/list_files")

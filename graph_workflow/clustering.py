@@ -14,7 +14,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import multiprocessing as mp
 import time
-from utility import invoke
+from utility import invoke, retry
 
 load_dotenv()
 import uuid
@@ -271,6 +271,7 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
 
 # print()
 # rag_graph.compute_insight_embeddings_for_company('NAG', 'description')
+@retry(number_of_retry=3)
 def generate_capabilities_per_cluster(
     companies, compute_embeddings=True, number_of_processes=5
 ):

@@ -15,6 +15,7 @@ from langchain_experimental.text_splitter import SemanticChunker
 import tika
 import time
 from tika import parser
+from utility import retry
 
 tika.initVM()
 # import openai
@@ -78,6 +79,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE")
 
 
+@retry(number_of_retry=3)
 def compute_bucket_embeddings(bucket_str_list_nodes, node, lower_node, field):
     kg = Neo4jGraph(
         url=NEO4J_URI,

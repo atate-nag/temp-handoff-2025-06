@@ -45,14 +45,14 @@ from utility import (
     report_to_markdown,
 )
 
-from config.conf import setup_config
+from config.conf import setup_config, read_config
 import logging
 
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(
     filename="logs/socrates_" + str(datetime.datetime.now()) + ".log",
-    level=logging.INFO,
+    level=logging.DEBUG,
 )
 logger.info("Started")
 # Example usage
@@ -195,10 +195,12 @@ The trends impacting {company_name}
 
 def condense_company_data(company_name, problem):
     # problem = get_problem(company_name, problemsFile)
+    print("company_name", company_name)
+    print("problem", problem)
     company_data = dump_company_graph_to_json(company_name, problem)
 
     # the full capabilities
-
+    print("company_data", company_data)
     context = problem
     subject = f"""
 The insights and capabilities of {company_name}
@@ -411,20 +413,23 @@ def get_file_paths(company_name, problemsFile):
     Give a single company, extracts the problem, company and trend data
     and generates files suitable for agent processing
     """
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+
     company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
     problem_data = get_problem(company_name, problemsFile)
     problem_file_path = file_handler.write_local_json(
-        f"problem_{company_name}", json.dumps(problem_data)
+        f"problem_{company_name}" + run_id, json.dumps(problem_data)
     )
     trends = get_trends(company_name, problemsFile, force_recreate=False)
     company_full_data = get_company_data(company_name, problem_data)
 
     trends_file_path = file_handler.write_local_json(
-        f"company_trends_{company_name}", json.dumps(trends)
+        f"company_trends_{company_name}" + run_id, json.dumps(trends)
     )
 
     company_file_path = file_handler.write_local_json(
-        f"company_data_{company_name}", json.dumps(company_full_data)
+        f"company_data_{company_name}" + run_id, json.dumps(company_full_data)
     )
     return problem_file_path, trends_file_path, company_file_path
 
@@ -450,6 +455,8 @@ def run_scenarios(companyName, problemsFile):
 def generate_scenarios(
     company_name, problem_file_path, trends_file_path, company_file_path
 ):
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
     """
     Executes the scenarios agent  for a single company
     """
@@ -488,7 +495,7 @@ def generate_scenarios(
     # assert False
     # logger.debug(f"scenarios output = {scenarios_output}")
     scenarios_response_file = file_handler.write_local_json(
-        f"scenarios_{company_name}", json.dumps(scenarios_response)
+        f"scenarios_{company_name}" + run_id, json.dumps(scenarios_response)
     )
     # #scenarios_return_file = connector.download_and_write_local(f"_scenarios_output_{company_name}", scenarios_output )
     # logger.info(f"completed scenarios for {company_name}")
@@ -516,6 +523,10 @@ def generate_frameworks(
     """
     Executes the frameworks agent  for a single company
     """
+
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+
     agent_configs = [{"agent_type": "full_graph_frameworks_agent"}]
     for path in [problem_file_path, trends_file_path, company_file_path]:
         logger.info(f"Path: {path}")
@@ -531,7 +542,7 @@ def generate_frameworks(
     frameworks_output = frameworks_dictionary_return.get("output_file")
     logger.debug(f"the frameworks output file is {frameworks_output}")
     frameworks_return_local_file = connector.download_and_write_local(
-        f"frameworks_output_{company_name}", frameworks_output
+        f"frameworks_output_{company_name}" + run_id, frameworks_output
     )
     return frameworks_return_local_file
 
@@ -540,6 +551,10 @@ def run_report(companyName, problemsFile):
     """
     Runs a stand-alone report generation for a single company
     """
+
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
         company_name, problemsFile
@@ -562,7 +577,7 @@ def run_report(companyName, problemsFile):
     )
     if reporting_return_file:
         report_content = connector.download_and_write_local(
-            f"strategic_report_{company_name}", reporting_return_file
+            f"strategic_report_{company_name}" + run_id, reporting_return_file
         )
         logger.debug(
             f"completed report generation for {company_name} at file {reporting_return_file}"
@@ -581,6 +596,8 @@ def generate_report(
     """
     Executes the report generation for a single company
     """
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
     logger.info(f"agent_type: full_graph_reporting_agent")
     agent_configs = [{"agent_type": "full_graph_reporting_agent"}]
     reporting_manager = AgentManager(
@@ -599,7 +616,7 @@ def generate_report(
     reporting_return = reporting_manager.return_dict()
     reporting_output_file = reporting_return["output_file"]
     reporting_output_local_file = connector.download_and_write_local(
-        f"strategic_report_{company_name}", reporting_output_file
+        f"strategic_report_{company_name}" + run_id, reporting_output_file
     )
     return reporting_output_local_file
 
