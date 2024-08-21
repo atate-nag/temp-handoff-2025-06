@@ -2,7 +2,8 @@ import concurrent.futures
 from socrates_main import execute_workflow
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-
+from fastapi import File, UploadFile
+from graph_workflow.graph_rag_lc import RAG_graph
 import datetime
 import multiprocessing as mp
 import threading
@@ -11,6 +12,25 @@ import copy
 import json
 import os
 from typing import Dict, Any
+
+uri = os.getenv("NEO4J_URL")
+user = os.getenv("NEO4J_USER")
+password = os.getenv("NEO4J_PASSWORD")
+database = os.getenv("NEO4J_DATABASE")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_ENDPOINT = os.getenv("OPENAI_ENDPOINT")
+OPENAI_EMBEDDINGS_URL = os.getenv("OPENAI_EMBEDDINGS_URL")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+
+rag_graph = RAG_graph(
+    uri,
+    user,
+    password,
+    database,
+    OPENAI_API_KEY,
+    OPENAI_EMBEDDINGS_URL,
+)
 
 mp.set_start_method("spawn")
 
@@ -24,6 +44,74 @@ running_data = {}
 #                 raise Exception("timeout", f"function: {fn.__name__} failed")
 #             time.sleep(0.2)
 #     future.result()
+
+
+def update_companies():
+    company_names = rag_graph.kg.query(
+        "match (n:Company) return DISTINCT n.name as name"
+    )
+    company_names = [company["name"] for company in company_names]
+    for company in company_names:
+        if not os.path.exists(f"data/{company}"):
+            os.mkdir(f"data/{company}")
+            print(f"Created company {company}")
+
+
+@app.post("/create_company")
+def create_company(company):
+    try:
+        rag_graph.add_company(company)
+        update_companies()
+        return {"message": f"Successfully created company {company}"}
+    except Exception as e:
+        return {"message": f"Error: {e}"}
+
+
+@app.get("/get_companies")
+def get_companies():
+    update_companies()
+    company_names = rag_graph.kg.query(
+        "match (n:Company) return DISTINCT n.name as name"
+    )
+    company_names = [company["name"] for company in company_names]
+    return company_names
+
+
+@app.get("/get_sources")
+def get_sources(company):
+    try:
+        return [source for source in os.listdir(f"data/{company}")]
+    except Exception as e:
+        return {"message": f"Error: {e}"}
+
+
+@app.post("/add_source")
+def add_source(company, source):
+    try:
+        os.mkdir(f"data/{company}/{source}")
+        return {"message": f"Successfully added source {source} to company {company}"}
+    except Exception as e:
+        return {"message": f"Error: {e}"}
+
+
+@app.post("/upload_company_file")
+def upload_company_file(company, source, file: UploadFile = File(...)):
+    try:
+        print(f"File name: {file.filename}")
+        contents = file.file.read()
+        with open(f"data/{company}/{source}/{file.filename}", "wb") as f:
+            f.write(contents)
+    except Exception:
+        return {"message": "There was an error uploading the file"}
+    finally:
+        file.file.close()
+
+    return {"message": f"Successfully uploaded {file.filename}"}
+
+
+@app.get("/get_source_files")
+def get_source_files(company, source):
+    return [file for file in os.listdir(f"data/{company}/{source}")]
 
 
 @app.get("/get_file")
@@ -47,6 +135,21 @@ def delete_file(file_path):
             # return {"message": "Cannot delete this file"}
             os.remove(file_path)
             return {"message": "File deleted successfully"}
+
+
+@app.post("/set_problem_statement")
+def set_problem_statement(file: UploadFile = File(...)):
+    try:
+        print(f"File name: {file.filename}")
+        contents = file.file.read()
+        with open(file.filename, "wb") as f:
+            f.write(contents)
+    except Exception:
+        return {"message": "There was an error uploading the file"}
+    finally:
+        file.file.close()
+
+    return {"message": f"Successfully uploaded {file.filename}"}
 
 
 def update_status(running_data=running_data):

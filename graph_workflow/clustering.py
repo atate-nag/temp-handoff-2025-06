@@ -195,6 +195,7 @@ def kmeans_write_group(
     return kg.query(query)
 
 
+@retry(number_of_retry=3)
 def generate_cluster_and_capabilities(df, company_name, label, now):
 
     cluster_id = str(uuid.uuid4())
@@ -246,19 +247,15 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
         "clusterId": cluster_id,
     }
 
+    capabilities = invoke(
+        chain_capabilities, {"company": company_name, "document": summary}
+    )
     rag_graph.add_cluster(cluster)
 
     for insight in insights:
         res = rag_graph.link_insights_to_cluster(
             insight["insightId"], cluster["clusterId"]
         )
-
-    # capabilities = chain_capabilities.invoke(
-    #     {"company": company_name, "document": summary}
-    # )
-    capabilities = invoke(
-        chain_capabilities, {"company": company_name, "document": summary}
-    )
 
     for capability in capabilities["capabilities"]:
         capability["capabilityId"] = str(uuid.uuid4())
@@ -271,7 +268,8 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
 
 # print()
 # rag_graph.compute_insight_embeddings_for_company('NAG', 'description')
-@retry(number_of_retry=3)
+
+
 def generate_capabilities_per_cluster(
     companies, compute_embeddings=True, number_of_processes=5
 ):

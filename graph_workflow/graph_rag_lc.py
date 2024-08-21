@@ -622,6 +622,7 @@ class RAG_graph:
             },
         )
 
+    @retry(number_of_retry=3)
     def compute_insight_embeddings_for_company(
         self, company="NAG", field="text", number_of_processes=5, bucket_size=50
     ):
@@ -805,7 +806,7 @@ class RAG_graph:
     # def inject_sub_graph()
 
     def company_sub_graph(
-        self, company, label_filters=[], relationship_exclusions=[], depth=5
+        self, company, label_filters=[], relationship_exclusions=[], depth=8
     ):
         edges = self.kg.query("MATCH ()-[r]->() RETURN DISTINCT type(r) as edge")
         edges = [
