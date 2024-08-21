@@ -5,7 +5,8 @@ import time
 
 st.set_page_config(
     page_title="Data",
-    page_icon="👋",
+    page_icon="🔥",
+    layout="wide",
 )
 
 if "files" not in st.session_state:
@@ -108,6 +109,17 @@ with col1:
             f.write(bytes_data)
 
 
+def delete_file(file_path):
+    os.remove(file_path)
+    url = "http://127.0.0.1:8000/delete_file"
+    filename = file_path.split("/")[-1]
+    for folder, files in st.session_state["files"].items():
+        if folder != "files":
+            if filename in files:
+                x = requests.post(url, params={"file_path": folder + "/" + filename})
+    print(x.text)
+
+
 with col2:
     buttons = {}
 
@@ -132,7 +144,7 @@ with col2:
                         with c3:
                             buttons[file]["delete_button"] = st.button(
                                 f"Delete",
-                                on_click=os.remove,
+                                on_click=delete_file,
                                 args=["Outputs/" + file],
                                 key=file,
                             )

@@ -38,6 +38,17 @@ def list_files(folder):
         return [file for file in os.listdir(folder)]
 
 
+@app.post("/delete_file")
+def delete_file(file_path):
+    print(f"File Path: {file_path}")
+    if os.path.exists(file_path):
+        print("File exists")
+        if file_path.split("/")[0] in ["Intermediates", "Strategic Reports"]:
+            # return {"message": "Cannot delete this file"}
+            os.remove(file_path)
+            return {"message": "File deleted successfully"}
+
+
 def update_status(running_data=running_data):
     # PROCESS
 

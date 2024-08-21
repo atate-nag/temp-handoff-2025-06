@@ -43,7 +43,8 @@ url = "http://127.0.0.1:8000/run"
 
 st.set_page_config(
     page_title="Socrates",
-    page_icon="👋",
+    page_icon="🔭",
+    layout="wide",
 )
 
 st.write("# Welcome to Socrates! 👋")

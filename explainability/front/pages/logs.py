@@ -8,7 +8,7 @@ from data_store import Data_store
 
 st.set_page_config(
     page_title="Real-Time Data Science Dashboard",
-    page_icon="✅",
+    page_icon="📖",
     layout="wide",
 )
 
