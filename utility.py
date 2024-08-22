@@ -205,31 +205,35 @@ def condense(
     # et on les regroupe en clusters
     # On cree un dataframe avec les embeddings et les labels des clusters
     print(f"Start condensing {subject}..\n\n")
-    data = [node for nodes in data if nodes for node in nodes]
-    X = [embed(text=node[key], model="text-embedding-3-large") for node in data]
-    X = np.stack(X)
-    print(f"Start computing clusters..")
-    labels = KMeans(n_clusters=number_of_clusters, random_state=0).fit_predict(X)
+    try:
+        data = [node for nodes in data if nodes for node in nodes]
+        X = [embed(text=node[key], model="text-embedding-3-large") for node in data]
+        X = np.stack(X)
+        print(f"Start computing clusters..")
+        labels = KMeans(n_clusters=number_of_clusters, random_state=0).fit_predict(X)
 
-    df = pd.DataFrame(data)
-    df["labels"] = labels
+        df = pd.DataFrame(data)
+        df["labels"] = labels
 
-    with mp.Pool(number_of_processes) as pool:
-        results = [
-            pool.apply_async(
-                generate_condense_summary,
-                args=(df, label, context, subject),
-            )
-            for label in list(set(labels))
-        ]
-        while not all([r.ready() for r in results]):
-            print(
-                f"Condense summary {[r.ready() for r in results].count(True)} / {len(results)} for {subject}."
-            )
-            # [print([r.get() for r in results if r.ready()])]
-            time.sleep(5)
+        with mp.Pool(number_of_processes) as pool:
+            results = [
+                pool.apply_async(
+                    generate_condense_summary,
+                    args=(df, label, context, subject),
+                )
+                for label in list(set(labels))
+            ]
+            while not all([r.ready() for r in results]):
+                print(
+                    f"Condense summary {[r.ready() for r in results].count(True)} / {len(results)} for {subject}."
+                )
+                # [print([r.get() for r in results if r.ready()])]
+                time.sleep(5)
 
-    return [r.get() for r in results]
+        return [r.get() for r in results]
+    except Exception as e:
+        print(f"Error in condensing {subject}: {e}")
+        return []
 
 
 def save_metadata(data):

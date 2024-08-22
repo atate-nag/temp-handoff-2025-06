@@ -214,7 +214,7 @@ with col2:
     buttons = {}
 
     while True:
-        time.sleep(10)
+        time.sleep(2)
         update_files()
         for file in os.listdir("Outputs"):
             if file != "__init__.py" and file != "__pycache__":

@@ -95,7 +95,7 @@ with col1:
             ).split("\n")
         elif value == "Bool":
             current_workflow["parameters"][key] = st.checkbox(
-                f"Delete existing insights"
+                key, value=True
             )
         elif value == "Int":
             current_workflow["parameters"][key] = st.number_input(
@@ -123,18 +123,24 @@ with col1:
     def start_socrates(name):
         print("\n")
         print(st.session_state["running"])
-        if st.session_state["running"]:
-            st.session_state["running"] = False
-        else:
-            p = requests.post(url, json=st.session_state["workflow_config"].copy())
-            st.session_state["workflow_config"] = {}
-            print(p.text)
-            st.session_state["running"] = True
-        print(st.session_state["running"])
+
+        p = requests.post(url, json=st.session_state["workflow_config"].copy())
+        st.session_state["workflow_config"] = {}
+        print(p.text)
+        st.session_state["running"] = True
+
+        # if st.session_state["running"]:
+        #     st.session_state["running"] = False
+        # else:
+        #     p = requests.post(url, json=st.session_state["workflow_config"].copy())
+        #     st.session_state["workflow_config"] = {}
+        #     print(p.text)
+        #     st.session_state["running"] = True
+        # print(st.session_state["running"])
 
     # st.button('Clear name', on_click=start_socrates, args=[''])
     st.button(
-        "Start Socrates!" if not st.session_state["running"] else "Stop Socrates",
+        "Start Socrates!",
         on_click=start_socrates,
         args=["Streamlit"],
     )
@@ -168,7 +174,8 @@ with col2:
     uploaded_file = st.file_uploader(
         "Select problem statement file to import", accept_multiple_files=False
     )
-    if uploaded_file:
+    print(f"uploaded_file: {uploaded_file}")
+    if uploaded_file and uploaded_file.name not in st.session_state["uploaded_files"]:
         bytes_data = uploaded_file.read()
         st.write("filename:", uploaded_file.name)
 
