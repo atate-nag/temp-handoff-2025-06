@@ -8,7 +8,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from typing import List
 from langchain_openai import ChatOpenAI
-from utility import dict_to_plain_text
+from utility import dict_to_plain_text, invoke
 from multiprocessing import Pool
 
 load_dotenv()
@@ -486,7 +486,7 @@ get_trends = PromptTemplate(
 
 
 chain_trends = get_trends | model_trends | parser_trends
-folders = ["45. Information Technology", "00. NAG Activities"]
+# folders = ["45. Information Technology", "00. NAG Activities"]
 folders = [
     "00. NAG Activities",
     "10. Energy",
@@ -503,11 +503,18 @@ folders = [
 
 
 def trend_extraction(chunk, gics_code, gics_name):
-    trends = chain_trends.invoke(
+    # trends = chain_trends.invoke(
+    #     {
+    #         "industry_document": dict_to_plain_text(industry_document),
+    #         "trend_document": chunk["text"] + "\nSource: " + chunk["source"],
+    #     }
+    # )
+    trends = invoke(
+        chain_trends,
         {
             "industry_document": dict_to_plain_text(industry_document),
             "trend_document": chunk["text"] + "\nSource: " + chunk["source"],
-        }
+        },
     )
     # print(trends)
     for trend in trends["Trends"]:

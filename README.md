@@ -100,7 +100,14 @@ is what is supported so far
             "folders": ["10. Energy", "25. Consumer Discretionary"],
             "number_of_processes": 5
          }
-
+- "clusterTrends": {
+      "step": "clusterTrends",
+      "parameters": {
+        "compute_embeddings": true,
+        "number_of_processes": 5
+      },
+      "enabled": true
+    },
 - getCapabilities: "get_capabilities_tesla" : {
       "step": "getCapabilities",
       "enabled": true,

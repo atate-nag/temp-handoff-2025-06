@@ -35,7 +35,6 @@ class LinkedinAgent:
         """
         self.google_news = GNews(period=period, max_results=max_results)
 
-
     def get_news(self, topic: str):
         """
         Retrieves news related to the specified topic.
@@ -146,7 +145,6 @@ class LinkedinAgent:
                 print(e)
         return data
 
-
     def get_company_description(self, companyURL):
         driver = webdriver.Chrome()
         driver.get(companyURL)
@@ -194,7 +192,7 @@ class LinkedinAgent:
         except:
             feed = None
         return feed
-    
+
     def get_linkedin_url_company(self, company):
         try:
             search = company + " linkedin"
@@ -215,7 +213,9 @@ class LinkedinAgent:
             # print(soup)
             search = soup.find(id="search")
             # print(search)
-            first_link = search.find("a")  # .replace('www.linkedin.com', 'uk.linkedin.com')
+            first_link = search.find(
+                "a"
+            )  # .replace('www.linkedin.com', 'uk.linkedin.com')
 
             return first_link["href"].replace("www.linkedin.com", "uk.linkedin.com")
         except Exception as e:

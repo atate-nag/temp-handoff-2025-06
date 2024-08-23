@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from agent_workflow_manager import AgentManager
-from debug import dprint
 from graph_workflow.full_graph import (
     dump_company_graph_to_plain_txt,
     dump_company_graph_to_json,
@@ -34,6 +33,8 @@ from report_agent import get_subsections, find_and_fill
 import json, re
 
 from model_connector import ModelConnectorFactory
+import datetime
+
 from utility import (
     dict_to_plain_text,
     json_to_markdown,
@@ -44,6 +45,16 @@ from utility import (
     report_to_markdown,
 )
 
+from config.conf import setup_config, read_config
+import logging
+
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(
+    filename="logs/socrates_" + str(datetime.datetime.now()) + ".log",
+    level=logging.DEBUG,
+)
+logger.info("Started")
 # Example usage
 model_config = {
     "model_type": "openai_assistants",
@@ -83,31 +94,37 @@ gics_mapping = {
 # This is the local file handler. remote files are dealt with in ModelConnector
 
 
-def execute_workflow():
+def execute_workflow(workflow_config=workflow_config):
     """Executes the workflow steps based on the configuration."""
-    dprint(f"workflow config is {workflow_config}")
-    dprint("Enabled workflow steps:")
+    logger.debug(f"workflow config is {workflow_config}")
+    logger.debug("Enabled workflow steps:")
     for step_name, details in workflow_config.items():
+        logger.info(f"- {step_name}")
+        logger.info(f"details: {details}")
         step = details.get("step", step_name)
+        logger.info(f"step: {step}")
         if details.get("enabled", False):
             func = get_step_function(step)
+            setup_config(**{"run_id": step_name + "_" + str(datetime.datetime.now())})
             if func:
                 # Unpack all parameters dynamically for the function
                 parameters = details.get("parameters", {})
-                dprint(f"- Executing {step_name} with parameters: {parameters}...")
+                logger.debug(
+                    f"- Executing {step_name} with parameters: {parameters}..."
+                )
                 func(**parameters)  # Use ** to unpack and pass named parameters
             else:
-                dprint(f"No function defined for {step}.")
-    dprint("Finished workflow steps.")
+                logger.debug(f"No function defined for {step}.")
+    logger.debug("Finished workflow steps.")
 
 
 def main():
     enabled_steps = [
         step for step, details in workflow_config.items() if details["enabled"]
     ]
-    dprint("Enabled workflow steps:")
+    logger.debug("Enabled workflow steps:")
     for step in enabled_steps:
-        dprint(f"- {step}")
+        logger.debug(f"- {step}")
     execute_workflow()
 
 
@@ -148,7 +165,7 @@ def get_capabilities(companyName, problemsFile):
     capabilities = generate_capabilities_per_cluster(
         [company_name], compute_embeddings=True, number_of_processes=5
     )
-    dprint("capabilities:", capabilities)
+    logger.debug("capabilities:", capabilities)
     return capabilities
 
 
@@ -178,10 +195,12 @@ The trends impacting {company_name}
 
 def condense_company_data(company_name, problem):
     # problem = get_problem(company_name, problemsFile)
+    print("company_name", company_name)
+    print("problem", problem)
     company_data = dump_company_graph_to_json(company_name, problem)
 
     # the full capabilities
-
+    print("company_data", company_data)
     context = problem
     subject = f"""
 The insights and capabilities of {company_name}
@@ -196,7 +215,7 @@ The insights and capabilities of {company_name}
         number_of_clusters=50,
         number_of_processes=5,
     )
-    print("Saving condensed company data")
+    logger.info("Saving condensed company data")
     save_condensed_company_data(company_name, problem, condensed_company_data)
 
 
@@ -212,7 +231,9 @@ def get_problem(company_name, problemsFile):
         statement = problem_statements[company_name]
         return statement.replace("'", "\\'")
     else:
-        dprint(f"Problem statement not found for the specified company {company_name}.")
+        logger.debug(
+            f"Problem statement not found for the specified company {company_name}."
+        )
         raise Exception(
             f"Problem statement not found for the specified company {company_name}."
         )
@@ -226,24 +247,24 @@ def get_trends(company_name, problemFile, force_recreate=False):
     """
     problem = get_problem(company_name, problemFile)
     gics_code, gics_name = get_gics_code_and_name(company_name)
-    dprint(f"gics_code: {gics_code}")
+    logger.debug(f"gics_code: {gics_code}")
     condense_trend_data = get_condensed_trend_data(company_name, problem)
     curated_trend_data = get_curated_trend_data(company_name, gics_code, problem)
 
     trend_data = None  # Initialize trend_data
 
     if condense_trend_data and not force_recreate:
-        dprint(f"Loaded condensed trends from archive")
+        logger.debug(f"Loaded condensed trends from archive")
         trend_data = condense_trend_data
     elif curated_trend_data and not force_recreate:
-        dprint(f"Loaded trends from archive")
+        logger.debug(f"Loaded trends from archive")
         trend_data = condense_trends(company_name, problemFile)
     else:
         curated_trend_data = get_trends_from_gics_code(gics_code, problem)
-        dprint(f"Generated trends")
+        logger.debug(f"Generated trends")
         save_curated_trend_data(company_name, gics_code, problem, curated_trend_data)
         trend_data = condense_trends(company_name, problemFile)
-        dprint(f"Saved trends to archive")
+        logger.debug(f"Saved trends to archive")
 
     # implement validation and checking of trends
 
@@ -254,14 +275,14 @@ def get_company_data(companyName, problem_statement):
     """
     Retrieves the full data for a given company
     """
-    dprint(" calling get_company_data with companyName: ", companyName)
+    logger.debug(" calling get_company_data with companyName: ", companyName)
     condensed_company_data = get_condensed_company_data(companyName, problem_statement)
     if condensed_company_data:
-        dprint(f"Loaded condensed company data from archive")
+        logger.debug(f"Loaded condensed company data from archive")
         company_full_data = condensed_company_data
     else:
         condense_company_data(companyName, problem_statement)
-        print("Getting condensed company data")
+        logger.info("Getting condensed company data")
         company_full_data = get_condensed_company_data(companyName, problem_statement)
     # implement validation and checking of trends
     return company_full_data
@@ -380,9 +401,9 @@ def get_gics_code_and_name(company_name):
         55: "Utilities",
         60: "Real Estate",
     }
-    print(f"company_name: {company_name}")
+    logger.info(f"company_name: {company_name}")
     gics_code = company_to_gics.get(company_name, None)
-    print(f"gics_code: {gics_code}")
+    logger.info(f"gics_code: {gics_code}")
     gics_name = [gics_mapping.get(g_code, "") if g_code else "" for g_code in gics_code]
     return gics_code, gics_name
 
@@ -392,20 +413,23 @@ def get_file_paths(company_name, problemsFile):
     Give a single company, extracts the problem, company and trend data
     and generates files suitable for agent processing
     """
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+
     company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
     problem_data = get_problem(company_name, problemsFile)
     problem_file_path = file_handler.write_local_json(
-        f"problem_{company_name}", json.dumps(problem_data)
+        f"problem_{company_name}" + run_id, json.dumps(problem_data)
     )
     trends = get_trends(company_name, problemsFile, force_recreate=False)
     company_full_data = get_company_data(company_name, problem_data)
 
     trends_file_path = file_handler.write_local_json(
-        f"company_trends_{company_name}", json.dumps(trends)
+        f"company_trends_{company_name}" + run_id, json.dumps(trends)
     )
 
     company_file_path = file_handler.write_local_json(
-        f"company_data_{company_name}", json.dumps(company_full_data)
+        f"company_data_{company_name}" + run_id, json.dumps(company_full_data)
     )
     return problem_file_path, trends_file_path, company_file_path
 
@@ -423,12 +447,16 @@ def run_scenarios(companyName, problemsFile):
     )
 
     # Add validation and quality checks of scenarios outputs
-    dprint(f"The final scenarios output is available in file {scenarios_return_file}")
+    logger.debug(
+        f"The final scenarios output is available in file {scenarios_return_file}"
+    )
 
 
 def generate_scenarios(
     company_name, problem_file_path, trends_file_path, company_file_path
 ):
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
     """
     Executes the scenarios agent  for a single company
     """
@@ -442,35 +470,35 @@ def generate_scenarios(
     )
     scenarios_manager.run_workflow()
     scenarios_return_data = scenarios_manager.return_dict()
-    print(f"scenarios_return_data: {str(scenarios_return_data)}")
-    # print(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
+    logger.info(f"scenarios_return_data: {str(scenarios_return_data)}")
+    # logger.info(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
     # scenarios_return_data
     # scenarios_response = scenarios_manager.agent_response
-    # print(f"scenarios_response: {str(scenarios_response)}")
-    # print(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
+    # logger.info(f"scenarios_response: {str(scenarios_response)}")
+    # logger.info(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
     # assert False
     # scenarios_response = scenarios_manager.get("response_file")
-    print(f"scenarios_response: {scenarios_return_data}")
-    print(f"scenarios_return_data: {scenarios_manager}")
+    logger.info(f"scenarios_response: {scenarios_return_data}")
+    logger.info(f"scenarios_return_data: {scenarios_manager}")
     scenarios_output = scenarios_return_data.get("output_file")
     scenarios_response = scenarios_return_data.get("response_file")
-    print(f"scenarios_output: {scenarios_output}")
-    print(f"scenarios_response: {scenarios_response}")
-    # print(f"scenarios_output: {scenarios_output}")
+    logger.info(f"scenarios_output: {scenarios_output}")
+    logger.info(f"scenarios_response: {scenarios_response}")
+    # logger.info(f"scenarios_output: {scenarios_output}")
     scenarios_local_output = connector.download_and_write_local(
         f"scenarios_output_{company_name}", scenarios_output
     )
-    print(f"scenarios_local_output: {scenarios_local_output}")
+    logger.info(f"scenarios_local_output: {scenarios_local_output}")
     # scenarios_local_response = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
-    # print(f"scenarios_local_response: {scenarios_local_response}")
+    # logger.info(f"scenarios_local_response: {scenarios_local_response}")
     # scenarios_response_file = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
     # assert False
-    # dprint(f"scenarios output = {scenarios_output}")
+    # logger.debug(f"scenarios output = {scenarios_output}")
     scenarios_response_file = file_handler.write_local_json(
-        f"scenarios_{company_name}", json.dumps(scenarios_response)
+        f"scenarios_{company_name}" + run_id, json.dumps(scenarios_response)
     )
     # #scenarios_return_file = connector.download_and_write_local(f"_scenarios_output_{company_name}", scenarios_output )
-    # print(f"completed scenarios for {company_name}")
+    # logger.info(f"completed scenarios for {company_name}")
     return scenarios_local_output, scenarios_response_file
 
 
@@ -485,7 +513,7 @@ def run_frameworks(companyName, problemsFile):
     frameworks_file = generate_frameworks(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
-    dprint(f"the frameworks output file is {frameworks_file}")
+    logger.debug(f"the frameworks output file is {frameworks_file}")
     # Add validation and quality checks of frameworks outputs
 
 
@@ -495,9 +523,13 @@ def generate_frameworks(
     """
     Executes the frameworks agent  for a single company
     """
+
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+
     agent_configs = [{"agent_type": "full_graph_frameworks_agent"}]
     for path in [problem_file_path, trends_file_path, company_file_path]:
-        print(f"Path: {path}")
+        logger.info(f"Path: {path}")
     frameworks_manager = AgentManager(
         connector,
         file_handler,
@@ -508,9 +540,9 @@ def generate_frameworks(
     frameworks_manager.run_workflow()
     frameworks_dictionary_return = frameworks_manager.return_dict()
     frameworks_output = frameworks_dictionary_return.get("output_file")
-    dprint(f"the frameworks output file is {frameworks_output}")
+    logger.debug(f"the frameworks output file is {frameworks_output}")
     frameworks_return_local_file = connector.download_and_write_local(
-        f"frameworks_output_{company_name}", frameworks_output
+        f"frameworks_output_{company_name}" + run_id, frameworks_output
     )
     return frameworks_return_local_file
 
@@ -519,6 +551,10 @@ def run_report(companyName, problemsFile):
     """
     Runs a stand-alone report generation for a single company
     """
+
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
         company_name, problemsFile
@@ -541,13 +577,13 @@ def run_report(companyName, problemsFile):
     )
     if reporting_return_file:
         report_content = connector.download_and_write_local(
-            f"strategic_report_{company_name}", reporting_return_file
+            f"strategic_report_{company_name}" + run_id, reporting_return_file
         )
-        dprint(
+        logger.debug(
             f"completed report generation for {company_name} at file {reporting_return_file}"
         )
     else:
-        dprint(f"Error: Report generation for {company_name} failed")
+        logger.debug(f"Error: Report generation for {company_name} failed")
 
 
 def generate_report(
@@ -560,7 +596,9 @@ def generate_report(
     """
     Executes the report generation for a single company
     """
-    print(f"agent_type: full_graph_reporting_agent")
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+    logger.info(f"agent_type: full_graph_reporting_agent")
     agent_configs = [{"agent_type": "full_graph_reporting_agent"}]
     reporting_manager = AgentManager(
         connector,
@@ -578,7 +616,7 @@ def generate_report(
     reporting_return = reporting_manager.return_dict()
     reporting_output_file = reporting_return["output_file"]
     reporting_output_local_file = connector.download_and_write_local(
-        f"strategic_report_{company_name}", reporting_output_file
+        f"strategic_report_{company_name}" + run_id, reporting_output_file
     )
     return reporting_output_local_file
 
@@ -602,24 +640,24 @@ def run_strategy(companyName, problemsFile):
     scenarios_response_file = file_handler.write_local_json(
         f"scenarios_{company_name}", json.dumps(scenarios_response)
     )
-    print(f"scenarios_response_file: {scenarios_response_file}")
+    logger.info(f"scenarios_response_file: {scenarios_response_file}")
 
-    # print(connector.retrieve_file_content(scenarios_response_file))
+    # logger.info(connector.retrieve_file_content(scenarios_response_file))
     # assert scenarios_response_file.startswith("./Intermediates")
 
-    # print(f"scenarios_return_file: {scenarios_return_file}")
+    # logger.info(f"scenarios_return_file: {scenarios_return_file}")
     # assert scenarios_return_file.startswith("./Intermediates")
     # Generate frameworks using the frameworks agent
     frameworks_file_path = generate_frameworks(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
 
-    # print(f"frameworks_file_path: {frameworks_file_path}")
+    # logger.info(f"frameworks_file_path: {frameworks_file_path}")
     # assert frameworks_file_path.startswith("./Intermediates")
     # Generate a strategic report using the reporting agent
-    print(f"scenarios_response_file: {scenarios_response_file}")
-    print(f"scenarios_return_file: {scenarios_return_file}")
-    print(f"frameworks_file_path: {frameworks_file_path}")
+    logger.info(f"scenarios_response_file: {scenarios_response_file}")
+    logger.info(f"scenarios_return_file: {scenarios_return_file}")
+    logger.info(f"frameworks_file_path: {frameworks_file_path}")
     reporting_return_file = generate_report(
         company_name,
         scenarios_response_file,
@@ -628,10 +666,10 @@ def run_strategy(companyName, problemsFile):
         trends_file_path,
     )
 
-    print(f"reporting_return_file: {reporting_return_file}")
+    logger.info(f"reporting_return_file: {reporting_return_file}")
     # assert reporting_return_file.startswith("./Intermediates")
     # report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-    dprint(
+    logger.debug(
         f"completed strategic analysis for {company_name} at file {reporting_return_file}"
     )
     # with open(report_path, "w") as file:

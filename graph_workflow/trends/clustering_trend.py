@@ -17,7 +17,7 @@ from langchain_core.prompts import PromptTemplate
 from typing import Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from utility import dict_to_plain_text
+from utility import dict_to_plain_text, invoke
 import multiprocessing as mp
 import time
 
@@ -118,12 +118,20 @@ def create_cluster(df, label, now):
         for trend in trends
     ]
 
-    summary = chain_summary.invoke(
+    # summary = chain_summary.invoke(
+    #     {
+    #         "trends": " ***** "
+    #         + "\n ***** \n".join(dict_to_plain_text(trend_to_summarize))
+    #         + " ***** "
+    #     }
+    # )
+    summary = invoke(
+        chain_summary,
         {
             "trends": " ***** "
             + "\n ***** \n".join(dict_to_plain_text(trend_to_summarize))
             + " ***** "
-        }
+        },
     )
     # print(summary)
     # print(list(set(categories)))

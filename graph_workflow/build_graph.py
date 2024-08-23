@@ -157,7 +157,71 @@ d = datetime.datetime.now()
 d = d.strftime("%m/%d/%Y %H:%M:%S")
 
 
+def add_report_linker(companyName):
+    pass
+
+
+def add_linkedin(companyName):
+    pass
+
+
+def add_fortune(companyName):
+    pass
+
+
+def add_perigon(companyName):
+    pass
+
+
+def add_wikipedia(companyName):
+    pass
+
+
+def add_sources(companyName):
+    folder_path = f"data/{companyName}"
+    try:
+        if os.path.exists(folder_path):
+            for source in os.listdir(folder_path):
+                docs = []
+                for file in os.listdir(f"{folder_path}/{source}"):
+                    print(f"Adding {file} to {companyName}")
+                    # self, document, title, source, source_location, creation_time
+                    doc = rag_graph.kg.query(
+                        'match (n:Document) where n.name = "' + file + '" return n'
+                    )
+                    if len(doc) > 0:
+                        print(f"Document {file} already exists")
+                        continue
+
+                    rag_graph.add_document_and_chunks(
+                        f"{folder_path}/{source}/{file}",
+                        file,
+                        folder_path,
+                        source,
+                        d,
+                    )
+
+                    docs.append({"name": file})
+
+                rag_graph.add_class(
+                    {
+                        "classId": source,
+                        "name": source,
+                        "source": source,
+                        "created": d,
+                        "text": source,
+                    }
+                )
+                rag_graph.link_company_to_class(companyName, source)
+
+                for doc in docs:
+                    rag_graph.link_class_to_document(source, doc["name"])
+    except Exception as e:
+        print(e)
+
+
 def fill_graph(companies):
+    print("Filling graph")
     try:
         data = pd.read_csv("data/sources/fortune/fortune.csv")
         data["linkedin"] = data["linkedin2"]
@@ -195,6 +259,11 @@ def fill_graph(companies):
             print(f"Company {company['name']} already exists")
         else:
             create_companies(company["name"])
+
+        ## Sources
+        print("SOURCES: ")
+
+        add_sources(company["name"])
 
         ## ReportLinker
         print("REPORTLINKER: ")
