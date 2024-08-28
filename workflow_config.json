@@ -15,7 +15,7 @@
       }
     },
     "runTask" : {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "companyName": "Valero_Energy",
         "debug" : false,
@@ -138,7 +138,7 @@
       }
     },
     "cleanUp": {
-      "enabled": true
+      "enabled": false
     },
     "buildCompetitiveEnvironment": {
       "enabled": false,
@@ -148,6 +148,12 @@
         "companyName": "nag",
         "updateGraph": false,
         "debugRun" : false
+      }
+    },
+    "runReport2" : {
+      "enabled": true,
+      "parameters": {
+        "company": "Amazon"   
       }
     }
   }
