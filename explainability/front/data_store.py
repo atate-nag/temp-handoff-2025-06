@@ -3,16 +3,15 @@ import datetime
 import datetime
 import shutil
 import logging
+from logging import config
 import os
 
 if "socrates_front" not in logging.root.manager.loggerDict.keys():
-    print(logging.root.manager.loggerDict.keys())
-    logging.config.fileConfig(
+    config.fileConfig(
         "../../config/logging_config_front.ini",
         defaults={"date": datetime.datetime.now()},
         disable_existing_loggers=True,
     )
-    print(logging.root.manager.loggerDict.keys())
 
 
 logger = logging.getLogger("socrates_front")
