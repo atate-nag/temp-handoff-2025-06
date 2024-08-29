@@ -16,13 +16,11 @@ from typing import Dict, Any
 import logging
 
 if "socrates_server" not in logging.root.manager.loggerDict.keys():
-    print(logging.root.manager.loggerDict.keys())
     logging.config.fileConfig(
         "config/logging_config_serv.ini",
         defaults={"date": datetime.datetime.now()},
         disable_existing_loggers=True,
     )
-    print(logging.root.manager.loggerDict.keys())
 
 
 logger = logging.getLogger("socrates_server")
