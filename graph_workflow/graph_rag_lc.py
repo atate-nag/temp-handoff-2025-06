@@ -93,7 +93,6 @@ def compute_bucket_embeddings(bucket_str_list_nodes, node, lower_node, field):
         password=NEO4J_PASSWORD,
         database=NEO4J_DATABASE,
     )
-    logger.info("Computing bucket embedding..")
     query = f"""MATCH (n:{node}) WHERE n.{lower_node}Id in {bucket_str_list_nodes}
             WITH n, genai.vector.encode(
             n.{field}, 
