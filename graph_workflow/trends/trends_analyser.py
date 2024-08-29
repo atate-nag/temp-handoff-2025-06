@@ -8,12 +8,19 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from typing import List
 from langchain_openai import ChatOpenAI
-from utility import dict_to_plain_text, invoke
+from utility import dict_to_plain_text, invoke, logger
+import multiprocessing
 from multiprocessing import Pool
 
 load_dotenv()
 import uuid
 import json
+
+try:
+    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+    multiprocessing.set_start_method("spawn")
+except Exception as e:
+    logger.error(__name__ + " - " + str(e))
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
@@ -609,7 +616,6 @@ def generate_trends(folders=folders, number_of_processes=5):
 
             print("Waiting for processes to finish...")
             while not all([r.ready() for r in results]):
-
                 print(
                     f"trends added for chunk {[r.ready() for r in results].count(True)} / {len(results)}."
                 )

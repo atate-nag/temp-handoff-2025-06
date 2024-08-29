@@ -8,7 +8,7 @@ load_dotenv()
 
 from graph_workflow.graph_rag_lc import RAG_graph
 from filehandler import FileHandler
-from utility import retry, invoke
+from utility import retry, invoke, logger
 import time
 
 # from dochandler import import_data_files
@@ -16,6 +16,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 from multiprocessing import Pool
+import multiprocessing
 from filehandler import FileHandler
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from pydantic import BaseModel, ConfigDict, Field
@@ -33,6 +34,12 @@ file_handler = FileHandler(client)
 import json
 import sys
 import uuid
+
+try:
+    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+    multiprocessing.set_start_method("spawn")
+except Exception as e:
+    logger.error(__name__ + " - " + str(e))
 
 load_dotenv()
 # client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -483,7 +490,6 @@ def get_insights(companies, delete_existing_insights=False, number_of_processes=
                 results.append(pool.apply_async(add_insight, args=(name, text, dict)))
             print("Waiting for processes to finish...")
             while not all([r.ready() for r in results]):
-
                 print(
                     f"insights added for chunk {[r.ready() for r in results].count(True)} / {len(results)} for {name}."
                 )

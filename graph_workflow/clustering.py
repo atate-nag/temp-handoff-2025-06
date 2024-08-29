@@ -14,15 +14,16 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import multiprocessing as mp
 import time
-from utility import invoke, retry
+from utility import invoke, retry, logger
 import logging
 import json
 
-if not logging.getLogger().hasHandlers():
-    with open("config/logging_config.json") as json_file:
-        logging.config.dictConfig(json.load(json_file))
-logger = logging.getLogger("socrates_main")
 
+try:
+    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+    mp.set_start_method("spawn")
+except Exception as e:
+    logger.error(__name__ + " - " + str(e))
 
 load_dotenv()
 import uuid
@@ -205,7 +206,7 @@ def kmeans_write_group(
 
 @retry(number_of_retry=3)
 def generate_cluster_and_capabilities(df, company_name, label, now):
-
+    logger.debug("Clustering starting...")
     cluster_id = str(uuid.uuid4())
 
     df_insights = df[df["label"] == label]
@@ -237,6 +238,7 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
     #         "insights": " ***** " + "\n ***** \n".join(descriptions) + " ***** ",
     #     }
     # )
+    # logging.debug("invoking summary")
     summary = invoke(
         chain_summary,
         {
@@ -255,6 +257,7 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
         "clusterId": cluster_id,
     }
 
+    # logging.debug("invoking capabilities")
     capabilities = invoke(
         chain_capabilities, {"company": company_name, "document": summary}
     )
@@ -298,11 +301,9 @@ def generate_capabilities_per_cluster(
             X = []
 
             for node in graph:
-
                 insightId = node.get("insightId", "")
 
                 for key, value in node.items():
-
                     if key == "descriptionEmbedding":
                         X.append(np.array([float(v) for v in value]))
 
@@ -317,7 +318,7 @@ def generate_capabilities_per_cluster(
 
             now = datetime.now()
             now = now.strftime("%m/%d/%Y, %H:%M:%S")
-
+            logger.debug("Multiprocessing starting...")
             with mp.Pool(number_of_processes) as pool:
                 results = []
                 for label in list(set(labels)):
@@ -329,7 +330,6 @@ def generate_capabilities_per_cluster(
                     )
 
                 while not all([r.ready() for r in results]):
-
                     logger.info(
                         f"cluster and capabilities added {[r.ready() for r in results].count(True)} / {len(results)} for {company}."
                     )

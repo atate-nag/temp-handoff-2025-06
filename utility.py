@@ -18,25 +18,27 @@ import tiktoken
 from config.conf import setup_config, read_config
 import logging
 
-d = datetime.datetime.now()
-d = d.strftime("%m-%d-%Y %H:%M:%S")
-
-client = OpenAI()
-now = str(datetime.datetime.now())
-conf = read_config()
-
 if "socrates_main" not in logging.root.manager.loggerDict.keys():
     for name, logger in logging.root.manager.loggerDict.items():
         logger.disabled = True
-    print(logging)
-    print(logging.root.manager.loggerDict.keys())
     # logging.config.dictConfig(config={'level': logging.DEBUG, 'handlers': []})
     logging.config.fileConfig(
         "config/logging_config_socrates.ini",
         defaults={"date": str(datetime.datetime.now())},
         disable_existing_loggers=False,
     )
-    print(logging.root.manager.loggerDict.keys())
+try:
+    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+    mp.set_start_method("spawn")
+except Exception as e:
+    logger.error(__name__ + " - " + str(e))
+
+d = datetime.datetime.now()
+d = d.strftime("%m-%d-%Y %H:%M:%S")
+
+client = OpenAI()
+now = str(datetime.datetime.now())
+conf = read_config()
 
 
 logger = logging.getLogger("socrates_main")

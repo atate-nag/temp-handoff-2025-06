@@ -1,5 +1,5 @@
 from graph_workflow.graph_rag_lc import RAG_graph
-from utility import dict_to_plain_text, invoke
+from utility import dict_to_plain_text, invoke, logger
 
 import os
 from chains import (
@@ -12,6 +12,11 @@ import multiprocessing as mp
 import time
 import uuid
 
+try:
+    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+    mp.set_start_method("spawn")
+except Exception as e:
+    logger.error(__name__ + " - " + str(e))
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")

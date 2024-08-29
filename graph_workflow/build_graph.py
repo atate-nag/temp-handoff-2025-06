@@ -304,7 +304,6 @@ def fill_graph(companies):
             logger.info(f"linkedin {company['name']} already exists")
         else:
             try:
-
                 docs = []
                 for n, t in ta.get_linkedin_feed(company["linkedin"]):
                     id = str(uuid.uuid4())
@@ -350,7 +349,6 @@ def fill_graph(companies):
         if len(check) > 0:
             logger.info(f"Fortune {company['name']} already exists")
         else:
-
             rag_graph.add_class(
                 {
                     "classId": "Fortune_" + company["name"],
@@ -390,7 +388,6 @@ def fill_graph(companies):
         if len(check) > 0:
             logger.info(f"Perigon {company['name']} already exists")
         else:
-
             # try:
             # results = perigonAPI.get_company_by_name(company['name'])['results']
             logger.info("perigon/" + name + "_perigon.txt")
@@ -442,12 +439,10 @@ def fill_graph(companies):
                 # logger.info(result)
                 for r in result:
                     for key, value in r.items():
-
                         id = str(uuid.uuid4())
 
                         value = str(value)
                         if len(str(value)) > 150:
-
                             doc = rag_graph.add_document_and_chunks_from_text(
                                 key.replace("'", "") + ": " + value,
                                 id,
@@ -484,7 +479,6 @@ def fill_graph(companies):
         if len(check) > 0:
             logger.info(f"wikipedia {company['name']} already exists")
         else:
-
             rag_graph.add_class(
                 {
                     "classId": "wikipedia_" + company["name"],
@@ -499,7 +493,6 @@ def fill_graph(companies):
                 company["name"], "wikipedia_" + company["name"]
             )
             try:
-
                 with open(
                     f"data/sources/wikipedia/{mapping[name]}.json",
                     "r",
@@ -518,7 +511,6 @@ def fill_graph(companies):
 
                     value = str(value)
                     if len(str(value)) > 150:
-
                         doc = rag_graph.add_document_and_chunks_from_text(
                             key.replace("'", "") + ": " + value,
                             id,

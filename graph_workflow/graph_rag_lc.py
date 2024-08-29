@@ -15,7 +15,7 @@ from langchain_experimental.text_splitter import SemanticChunker
 import tika
 import time
 from tika import parser
-from utility import retry
+from utility import retry, logger
 
 tika.initVM()
 # import openai
@@ -24,7 +24,13 @@ tika.initVM()
 import os
 import uuid
 import multiprocessing as mp
+import logging
 
+try:
+    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+    mp.set_start_method("spawn")
+except Exception as e:
+    logger.error(__name__ + " - " + str(e))
 
 # def extract_keywords(documents):
 
@@ -32,7 +38,7 @@ import multiprocessing as mp
 #     keywords = kw_model.extract_keywords([documents])
 
 #     # keywords.extend(kw_model.extract_keywords([documents], keyphrase_ngram_range=(1, 2), stop_words=None))
-#     # print(f"keywords: {[keyword[0] for keyword in keywords]}")
+#     # logger.info(f"keywords: {[keyword[0] for keyword in keywords]}")
 #     return [keyword[0] for keyword in keywords]
 
 
@@ -87,7 +93,7 @@ def compute_bucket_embeddings(bucket_str_list_nodes, node, lower_node, field):
         password=NEO4J_PASSWORD,
         database=NEO4J_DATABASE,
     )
-    print("Computing bucket embedding..")
+    logger.info("Computing bucket embedding..")
     query = f"""MATCH (n:{node}) WHERE n.{lower_node}Id in {bucket_str_list_nodes}
             WITH n, genai.vector.encode(
             n.{field}, 
@@ -99,7 +105,7 @@ def compute_bucket_embeddings(bucket_str_list_nodes, node, lower_node, field):
             CALL db.create.setNodeVectorProperty(n, "{field}Embedding", vector)
             """
 
-    # print(f"query: {query}")
+    # logger.info(f"query: {query}")
     kg.query(
         query,
         params={
@@ -121,7 +127,6 @@ class RAG_graph:
         OPENAI_ENDPOINT,
         text_splitters=None,
     ):
-
         self.OPENAI_API_KEY = OPENAI_API_KEY
         self.OPENAI_ENDPOINT = OPENAI_ENDPOINT
 
@@ -262,7 +267,7 @@ class RAG_graph:
 
     # def create_vector_index(self, index_name, node, property):
     #     params ={'index_name': index_name, 'node': '(node.'+node+')', 'properties': property}
-    #     print(params)
+    #     logger.info(params)
     #     self.kg.query(f"CREATE VECTOR INDEX {index_name} IF NOT EXISTS " +
     #      f"FOR (node:{node}) ON (node.{property}) " +
     #      "OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'} }", params={})
@@ -329,7 +334,7 @@ class RAG_graph:
             )
             del self.indexes[index_name]
         except Exception as e:
-            print(e)
+            logger.info(e)
 
     def fetch_indexes(self):
         try:
@@ -338,14 +343,14 @@ class RAG_graph:
             SHOW INDEXES
             """
             )
-            print(indexes)
+            logger.info(indexes)
             return indexes
         except Exception as e:
-            print(e)
+            logger.info(e)
 
     def get_indexes(self):
         for index in self.indexes:
-            print(index)
+            logger.info(index)
         return self.indexes
 
     def add_company(self, company_name):
@@ -357,19 +362,19 @@ class RAG_graph:
         )
 
     def add_chunk(self, chunk):
-        # print(f"Chunk: {chunk}")
+        # logger.info(f"Chunk: {chunk}")
         self.kg.query(self.merge_chunk_node_query, params={"chunkParam": chunk})
 
     def add_insight(self, insight):
-        # print(f"Chunk: {chunk}")
+        # logger.info(f"Chunk: {chunk}")
         self.kg.query(self.merge_insight_node_query, params={"insightParam": insight})
 
     def add_trend(self, trend):
-        # print(f"Chunk: {chunk}")
+        # logger.info(f"Chunk: {chunk}")
         self.kg.query(self.merge_trend_node_query, params={"trendParam": trend})
 
     def add_capability(self, capability):
-        # print(f"Chunk: {chunk}")
+        # logger.info(f"Chunk: {chunk}")
         self.kg.query(
             self.merge_capability_node_query, params={"capabilityParam": capability}
         )
@@ -388,7 +393,6 @@ class RAG_graph:
     def add_document_and_chunks(
         self, document, title, source, source_location, creation_time
     ):
-
         parsed = parser.from_file(document)
 
         return self.add_document_and_chunks_from_text(
@@ -405,13 +409,13 @@ class RAG_graph:
 
         set_of_chunks = []
         for chunker, name in self.text_chunkers:
-            print(f"document: {document}")
+            logger.info(f"document: {document}")
             chunks = chunker.create_documents([document])
             set_of_chunks.append((chunks, name))
         chunks_id = []
         for chunks, name in set_of_chunks:
             for i, chunk in enumerate(chunks):
-                # print(f"Chunk: {chunk}")
+                # logger.info(f"Chunk: {chunk}")
 
                 # keywords = extract_keywords(chunk.page_content)
                 keywords = []
@@ -456,11 +460,10 @@ class RAG_graph:
         )
 
     def add_attribute(self, node, property, value):
-
         query = f"""MATCH (n {{id_: '{node}'}})
             SET n.{property} = "{str(value).replace('"', '').replace("'", '')}"
             RETURN n"""
-        # print(query)
+        # logger.info(query)
         self.kg.query(query)
 
     def link_elements(self, type1, type2, typeID1, typeID2, ID1, ID2, relationship):
@@ -496,7 +499,6 @@ class RAG_graph:
         )
 
     def create_relationship(self, company_name, relationship, elementID):
-
         self.kg.query(
             """
             MATCH (c:Company {name: $company_name})
@@ -602,7 +604,7 @@ class RAG_graph:
         )
 
     def compute_embeddings(self, node="Chunk", field="text"):
-        # print(f"OPENAI_ENDPOINT: {self.OPENAI_ENDPOINT}")
+        # logger.info(f"OPENAI_ENDPOINT: {self.OPENAI_ENDPOINT}")
 
         self.kg.query(
             f"""
@@ -639,15 +641,15 @@ class RAG_graph:
         with mp.Pool(number_of_processes) as pool:
             results = []
             for i in range((l // bucket_size) + 1):
-                print(f"\nnumber of nodes {l}")
-                print(f"Starting bucket: {i * bucket_size}")
-                print(f"ending bucket: {min((i + 1) * bucket_size, l)}")
+                logger.info(f"\nnumber of nodes {l}")
+                logger.info(f"Starting bucket: {i * bucket_size}")
+                logger.info(f"ending bucket: {min((i + 1) * bucket_size, l)}")
                 bucket_nodes_id = [
                     n["id"]
                     for n in nodes[i * bucket_size : min((i + 1) * bucket_size, l)]
                 ]
-                # print(bucket_nodes_id)
-                # print(f"bucket list nodes: {bucket_nodes_id}")
+                # logger.info(bucket_nodes_id)
+                # logger.info(f"bucket list nodes: {bucket_nodes_id}")
                 bucket_str_list_nodes = [str(b) for b in bucket_nodes_id]
                 # self.compute_bucket_embeddings( bucket_str_list_nodes, node, lower_node, field)
                 results.append(
@@ -662,8 +664,7 @@ class RAG_graph:
                     )
                 )
             while not all([r.ready() for r in results]):
-
-                print(
+                logger.info(
                     f"embeddings {[r.ready() for r in results].count(True)} / {len(results)} for {node}."
                 )
                 time.sleep(5)
@@ -671,7 +672,7 @@ class RAG_graph:
     def compute_embeddings_parallel(
         self, node="Chunk", field="text", bucket_size=50, number_of_processes=5
     ):
-        # print(field)
+        # logger.info(field)
         lower_node = node.lower()
         query = f"""MATCH (n:{node}) 
         WHERE n.{field}Embedding IS NULL AND 
@@ -679,21 +680,21 @@ class RAG_graph:
             SIZE(n.{field}) < 8192 AND SIZE(n.{field}) > 2 
         return distinct n.{lower_node}Id as id"""
         nodes = self.kg.query(query)
-        # print(nodes)
-        # print(query)
+        # logger.info(nodes)
+        # logger.info(query)
         l = len(nodes)
         with mp.Pool(number_of_processes) as pool:
             results = []
             for i in range((l // bucket_size) + 1):
-                print(f"\nnumber of nodes {l}")
-                print(f"Starting bucket: {i * bucket_size}")
-                print(f"ending bucket: {min((i + 1) * bucket_size, l)}")
+                logger.info(f"\nnumber of nodes {l}")
+                logger.info(f"Starting bucket: {i * bucket_size}")
+                logger.info(f"ending bucket: {min((i + 1) * bucket_size, l)}")
                 bucket_nodes_id = [
                     n["id"]
                     for n in nodes[i * bucket_size : min((i + 1) * bucket_size, l)]
                 ]
-                # print(bucket_nodes_id)
-                # print(f"bucket list nodes: {bucket_nodes_id}")
+                # logger.info(bucket_nodes_id)
+                # logger.info(f"bucket list nodes: {bucket_nodes_id}")
                 bucket_str_list_nodes = [str(b) for b in bucket_nodes_id]
                 # self.compute_bucket_embeddings( bucket_str_list_nodes, node, lower_node, field)
                 results.append(
@@ -708,12 +709,11 @@ class RAG_graph:
                     )
                 )
             while not all([r.ready() for r in results]):
-
-                print(
+                logger.info(
                     f"embeddings {[r.ready() for r in results].count(True)} / {len(results)} for {node}."
                 )
                 time.sleep(5)
-            # print([r.get() for r in results])
+            # logger.info([r.get() for r in results])
 
     def link_close_chunks(self, threshold=0.85):
         self.kg.query(
@@ -786,7 +786,7 @@ class RAG_graph:
             output.append(f"{node}_{i}")
         query += f"WHERE {where} " if where else " "
         query += f"return {', '.join(output)}"
-        print(f"Query: {query}")
+        logger.info(f"Query: {query}")
         return self.kg.query(query)
 
     # def sub_graph(self, nodeType=None, node='n',maxLevel=3, relationship='r', where=None):
@@ -794,7 +794,7 @@ class RAG_graph:
     #     query = f"""MATCH ({node}{nodeType}) WHERE {where}
     #         CALL apoc.path.subgraphAll(c, {{maxLevel: {maxLevel}}}) YIELD nodes, relationships
     #         RETURN nodes, relationships"""
-    #     print(f"Query: {query}")
+    #     logger.info(f"Query: {query}")
     #     return self.kg.query(query)
 
     # def sub_graph(self, node, nodeType=None, where=None):
@@ -814,7 +814,7 @@ class RAG_graph:
             for edge in edges
             if edge["edge"] not in relationship_exclusions
         ]
-        # print(edges)
+        # logger.info(edges)
 
         filters = (
             f"WITH [x IN nodes Where {' or '.join([f'(x:{label_filter})' for label_filter in label_filters]) }  ] AS nodes"

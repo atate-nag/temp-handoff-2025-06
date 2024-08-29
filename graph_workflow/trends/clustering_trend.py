@@ -17,13 +17,19 @@ from langchain_core.prompts import PromptTemplate
 from typing import Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from utility import dict_to_plain_text, invoke
+from utility import dict_to_plain_text, invoke, logger
 import multiprocessing as mp
 import time
 
 load_dotenv()
 import uuid
 import copy
+
+try:
+    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+    mp.set_start_method("spawn")
+except Exception as e:
+    logger.error(__name__ + " - " + str(e))
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
@@ -198,9 +204,7 @@ RETURN r as trends
     for trend in trends:
         # print(trend)
         for key, value in trend.items():
-
             if key == "DescriptionEmbedding":
-
                 X.append(np.array([float(v) for v in value]))
 
     X = np.stack(X)
@@ -228,7 +232,6 @@ RETURN r as trends
             for label in list(set(labels))
         ]
         while not all([r.ready() for r in results]):
-
             print(
                 f"trends added {[r.ready() for r in results].count(True)} / {len(results)}"
             )
