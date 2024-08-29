@@ -92,6 +92,7 @@ with col1:
         "runStrategy": {"companyName": "Str", "problemsFile": "Str"},
         "runFrameworks": {"companyName": "Str", "problemsFile": "Str"},
         "runScenarios": {"companyName": "Str", "problemsFile": "Str"},
+        "runReport2": {"company": "Str"},
     }
 
     def file_selector(folder_path="."):
