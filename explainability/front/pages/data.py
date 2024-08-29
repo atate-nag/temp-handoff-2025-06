@@ -2,6 +2,20 @@ import streamlit as st
 import requests
 import json
 import time
+import logging
+import datetime
+
+if "socrates_front" not in logging.root.manager.loggerDict.keys():
+    print(logging.root.manager.loggerDict.keys())
+    logging.config.fileConfig(
+        "config/logging_config_front.ini",
+        defaults={"date": datetime.datetime.now().strftime("%m-%d-%Y")},
+        disable_existing_loggers=True,
+    )
+    print(logging.root.manager.loggerDict.keys())
+
+
+logger = logging.getLogger("socrates_front")
 
 st.set_page_config(
     page_title="Data",
@@ -76,13 +90,13 @@ def get_sources(company):
 def add_source(company, source):
     url = "http://127.0.0.1:8000/add_source"
     r = requests.post(url, params={"company": company, "source": source})
-    print(r.text)
+    logger.info(r.text)
 
 
 def add_company(company):
     url = "http://127.0.0.1:8000/create_company"
     r = requests.post(url, params={"company": company})
-    print(r.text)
+    logger.info(r.text)
 
 
 def get_source_files(company, source):
@@ -95,7 +109,7 @@ def upload_company_file(company, source, file):
     url = "http://127.0.0.1:8000/upload_company_file"
     file = {"file": (file.name, file.read())}
     r = requests.post(url, params={"company": company, "source": source}, files=file)
-    print(r.text)
+    logger.info(r.text)
 
 
 col1, col2 = st.columns([2.0, 4.0], gap="large")
@@ -114,7 +128,7 @@ with col1:
             # folder_path = folder_path + "/" + selected_company
             folder_path = os.path.join(folder_path, selected_company)
             sources = get_sources(selected_company)
-            print(f"Sources: {sources}")
+            logger.info(f"Sources: {sources}")
             selected_source = st.selectbox("Select a Source", sources)
             if selected_source:
                 st.write("Selected source:", selected_source)
@@ -151,7 +165,7 @@ with col1:
         if r.status_code == 200:
             st.write("File uploaded successfully")
             st.session_state["uploaded_files"].append(uploaded_file.name)
-        print(r.text)
+        logger.info(r.text)
 
     st.write("Uploaded files:")
     st.write(st.session_state["uploaded_files"])
@@ -207,7 +221,7 @@ def delete_file(file_path):
         if folder != "files":
             if filename in files:
                 x = requests.post(url, params={"file_path": folder + "/" + filename})
-    print(x.text)
+    logger.info(x.text)
 
 
 with col2:
@@ -241,7 +255,7 @@ with col2:
 
         for button in buttons.keys():
             if not os.path.exists("Outputs/" + button):
-                print("Removing button")
+                logger.info("Removing button")
                 buttons.pop(button)
             # with open("Outputs/"+file) as f:
             #     st.download_button(f"Download {file}", f, key=file)

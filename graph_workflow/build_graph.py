@@ -8,6 +8,12 @@ import json
 import uuid
 import datetime
 from graph_workflow.linkedin_agent import LinkedinAgent
+import logging
+
+if not logging.getLogger().hasHandlers():
+    with open("config/logging_config.json") as json_file:
+        logging.config.dictConfig(json.load(json_file))
+logger = logging.getLogger("socrates_main")
 
 # setup openaAI
 
@@ -33,7 +39,7 @@ ta = LinkedinAgent(period="1y")
 
 
 def create_companies(companyName):
-    print(f"Creating company {companyName}")
+    logger.info(f"Creating company {companyName}")
     rag_graph.add_company(companyName)
 
     # (n, id, company['linkedin'],'linkedin',d)
@@ -56,11 +62,11 @@ def update_company_with_files(
     docs = []
     graph_files = rag_graph.kg.query(f"MATCH (n:Document) RETURN n")
     graph_files = [f["n"]["name"] for f in graph_files]
-    # print(graph_files)
+    # logger.info(graph_files)
     for data_file in data_files:
-        print(f"Adding data file {data_file} for {companyName}")
+        logger.info(f"Adding data file {data_file} for {companyName}")
         if not data_file.split("/")[-1] in graph_files:
-            print("appending")
+            logger.info("appending")
             docs.append(
                 rag_graph.add_document_and_chunks(
                     data_file,
@@ -71,7 +77,7 @@ def update_company_with_files(
                 )
             )
         else:
-            print("not appending")
+            logger.info("not appending")
             docs.append({"name": data_file.split("/")[-1]})
 
     rag_graph.add_class(
@@ -184,13 +190,13 @@ def add_sources(companyName):
             for source in os.listdir(folder_path):
                 docs = []
                 for file in os.listdir(f"{folder_path}/{source}"):
-                    print(f"Adding {file} to {companyName}")
+                    logger.info(f"Adding {file} to {companyName}")
                     # self, document, title, source, source_location, creation_time
                     doc = rag_graph.kg.query(
                         'match (n:Document) where n.name = "' + file + '" return n'
                     )
                     if len(doc) > 0:
-                        print(f"Document {file} already exists")
+                        logger.info(f"Document {file} already exists")
                         continue
 
                     rag_graph.add_document_and_chunks(
@@ -217,18 +223,18 @@ def add_sources(companyName):
                 for doc in docs:
                     rag_graph.link_class_to_document(source, doc["name"])
     except Exception as e:
-        print(e)
+        logger.info(e)
 
 
 def fill_graph(companies):
-    print("Filling graph")
+    logger.info("Filling graph")
     try:
         data = pd.read_csv("data/sources/fortune/fortune.csv")
         data["linkedin"] = data["linkedin2"]
-        print(data.columns)
+        logger.info(data.columns)
         data = data.drop(columns=["linkedin2", "Unnamed: 0.1", "Unnamed: 0"])
     except Exception as e:
-        print(e)
+        logger.info(e)
     companies = [
         c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies
     ]
@@ -240,7 +246,7 @@ def fill_graph(companies):
                 "linkedin": data[data["name"] == company_name]["linkedin"].values[0],
             }
         except Exception as e:
-            print(e)
+            logger.info(e)
             company = {
                 "name": company_name,
                 "linkedin": ta.get_linkedin_url_company(company_name),
@@ -254,24 +260,24 @@ def fill_graph(companies):
         check = rag_graph.kg.query(
             f'MATCH (n:Company) WHERE n.name = "{company["name"]}" RETURN n LIMIT 10000;'
         )
-        # print(f"Check: {check}")
+        # logger.info(f"Check: {check}")
         if len(check) > 0:
-            print(f"Company {company['name']} already exists")
+            logger.info(f"Company {company['name']} already exists")
         else:
             create_companies(company["name"])
 
         ## Sources
-        print("SOURCES: ")
+        logger.info("SOURCES: ")
 
         add_sources(company["name"])
 
         ## ReportLinker
-        print("REPORTLINKER: ")
+        logger.info("REPORTLINKER: ")
         check = rag_graph.kg.query(
             f'MATCH (n:Class) WHERE n.name =  "reportLinker_{company["name"]}" RETURN n LIMIT 1000;'
         )
         if len(check) > 0:
-            print(f"reportLinker {company['name']} already exists")
+            logger.info(f"reportLinker {company['name']} already exists")
         else:
             try:
                 # companyName, dataDir, fileType, title,source = None, source_location = None, creation_time = None
@@ -283,19 +289,19 @@ def fill_graph(companies):
                     source_location="reportLinker",
                     creation_time=d,
                 )
-                print(f"Added {company['name']} for reportLinker")
+                logger.info(f"Added {company['name']} for reportLinker")
             except Exception as e:
-                print(e)
-                print(f"Error with {company['name']} for reportLinker")
+                logger.info(e)
+                logger.info(f"Error with {company['name']} for reportLinker")
 
         ## LINKEDIN
-        print("LINKEDIN: ")
+        logger.info("LINKEDIN: ")
         check = rag_graph.kg.query(
             f'MATCH (n:Class) WHERE n.name =  "linkedin_{company["name"]}" RETURN n LIMIT 1000;'
         )
-        # print(f"Check: {check}")
+        # logger.info(f"Check: {check}")
         if len(check) > 0:
-            print(f"linkedin {company['name']} already exists")
+            logger.info(f"linkedin {company['name']} already exists")
         else:
             try:
 
@@ -328,21 +334,21 @@ def fill_graph(companies):
                         "linkedin_" + company["name"], doc["name"]
                     )
             except Exception as e:
-                print(e)
+                logger.info(e)
         ## LINKEDIN
 
         time.sleep(1.0)
 
-        #     # print(perigonAPI.get_companies_by_name('TotalEnergies'))
-        #     print(f"\nCompany: {company['name']}")
+        #     # logger.info(perigonAPI.get_companies_by_name('TotalEnergies'))
+        #     logger.info(f"\nCompany: {company['name']}")
         #
-        print("FORTUNE: ")
+        logger.info("FORTUNE: ")
         check = rag_graph.kg.query(
             f'MATCH (n:Class) WHERE n.name = "Fortune_{company["name"]}" RETURN n LIMIT 10000;'
         )
-        # print(f"Check: {check}")
+        # logger.info(f"Check: {check}")
         if len(check) > 0:
-            print(f"Fortune {company['name']} already exists")
+            logger.info(f"Fortune {company['name']} already exists")
         else:
 
             rag_graph.add_class(
@@ -380,14 +386,14 @@ def fill_graph(companies):
         check = rag_graph.kg.query(
             f'MATCH (n:Class) WHERE n.name = "perigon_page_1_{company["name"]}" RETURN n LIMIT 10000;'
         )
-        print("PERIGON: ")
+        logger.info("PERIGON: ")
         if len(check) > 0:
-            print(f"Perigon {company['name']} already exists")
+            logger.info(f"Perigon {company['name']} already exists")
         else:
 
             # try:
             # results = perigonAPI.get_company_by_name(company['name'])['results']
-            print("perigon/" + name + "_perigon.txt")
+            logger.info("perigon/" + name + "_perigon.txt")
 
             try:
                 with open("data/sources/perigon/" + name + "_perigon.txt", "r") as file:
@@ -396,7 +402,7 @@ def fill_graph(companies):
             except Exception as e:
                 file_contents = []
 
-            # print(f"File content:\n{file_contents}")
+            # logger.info(f"File content:\n{file_contents}")
             if len(file_contents) > 0:
                 results = [
                     eval(r)
@@ -407,14 +413,14 @@ def fill_graph(companies):
                     .split("&&&")
                 ]
                 # results = eval(results)
-                # print(f"Results: {results}")
+                # logger.info(f"Results: {results}")
                 # assert False
             else:
                 results = []
             i = 0
             for result in results:
                 i += 1
-                print(i)
+                logger.info(i)
                 class_name = "perigon_page_" + str(i) + "_" + company["name"]
                 rag_graph.add_class(
                     {
@@ -425,7 +431,7 @@ def fill_graph(companies):
                         "text": "perigon",
                     }
                 )
-                print(class_name)
+                logger.info(class_name)
                 rag_graph.link_company_to_class(company["name"], class_name)
 
                 docs = []
@@ -433,7 +439,7 @@ def fill_graph(companies):
                     pass
                 else:
                     result = [result]
-                # print(result)
+                # logger.info(result)
                 for r in result:
                     for key, value in r.items():
 
@@ -463,20 +469,20 @@ def fill_graph(companies):
                                     key.replace(" ", "_").replace("'", ""),
                                     value,
                                 )
-                        print(f"key: {key}")
-                        print(f"value: {value}")
+                        logger.info(f"key: {key}")
+                        logger.info(f"value: {value}")
                     for doc in docs:
                         rag_graph.link_class_to_document(class_name, doc["name"])
-                        print(f"node: {'perigon_'+company['name']}")
-                        print(f"with: {doc['name']}")
+                        logger.info(f"node: {'perigon_'+company['name']}")
+                        logger.info(f"with: {doc['name']}")
 
         check = rag_graph.kg.query(
             f'MATCH (n:Class) WHERE n.name = "wikipedia_{company["name"]}" RETURN n LIMIT 10000;'
         )
 
-        print("WIKIPEDIA: ")
+        logger.info("WIKIPEDIA: ")
         if len(check) > 0:
-            print(f"wikipedia {company['name']} already exists")
+            logger.info(f"wikipedia {company['name']} already exists")
         else:
 
             rag_graph.add_class(
@@ -534,4 +540,4 @@ def fill_graph(companies):
                     )
 
             except Exception as e:
-                print(e)
+                logger.info(e)

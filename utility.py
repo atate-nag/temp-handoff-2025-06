@@ -16,10 +16,30 @@ import time
 import datetime
 import tiktoken
 from config.conf import setup_config, read_config
+import logging
+
+d = datetime.datetime.now()
+d = d.strftime("%m-%d-%Y %H:%M:%S")
 
 client = OpenAI()
 now = str(datetime.datetime.now())
 conf = read_config()
+
+if "socrates_main" not in logging.root.manager.loggerDict.keys():
+    for name, logger in logging.root.manager.loggerDict.items():
+        logger.disabled = True
+    print(logging)
+    print(logging.root.manager.loggerDict.keys())
+    # logging.config.dictConfig(config={'level': logging.DEBUG, 'handlers': []})
+    logging.config.fileConfig(
+        "config/logging_config_socrates.ini",
+        defaults={"date": str(datetime.datetime.now())},
+        disable_existing_loggers=False,
+    )
+    print(logging.root.manager.loggerDict.keys())
+
+
+logger = logging.getLogger("socrates_main")
 
 
 def clean_text(text):
@@ -108,8 +128,8 @@ def retry(number_of_retry=3):
                     response = fn(*args, **kwargs)
                     return response
                 except Exception as e:
-                    print(e)
-                    print(f"Retry {i+1}/{number_of_retry}")
+                    logger.info(e)
+                    logger.info(f"Retry {i+1}/{number_of_retry}")
 
         return retry_inner
 
@@ -117,7 +137,7 @@ def retry(number_of_retry=3):
 
 
 def wrapper(q, fn, args, kwargs):
-    print("wrapping")
+    logger.info("wrapping")
     q.put(fn(*args, **kwargs))
     return True
 
@@ -149,8 +169,8 @@ def timeout(timeout=5):
             # p.start()
 
             # while not res.ready():
-            #     print(res.ready())
-            #     # print(res.successful())
+            #     logger.info(res.ready())
+            #     # logger.info(res.successful())
             #     if time.time() - start > timeout:
             #         raise Exception("timeout", f"function: {fn.__name__} failed")
             #     time.sleep(0.2)
@@ -204,12 +224,12 @@ def condense(
     # Partant d'une liste de dictionnaires, on extrait les embeddings de chaque dictionnaire
     # et on les regroupe en clusters
     # On cree un dataframe avec les embeddings et les labels des clusters
-    print(f"Start condensing {subject}..\n\n")
+    logger.info(f"Start condensing {subject}..\n\n")
     try:
         data = [node for nodes in data if nodes for node in nodes]
         X = [embed(text=node[key], model="text-embedding-3-large") for node in data]
         X = np.stack(X)
-        print(f"Start computing clusters..")
+        logger.info(f"Start computing clusters..")
         labels = KMeans(n_clusters=number_of_clusters, random_state=0).fit_predict(X)
 
         df = pd.DataFrame(data)
@@ -224,15 +244,15 @@ def condense(
                 for label in list(set(labels))
             ]
             while not all([r.ready() for r in results]):
-                print(
+                logger.info(
                     f"Condense summary {[r.ready() for r in results].count(True)} / {len(results)} for {subject}."
                 )
-                # [print([r.get() for r in results if r.ready()])]
+                # [logger.info([r.get() for r in results if r.ready()])]
                 time.sleep(5)
 
         return [r.get() for r in results]
     except Exception as e:
-        print(f"Error in condensing {subject}: {e}")
+        logger.info(f"Error in condensing {subject}: {e}")
         return []
 
 
@@ -261,7 +281,7 @@ def invoke(chain, parameters, log=True, id=now):
         output = chain.invoke(parameters)
         input_tokens = 0
         for key, value in parameters.items():
-            # print(f"Num tokens from {key}: {num_tokens_from_string(str(value))}")
+            # logger.info(f"Num tokens from {key}: {num_tokens_from_string(str(value))}")
             input_tokens += num_tokens_from_string(value)
         save_metadata(
             {
@@ -295,9 +315,9 @@ def embed(text: str, model: str = "text-embedding-3-large", timeout=5):
 
 @timeout(4)
 def wait_for_sec(t):
-    print("start waiting")
+    logger.info("start waiting")
     time.sleep(t)
-    print("finish waiting")
+    logger.info("finish waiting")
     return t
 
 
@@ -323,7 +343,7 @@ def report_to_markdown(data, level=""):
 
 
 if __name__ == "__main__":
-    print("start waiting test")
-    print(wait_for_sec(1))
-    print("waited 1")
-    print(embed("I am trying something"))
+    logger.info("start waiting test")
+    logger.info(wait_for_sec(1))
+    logger.info("waited 1")
+    logger.info(embed("I am trying something"))

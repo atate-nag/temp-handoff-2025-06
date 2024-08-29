@@ -2,17 +2,29 @@ import json
 import datetime
 import datetime
 import shutil
-
+import logging
 import os
+
+if "socrates_front" not in logging.root.manager.loggerDict.keys():
+    print(logging.root.manager.loggerDict.keys())
+    logging.config.fileConfig(
+        "config/logging_config_front.ini",
+        defaults={"date": datetime.datetime.now()},
+        disable_existing_loggers=True,
+    )
+    print(logging.root.manager.loggerDict.keys())
+
+
+logger = logging.getLogger("socrates_front")
 
 
 def list_files_in_folder(folder_path):
     try:
         files = os.listdir(folder_path)
     except FileNotFoundError:
-        print(f"The folder {folder_path} does not exist.")
+        logger.info(f"The folder {folder_path} does not exist.")
     except PermissionError:
-        print(f"Permission denied to access the folder {folder_path}.")
+        logger.info(f"Permission denied to access the folder {folder_path}.")
     return files
 
 
@@ -21,7 +33,7 @@ def update_mdata(data, metadata):
 
     for key, value in metadata.items():
 
-        # print(f'\n\data keys: {data.keys()}\n\n')
+        # logger.info(f'\n\data keys: {data.keys()}\n\n')
         if key.endswith("used"):
 
             if value in data:
@@ -44,26 +56,26 @@ def delete_folder(folder_path):
     try:
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)
-            print(f"Folder {folder_path} has been deleted.")
+            logger.info(f"Folder {folder_path} has been deleted.")
         else:
-            print(f"The folder {folder_path} does not exist.")
+            logger.info(f"The folder {folder_path} does not exist.")
     except PermissionError:
-        print(f"Permission denied to delete the folder {folder_path}.")
+        logger.info(f"Permission denied to delete the folder {folder_path}.")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
 
 def delete_file(file_path):
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
-            print(f"File {file_path} has been deleted.")
+            logger.info(f"File {file_path} has been deleted.")
         else:
-            print(f"The file {file_path} does not exist.")
+            logger.info(f"The file {file_path} does not exist.")
     except PermissionError:
-        print(f"Permission denied to delete the file {file_path}.")
+        logger.info(f"Permission denied to delete the file {file_path}.")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
 
 def create_tree_structure(base_path, tree_structure):
@@ -83,17 +95,17 @@ class Data_store:
     def read_data(self, path):
 
         files = list_files_in_folder(path)
-        # print("files: ")
-        # print(files)
-        # print("reading data")
+        # logger.info("files: ")
+        # logger.info(files)
+        # logger.info("reading data")
         data_list = []
         for file in files:
             filepath = path + "/" + file
-            # print(f"Reading data from {filepath}")
+            # logger.info(f"Reading data from {filepath}")
             with open(filepath) as f:
                 dict_data = json.load(f)
 
-            # print(f"dict_data: {dict_data}")
+            # logger.info(f"dict_data: {dict_data}")
             if "id" in dict_data:
                 if dict_data["id"] not in self.datasets:
                     data = dict_data["data"]
@@ -106,16 +118,16 @@ class Data_store:
                     data["timestamp"] = str(datetime.datetime.now())
                     self.datasets[dict_data["id"]].append(data)
             if "type" in dict_data:
-                # print(f"updating metadata: {dict_data['type']}")
+                # logger.info(f"updating metadata: {dict_data['type']}")
                 self.update_metadata(dict_data["type"], dict_data.copy())
             delete_file(filepath)
         return data_list
 
     def update_metadata(self, data_type, data):
-        # print(f"updating metadata: {data_type} with data: {data}")
+        # logger.info(f"updating metadata: {data_type} with data: {data}")
         if not os.path.exists("data_store/metadata/" + data_type + ".json"):
             with open("data_store/metadata/" + data_type + ".json", "w") as f:
-                # print(f"writing metadata: {data}")
+                # logger.info(f"writing metadata: {data}")
                 metadata = [update_mdata({}, data.copy())]
                 json.dump(metadata, f)
                 # metadata = data
@@ -127,8 +139,8 @@ class Data_store:
                     metadata = []
                     return None
                     # raise Exception("Cannot load metadata")
-            # print(f"loaded metadata: {metadata}")
-            # print(f"data: {data}")
+            # logger.info(f"loaded metadata: {metadata}")
+            # logger.info(f"data: {data}")
 
             if len([mdata for mdata in metadata if mdata["id"] == data["id"]]) > 0:
                 metadata = [
@@ -145,7 +157,7 @@ class Data_store:
                 # else:
                 #     self.datasets[key].append(value)
 
-            # print(f"\n\nWRITING metadata: {metadata}\n\n")
+            # logger.info(f"\n\nWRITING metadata: {metadata}\n\n")
             with open("data_store/metadata/" + data_type + ".json", "w") as f:
                 json.dump(metadata, f)
 
@@ -174,16 +186,16 @@ class Data_store:
     def load(self, data_type):
         with open("data_store/metadata/" + data_type + ".json", "r") as f:
             metadata = json.load(f)
-        # print(f"loading metadata: {metadata}")
+        # logger.info(f"loading metadata: {metadata}")
         # data = [{key: str(value) for key, value in metadata.items()}]
 
         # labels = [{"name": i, "id": i} for i in metadata.keys()]
-        # print(f"metadata: {metadata}")
+        # logger.info(f"metadata: {metadata}")
         metadata = [
             {key: str(value) for key, value in mdata.items()} for mdata in metadata
         ]
         labels = [{"name": i, "id": i} for i in metadata[0].keys()]
-        # print(f"\nLABELS: {labels}")
+        # logger.info(f"\nLABELS: {labels}")
         return metadata, labels
 
     # def get_lonlatalt(self, time):
