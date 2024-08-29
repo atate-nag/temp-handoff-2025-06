@@ -33,6 +33,11 @@ def create_params(company:str, temperature:float , run_name:str , with_cache=Tru
     temp_str = str(temperature)
     temp_str = temp_str.replace(".", "-")
 
+    NEO4J_URI = os.getenv("NEO4J_URL")
+    NEO4J_USERNAME = os.getenv("NEO4J_USER")
+    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+    NEO4J_DATABASE = "neo4j"
+
     file_name = f"{company}_run|{run_name}_temperature|{temp_str}"
     args = {
         "name":f"Strategy Report for {company}", 
@@ -48,7 +53,7 @@ def create_params(company:str, temperature:float , run_name:str , with_cache=Tru
     decomposer = ConstrainedWritingTaskDecomp(company=company, iterative=-1, llm_config=llm_config)
     condition = ConstrainedWritingCondition(llm_config=llm_config)
 
-    executer = WritingTaskExecuter(company=company, llm_config=llm_config) if with_execute else None
+    executer = WritingTaskExecuter(company=company, llm_config=llm_config, database=NEO4J_DATABASE, uri=NEO4J_URI, password=NEO4J_PASSWORD, user=NEO4J_USERNAME) if with_execute else None
 
     task_manager = WritingTaskManager(
         root,
@@ -59,10 +64,10 @@ def create_params(company:str, temperature:float , run_name:str , with_cache=Tru
     )
     
     task_graph = TaskGraph(
-        NEO4J_URI = f"neo4j+s://a27a90ed.databases.neo4j.io", 
-        NEO4J_USERNAME = "neo4j", 
-        NEO4J_PASSWORD = "E_ASaLIxAM8obpa10K-DhQU92W3wkm2awSbME-oZ6BE", 
-        NEO4J_DATABASE = "neo4j"
+        NEO4J_URI = NEO4J_URI, 
+        NEO4J_USERNAME = NEO4J_USERNAME, 
+        NEO4J_PASSWORD = NEO4J_PASSWORD, 
+        NEO4J_DATABASE = NEO4J_DATABASE
     )
     
     return args, root, task_manager, task_graph, file_name
