@@ -31,10 +31,10 @@ st.set_page_config(
 
 data_store = Data_store()
 # read csv from a github repo
-if "log_files" not in st.session_state:
-    logs = os.listdir("../../logs/")
-    logs = [log for log in logs if log.endswith(".log")]
-    st.session_state["log_files"] = logs
+# if "log_files" not in st.session_state:
+logs = os.listdir("../../logs/")
+logs = [log for log in logs if log.endswith(".log")]
+st.session_state["log_files"] = logs
 
 if "selected_log" not in st.session_state:
     st.session_state["selected_log"] = ""
