@@ -32,15 +32,11 @@ def update_mdata(data, metadata):
     keys = data.keys()
 
     for key, value in metadata.items():
-
         # logger.info(f'\n\data keys: {data.keys()}\n\n')
         if key.endswith("used"):
-
             if value in data:
-
                 data[value] += 1
             else:
-
                 data[value] = 1
         elif key not in keys:
             data[key] = value
@@ -93,7 +89,6 @@ class Data_store:
             self.init("data_store")
 
     def read_data(self, path):
-
         files = list_files_in_folder(path)
         # logger.info("files: ")
         # logger.info(files)

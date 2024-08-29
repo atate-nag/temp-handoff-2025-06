@@ -6,13 +6,14 @@ import plotly.express as px  # interactive charts
 import streamlit as st  # 🎈 data web app development
 from data_store import Data_store
 import logging
+from logging import config
 import datetime
 import os
 import json
 from streamlit.components.v1 import html
 
 if "socrates_front" not in logging.root.manager.loggerDict.keys():
-    logging.config.fileConfig(
+    config.fileConfig(
         "../../config/logging_config_front.ini",
         defaults={"date": datetime.datetime.now().strftime("%m-%d-%Y")},
         disable_existing_loggers=True,
@@ -86,9 +87,7 @@ placeholder = st.empty()
 # near real-time / live feed simulation
 
 while True:
-
     with placeholder.container():
-
         df = load_logs()
         st.dataframe(df)
         # st.dataframe(df)
