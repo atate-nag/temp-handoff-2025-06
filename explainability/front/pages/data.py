@@ -4,15 +4,14 @@ import json
 import time
 import logging
 import datetime
+from logging import config
 
 if "socrates_front" not in logging.root.manager.loggerDict.keys():
-    print(logging.root.manager.loggerDict.keys())
-    logging.config.fileConfig(
-        "config/logging_config_front.ini",
+    config.fileConfig(
+        "../../config/logging_config_front.ini",
         defaults={"date": datetime.datetime.now().strftime("%m-%d-%Y")},
         disable_existing_loggers=True,
     )
-    print(logging.root.manager.loggerDict.keys())
 
 
 logger = logging.getLogger("socrates_front")

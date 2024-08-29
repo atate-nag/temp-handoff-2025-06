@@ -6,19 +6,18 @@ import plotly.express as px  # interactive charts
 import streamlit as st  # 🎈 data web app development
 from data_store import Data_store
 import logging
+from logging import config
 import datetime
 import os
 import json
 from streamlit.components.v1 import html
 
 if "socrates_front" not in logging.root.manager.loggerDict.keys():
-    print(logging.root.manager.loggerDict.keys())
-    logging.config.fileConfig(
-        "config/logging_config_front.ini",
+    config.fileConfig(
+        "../../config/logging_config_front.ini",
         defaults={"date": datetime.datetime.now().strftime("%m-%d-%Y")},
         disable_existing_loggers=True,
     )
-    print(logging.root.manager.loggerDict.keys())
 
 
 logger = logging.getLogger("socrates_front")
@@ -32,10 +31,10 @@ st.set_page_config(
 
 data_store = Data_store()
 # read csv from a github repo
-if "log_files" not in st.session_state:
-    logs = os.listdir("../../logs/")
-    logs = [log for log in logs if log.endswith(".log")]
-    st.session_state["log_files"] = logs
+# if "log_files" not in st.session_state:
+logs = os.listdir("../../logs/")
+logs = [log for log in logs if log.endswith(".log")]
+st.session_state["log_files"] = logs
 
 if "selected_log" not in st.session_state:
     st.session_state["selected_log"] = ""
@@ -88,9 +87,7 @@ placeholder = st.empty()
 # near real-time / live feed simulation
 
 while True:
-
     with placeholder.container():
-
         df = load_logs()
         st.dataframe(df)
         # st.dataframe(df)

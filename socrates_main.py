@@ -55,13 +55,11 @@ d = d.strftime("%m-%d-%Y %H:%M:%S")
 
 
 if "socrates_main" not in logging.root.manager.loggerDict.keys():
-    print(logging.root.manager.loggerDict.keys())
     logging.config.fileConfig(
         "config/logging_config_socrates.ini",
         defaults={"date": datetime.datetime.now()},
         disable_existing_loggers=True,
     )
-    print(logging.root.manager.loggerDict.keys())
 
 
 logger = logging.getLogger("socrates_main")
@@ -161,7 +159,7 @@ def get_step_function(step_name):
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
         "runReport": run_report,
-        "runReport2": run_decomp
+        "runReport2": run_decomp,
     }
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file

@@ -309,7 +309,6 @@ def invoke(chain, parameters, log=True, id=now):
 @retry(number_of_retry=10)
 @timeout(15)
 def embed(text: str, model: str = "text-embedding-3-large", timeout=5):
-
     return client.embeddings.create(input=text, model=model).data[0].embedding
 
 
