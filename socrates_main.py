@@ -46,6 +46,9 @@ from utility import (
 )
 
 from config.conf import setup_config, read_config
+import logging
+
+from decomp_task.execute import run_decomp
 
 d = datetime.datetime.now()
 d = d.strftime("%m-%d-%Y %H:%M:%S")
@@ -158,6 +161,7 @@ def get_step_function(step_name):
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
         "runReport": run_report,
+        "runReport2": run_decomp
     }
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
