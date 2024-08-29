@@ -13,6 +13,21 @@ import json
 import os
 from typing import Dict, Any
 
+import logging
+
+if "socrates_server" not in logging.root.manager.loggerDict.keys():
+    print(logging.root.manager.loggerDict.keys())
+    logging.config.fileConfig(
+        "config/logging_config_serv.ini",
+        defaults={"date": datetime.datetime.now()},
+        disable_existing_loggers=True,
+    )
+    print(logging.root.manager.loggerDict.keys())
+
+
+logger = logging.getLogger("socrates_server")
+
+
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
 password = os.getenv("NEO4J_PASSWORD")
@@ -54,7 +69,7 @@ def update_companies():
     for company in company_names:
         if not os.path.exists(f"data/{company}"):
             os.mkdir(f"data/{company}")
-            print(f"Created company {company}")
+            logger.info(f"Created company {company}")
 
 
 @app.post("/create_company")
@@ -97,7 +112,7 @@ def add_source(company, source):
 @app.post("/upload_company_file")
 def upload_company_file(company, source, file: UploadFile = File(...)):
     try:
-        print(f"File name: {file.filename}")
+        logger.info(f"File name: {file.filename}")
         contents = file.file.read()
         with open(f"data/{company}/{source}/{file.filename}", "wb") as f:
             f.write(contents)
@@ -116,7 +131,7 @@ def get_source_files(company, source):
 
 @app.get("/get_file")
 def get_file(file_path):
-    print(f"File Path: {file_path}")
+    logger.info(f"File Path: {file_path}")
     return FileResponse(path=file_path, filename=file_path.split("/")[-1])
 
 
@@ -128,9 +143,9 @@ def list_files(folder):
 
 @app.post("/delete_file")
 def delete_file(file_path):
-    print(f"File Path: {file_path}")
+    logger.info(f"File Path: {file_path}")
     if os.path.exists(file_path):
-        print("File exists")
+        logger.info("File exists")
         if file_path.split("/")[0] in ["Intermediates", "Strategic Reports"]:
             # return {"message": "Cannot delete this file"}
             os.remove(file_path)
@@ -140,7 +155,7 @@ def delete_file(file_path):
 @app.post("/set_problem_statement")
 def set_problem_statement(file: UploadFile = File(...)):
     try:
-        print(f"File name: {file.filename}")
+        logger.info(f"File name: {file.filename}")
         contents = file.file.read()
         with open(file.filename, "wb") as f:
             f.write(contents)
@@ -163,26 +178,26 @@ def update_status(running_data=running_data):
                 else:
                     running_data[run_id]["status"] = "done"
                     running_data[run_id]["result"] = data["process"].exitcode
-                    print(
+                    logger.info(
                         f"Process {run_id} is done with exitcode {data['process'].exitcode}"
                     )
             else:
                 running_data[run_id]["status"] = "done"
                 running_data[run_id]["result"] = "No process found"
-                print(f"Process {run_id} is done with no process found")
+                logger.info(f"Process {run_id} is done with no process found")
 
     # POOL
 
-    # print("Updating status")
+    # logger.info("Updating status")
     # for run_id, data in running_data.items():
     #     if not running_data[run_id]["status"] == "done":
-    #         print("Checking status")
+    #         logger.info("Checking status")
     #         if "process" in data:
-    #             print("Updating if ready")
-    #             print(f"Is process ready: {data['process'].ready()}")
-    #             print(f"Is process ready: {data['process'].get()}")
+    #             logger.info("Updating if ready")
+    #             logger.info(f"Is process ready: {data['process'].ready()}")
+    #             logger.info(f"Is process ready: {data['process'].get()}")
     #             if data["process"].ready():
-    #                 print("Updating...")
+    #                 logger.info("Updating...")
     #                 running_data[run_id]["status"] = "done"
     #                 running_data[run_id]["result"] = data["process"].get()
 
@@ -193,8 +208,8 @@ def update_status(running_data=running_data):
 @app.get("/get_status")
 async def get_status(run_id):
     update_status()
-    print(f"running_data: {running_data}")
-    print(run_id)
+    logger.info(f"running_data: {running_data}")
+    logger.info(run_id)
     return {
         "message": "",
         "run_data": (
@@ -209,7 +224,7 @@ async def get_status(run_id):
 @app.get("/get_all_status")
 async def get_status():
     update_status()
-    print(f"running_data: {running_data}")
+    logger.info(f"running_data: {running_data}")
     status = {}
 
     for runid, data in running_data.items():
@@ -218,15 +233,15 @@ async def get_status():
             "results": data["result"] if "result" in data else None,
         }
 
-    print(f"status: {status}")
+    logger.info(f"status: {status}")
     return {"message": "", "run_data": status}
 
 
 @app.post("/run")
 async def create_run(workflow_config: Dict[Any, Any]):
-    print(workflow_config)
+    logger.info(workflow_config)
     run_id = str(datetime.datetime.now())
-    print("Starting run", run_id)
+    logger.info(f"Starting run: {str(run_id)}")
 
     p = mp.Process(target=execute_workflow, args=(workflow_config,))
     p.start()
@@ -237,7 +252,7 @@ async def create_run(workflow_config: Dict[Any, Any]):
     # with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
     #     future = executor.submit(execute_workflow, workflow_config)
     running_data[run_id] = {"status": "running", "process": p}
-    print("Run Started", run_id)
+    logger.info(f"Run Started: {str(run_id)}")
     return run_id
 
 

@@ -15,6 +15,14 @@ from langchain_openai import ChatOpenAI
 import multiprocessing as mp
 import time
 from utility import invoke, retry
+import logging
+import json
+
+if not logging.getLogger().hasHandlers():
+    with open("config/logging_config.json") as json_file:
+        logging.config.dictConfig(json.load(json_file))
+logger = logging.getLogger("socrates_main")
+
 
 load_dotenv()
 import uuid
@@ -109,7 +117,7 @@ parser_summary = StrOutputParser()
 chain_summary = get_summary | model_summary | parser_summary
 
 
-# print(TESLA)
+# logger.info(TESLA)
 model_capabilities = ChatOpenAI(model="gpt-4o", temperature=0.1)
 parser_capabilities = JsonOutputParser(pydantic_object=CapabilityList)
 get_capabilities = PromptTemplate(
@@ -208,16 +216,16 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
     descriptions = []
 
     for insight in insights:
-        # print(insight['source'])
+        # logger.info(insight['source'])
         sources.append(insight["source"])
 
-        # print(insight['categories'])
+        # logger.info(insight['categories'])
         categories.extend(insight["categories"])
 
-        # print(insight['description'])
+        # logger.info(insight['description'])
         descriptions.append(insight["description"])
 
-    # print(categories)
+    # logger.info(categories)
 
     categories = list(set(categories))
     sources = list(set(sources))
@@ -236,7 +244,7 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
             "insights": " ***** " + "\n ***** \n".join(descriptions) + " ***** ",
         },
     )
-    # print(list(set(categories)))
+    # logger.info(list(set(categories)))
     cluster = {
         "number": label,
         "source": sources,
@@ -266,7 +274,7 @@ def generate_cluster_and_capabilities(df, company_name, label, now):
         )
 
 
-# print()
+# logger.info()
 # rag_graph.compute_insight_embeddings_for_company('NAG', 'description')
 
 
@@ -275,11 +283,11 @@ def generate_capabilities_per_cluster(
 ):
     names = [c.replace(" ", "_").replace(".", "").replace("'", "") for c in companies]
     for company in names:
-        print(
+        logger.info(
             f"clustering of the insights and generation of capabilities for company: {company}"
         )
         if compute_embeddings:
-            print(f"Start computing embeddings..")
+            logger.info(f"Start computing embeddings..")
             rag_graph.compute_insight_embeddings_for_company(company, "description")
 
         graph = rag_graph.company_sub_graph(
@@ -299,7 +307,7 @@ def generate_capabilities_per_cluster(
                         X.append(np.array([float(v) for v in value]))
 
             X = np.stack(X)
-            print(f"Start computing clusters..")
+            logger.info(f"Start computing clusters..")
             labels = KMeans(n_clusters=X.shape[0] // 15, random_state=0).fit_predict(X)
 
             df = pd.DataFrame(graph)
@@ -322,9 +330,9 @@ def generate_capabilities_per_cluster(
 
                 while not all([r.ready() for r in results]):
 
-                    print(
+                    logger.info(
                         f"cluster and capabilities added {[r.ready() for r in results].count(True)} / {len(results)} for {company}."
                     )
                     time.sleep(5)
         except Exception as e:
-            print(e)
+            logger.info(e)

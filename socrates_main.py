@@ -31,7 +31,7 @@ from chains import (
 from report_agent import Agent as ReportAgent
 from report_agent import get_subsections, find_and_fill
 import json, re
-
+import logging
 from model_connector import ModelConnectorFactory
 import datetime
 
@@ -46,14 +46,23 @@ from utility import (
 )
 
 from config.conf import setup_config, read_config
-import logging
 
-logger = logging.getLogger(__name__)
+d = datetime.datetime.now()
+d = d.strftime("%m-%d-%Y %H:%M:%S")
 
-logging.basicConfig(
-    filename="logs/socrates_" + str(datetime.datetime.now()) + ".log",
-    level=logging.DEBUG,
-)
+
+if "socrates_main" not in logging.root.manager.loggerDict.keys():
+    print(logging.root.manager.loggerDict.keys())
+    logging.config.fileConfig(
+        "config/logging_config_socrates.ini",
+        defaults={"date": datetime.datetime.now()},
+        disable_existing_loggers=True,
+    )
+    print(logging.root.manager.loggerDict.keys())
+
+
+logger = logging.getLogger("socrates_main")
+
 logger.info("Started")
 # Example usage
 model_config = {
@@ -105,7 +114,9 @@ def execute_workflow(workflow_config=workflow_config):
         logger.info(f"step: {step}")
         if details.get("enabled", False):
             func = get_step_function(step)
-            setup_config(**{"run_id": step_name + "_" + str(datetime.datetime.now())})
+            run_id = step_name + "_" + str(datetime.datetime.now())
+            setup_config(**{"run_id": run_id})
+
             if func:
                 # Unpack all parameters dynamically for the function
                 parameters = details.get("parameters", {})
@@ -195,12 +206,12 @@ The trends impacting {company_name}
 
 def condense_company_data(company_name, problem):
     # problem = get_problem(company_name, problemsFile)
-    print("company_name", company_name)
-    print("problem", problem)
+    logger.info("company_name", company_name)
+    logger.info("problem", problem)
     company_data = dump_company_graph_to_json(company_name, problem)
 
     # the full capabilities
-    print("company_data", company_data)
+    logger.info("company_data", company_data)
     context = problem
     subject = f"""
 The insights and capabilities of {company_name}
