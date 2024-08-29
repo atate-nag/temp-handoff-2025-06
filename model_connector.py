@@ -61,7 +61,7 @@ class OpenAIAssistantsConnector(ModelConnector):
         # Prepare the payload for creating a new assistant
         # Copy all relevant fields except the ID and created_at
         assistant_data = {
-            "name": "Adrian Cloned Agent",
+            "name": "Cloned Agent",
             "description": source_assistant.description,
             # TODO abstract model choice
             "model": self.model,
