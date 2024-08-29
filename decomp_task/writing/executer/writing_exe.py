@@ -35,11 +35,11 @@ class Condenser(BaseAgents):
         return  "\n".join(output_str)
 
 class GraphExtractorOnline(GraphExtractor):
-    def __init__(self, database: str = "neo4j") -> None: #"full0624"
+    def __init__(self, database: str = "neo4j", uri:str = os.getenv("NEO4J_URL"), user:str =  os.getenv("NEO4J_USER"), password:str =  os.getenv("NEO4J_PASSWORD")) -> None: 
         
-        uri = f"neo4j+s://a27a90ed.databases.neo4j.io" # "neo4j://172.28.112.1:7687"
-        user = "neo4j"
-        password = "E_ASaLIxAM8obpa10K-DhQU92W3wkm2awSbME-oZ6BE"
+        # uri = os.getenv("NEO4J_URL") 
+        # user =  os.getenv("NEO4J_USER")
+        # password =  os.getenv("NEO4J_PASSWORD")
 
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         self.database = database
@@ -134,12 +134,15 @@ class CompanyExtractorOnline(BaseAgents):
     
 
 class WritingTaskExecuter(BaseTaskExecuter):
-    def __init__(self, company, company_extractor:CompanyExtractorOnline = None, industry_extractor:IndustryExtractorOnline=None,  **other_args):
+    def __init__(self, company, company_extractor:CompanyExtractorOnline = None, industry_extractor:IndustryExtractorOnline=None,  
+                 database:str = "neo4j", uri:str = os.getenv("NEO4J_URL"), user:str =  os.getenv("NEO4J_USER"), password:str =  os.getenv("NEO4J_PASSWORD"),
+                 **other_args):
         super().__init__(**other_args)
         self.system_message = create_writer()        
         self.company = company
-        self.company_extractor = CompanyExtractorOnline(company, GraphExtractorOnline(), llm_config= other_args["llm_config"]) if company_extractor is None else company_extractor
-        # self.industry_extractor = IndustryExtractorOnline(company_to_gics_code(company), GraphExtractorOnline(), other_args["llm_config"]) if industry_extractor is None else industry_extractor
+        graph_extractor = GraphExtractorOnline(database=database, uri=uri, user=user, password=password)
+        self.company_extractor = CompanyExtractorOnline(company, graph_extractor, llm_config= other_args["llm_config"]) if company_extractor is None else company_extractor
+        # self.industry_extractor = IndustryExtractorOnline(company_to_gics_code(company), graph_extractor, other_args["llm_config"]) if industry_extractor is None else industry_extractor
         self.company_info = None
         self.industry_info = None
 
