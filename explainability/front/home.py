@@ -217,17 +217,6 @@ with col1:
         )
     )
 
-    st.write("Logs:")
-
-    # for log in st.session_state["logs"]:
-    #     st.write(log)
-    log_files = [
-        folder
-        for folder in os.listdir("../../logs")
-        if os.path.isdir(os.path.join("../../logs", folder))
-    ]
-    st.selectbox("Select a file", options=log_files)
-
 
 with col2:
     uploaded_file = st.file_uploader(
