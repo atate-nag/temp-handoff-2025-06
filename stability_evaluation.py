@@ -161,23 +161,22 @@ def scenario_wrapper(company_name, problemsFile, company_file, trend_file):
     return scenario
 
 
-def measure_stability(
-    model, inputs, distance, embedding_function, n_samples=100, name=""
-):
+def measure_stability(model, inputs, distance, keys=None, n_samples=100, name=None):
     with mp.Pool(mp.cpu_count()) as pool:
         # outputs = [pool.apply_async(model, args=(inputs,)) for _ in range(n_samples)]
         inputs = [inputs] * n_samples
         # print(f"\ninputs: {inputs}")
         outputs = pool.starmap(model, inputs)
 
-    keys = [
-        "ProblemStatement",
-        "ProblemStatementBreakdown",
-        "Scenarios",
-        "UtilityAssessment",
-        "Prioritization",
-        "Analysis",
-    ]
+    # keys = [
+    #     "ProblemStatement",
+    #     "ProblemStatementBreakdown",
+    #     "Scenarios",
+    #     "UtilityAssessment",
+    #     "Prioritization",
+    #     "Analysis",
+    # ]
+    keys = outputs.keys() if not keys else keys
 
     # outputs = [json.load(open(output[1])) for output in outputs]
     print(f"\noutputs: {outputs}")
@@ -207,7 +206,7 @@ def measure_stability(
             for output in outputs
         ]
     )
-    print(embeddings)
+    # print(embeddings)
     # embeddings = np.array(embedding_function.embed_documents(outputs))
     # np.mean([[embedding[key] for key in keys] for embedding in embeddings], axis=0)
     means = {
@@ -241,14 +240,22 @@ def measure_stability(
 
     print(f"Stability results: {results}")
     # Convert results to JSON format
-    results_json = json.dumps(results)
+    # results_json = json.dumps(results)
 
-    # Write results to a file
-    if len(name) > 0:
-        name = name + "_"
-    with open("results_" + name + str(uuid.uuid4()) + ".json", "w") as f:
-        f.write(results_json)
+    # # Write results to a file
+    # if len(name) > 0:
+    #     name = name + "_"
+    # with open("results_" + name + str(uuid.uuid4()) + ".json", "w") as f:
+    #     f.write(results_json)
+    if name:
+        write_stability_results(results=results, name=name)
     return results
+
+
+def write_stability_results(results, name):
+    results_json = json.dumps(results)
+    with open("results_" + name + "_" + str(uuid.uuid4()) + ".json", "w") as f:
+        f.write(results_json)
 
 
 def measure_stability_from_file(file_names, distance, name=""):

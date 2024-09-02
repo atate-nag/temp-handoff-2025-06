@@ -19,6 +19,23 @@ if "socrates_front" not in logging.root.manager.loggerDict.keys():
 logger = logging.getLogger("socrates_front")
 
 
+def get_parameters(parameters, key, value):
+    if value == "List":
+        parameters[key] = st.text_area(
+            f"Enter {key}",
+            value="Tesla\nApple\nWalmart" if key == "companies" else "",
+        ).split("\n")
+    elif value == "Bool":
+        parameters[key] = st.checkbox(key, value=True)
+    elif value == "Int":
+        parameters[key] = st.number_input(f"Enter {key}", value=1)
+    elif value == "Str":
+        parameters[key] = st.text_input(
+            f"Enter {key}",
+            value="./problem_statements.json" if key == "problemsFile" else "",
+        )
+
+
 # from streamlit.logger import get_logger
 
 # class StreamlitLogHandler(logging.Handler):
@@ -93,6 +110,7 @@ with col1:
         "runFrameworks": {"companyName": "Str", "problemsFile": "Str"},
         "runScenarios": {"companyName": "Str", "problemsFile": "Str"},
         "runReport2": {"company": "Str"},
+        "stabilityEvaluation": {"workflow": "Workflow", "number_of_trials": "Int"},
     }
 
     def file_selector(folder_path="."):
@@ -125,22 +143,16 @@ with col1:
     )
     current_workflow = {"step": workflow, "parameters": {}}
     for key, value in workflows[workflow].items():
-        if value == "List":
-            current_workflow["parameters"][key] = st.text_area(
-                f"Enter {key}",
-                value="Tesla\nApple\nWalmart" if key == "companies" else "",
-            ).split("\n")
-        elif value == "Bool":
-            current_workflow["parameters"][key] = st.checkbox(key, value=True)
-        elif value == "Int":
-            current_workflow["parameters"][key] = st.number_input(
-                f"Enter {key}", value=1
-            )
-        elif value == "Str":
-            current_workflow["parameters"][key] = st.text_input(
-                f"Enter {key}",
-                value="./problem_statements.json" if key == "problemsFile" else "",
-            )
+        if value in ["List", "Bool", "Int", "Str"]:
+            get_parameters(current_workflow["parameters"], key, value)
+        elif value == "Workflow":
+            wflow = st.selectbox(f"Select {key}", options=["runStrategy", "runReport2"])
+            if wflow:
+                current_workflow["parameters"]["workflow"] = wflow
+                current_workflow["parameters"]["inputs"] = {}
+                for key, value in workflows[wflow].items():
+                    get_parameters(current_workflow["parameters"]["inputs"], key, value)
+
     # if workflows[workflow] == "List":
     #     companies = st.text_area("Enter companies")
     #     st.session_state['workflow_config'][workflow] = {"companies": companies}
