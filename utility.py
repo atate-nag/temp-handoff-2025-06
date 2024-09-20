@@ -20,8 +20,9 @@ import logging
 import logging.config
 
 if "socrates_main" not in logging.root.manager.loggerDict.keys():
-    for name, logger in logging.root.manager.loggerDict.items():
-        logger.disabled = True
+    # for name, logger in logging.root.manager.loggerDict.items():
+    #     logger = logging.getLogger()
+    #     logger.disabled = True
     # logging.config.dictConfig(config={'level': logging.DEBUG, 'handlers': []})
     logging.config.fileConfig(
         "config/logging_config_socrates.ini",
@@ -29,10 +30,11 @@ if "socrates_main" not in logging.root.manager.loggerDict.keys():
         disable_existing_loggers=False,
     )
 try:
+    logger = logging.getLogger("socrates_main")
     logger.debug(f"{mp.get_start_method()} ---- {__name__}")
     mp.set_start_method("spawn")
 except Exception as e:
-    logger.error(__name__ + " - " + str(e))
+    print(e)
 
 d = datetime.datetime.now()
 d = d.strftime("%m-%d-%Y %H:%M:%S")
