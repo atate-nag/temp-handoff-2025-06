@@ -25,12 +25,13 @@ import os
 import uuid
 import multiprocessing as mp
 import logging
+import logging.config
 
-try:
-    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
-    mp.set_start_method("spawn")
-except Exception as e:
-    logger.error(__name__ + " - " + str(e))
+# try:
+#     logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+#     mp.set_start_method("spawn")
+# except Exception as e:
+#     logger.error(__name__ + " - " + str(e))
 
 # def extract_keywords(documents):
 

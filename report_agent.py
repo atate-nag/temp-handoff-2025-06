@@ -7,6 +7,7 @@ from datetime import time
 from enum import Enum
 import os
 import logging
+import logging.config
 import json
 from string import Template
 from dotenv import load_dotenv
@@ -45,17 +46,6 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
-
-logger = logging.getLogger("Agent Thinking")
-logger.setLevel(logging.INFO)
-
-# create console handler with a higher log level
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-
-ch.setFormatter(CustomFormatter())
-
-logger.addHandler(ch)
 
 from dotenv import load_dotenv
 import threading

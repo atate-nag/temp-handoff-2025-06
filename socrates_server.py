@@ -14,6 +14,7 @@ import os
 from typing import Dict, Any
 
 import logging
+import logging.config
 
 if "socrates_server" not in logging.root.manager.loggerDict.keys():
     logging.config.fileConfig(

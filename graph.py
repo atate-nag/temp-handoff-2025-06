@@ -5,11 +5,22 @@ from debug import dprint
 import uuid
 import json
 import logging
+import logging.config
+
+if "socrates_main" not in logging.root.manager.loggerDict.keys():
+    logging.config.fileConfig(
+        "config/logging_config_socrates.ini",
+        defaults={"date": datetime.datetime.now()},
+        disable_existing_loggers=True,
+    )
+logger = logging.getLogger("socrates_main")
+
+
 import neo4j
 
 # Configure logging
 # logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__)
+# logger = logging.getLogger("socrates")
 
 
 def run_query_and_summarize(session, query, parameters=None):

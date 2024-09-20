@@ -31,7 +31,6 @@ from chains import (
 from report_agent import Agent as ReportAgent
 from report_agent import get_subsections, find_and_fill
 import json, re
-import logging
 from model_connector import ModelConnectorFactory
 import datetime
 
@@ -47,6 +46,7 @@ from utility import (
 
 from config.conf import setup_config, read_config
 import logging
+import logging.config
 
 from decomp_task.execute import run_decomp
 

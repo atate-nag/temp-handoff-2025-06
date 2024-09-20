@@ -16,14 +16,15 @@ import multiprocessing as mp
 import time
 from utility import invoke, retry, logger
 import logging
+import logging.config
 import json
 
 
-try:
-    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
-    mp.set_start_method("spawn")
-except Exception as e:
-    logger.error(__name__ + " - " + str(e))
+# try:
+#     logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+#     mp.set_start_method("spawn")
+# except Exception as e:
+#     logger.error(__name__ + " - " + str(e))
 
 load_dotenv()
 import uuid

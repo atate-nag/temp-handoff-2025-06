@@ -3,6 +3,7 @@ import json
 
 import matplotlib.pyplot as plt
 
+
 def plot_capabilities(capabilities):
     # Prepare lists for the x and y coordinates and labels
     x_coords = []
@@ -15,15 +16,19 @@ def plot_capabilities(capabilities):
         y_score = capability["valuePotential"] + capability["irreplaceability"]
         x_coords.append(x_score)
         y_coords.append(y_score)
-        labels.append(capability['name'])
+        labels.append(capability["name"])
 
     # Create a scatter plot
     fig, ax = plt.subplots(figsize=(10, 10))
-    scatter = ax.scatter(x_coords, y_coords, color="dodgerblue", s=100, edgecolors='black')
+    scatter = ax.scatter(
+        x_coords, y_coords, color="dodgerblue", s=100, edgecolors="black"
+    )
 
     # Add labels for each point
     for label, x, y in zip(labels, x_coords, y_coords):
-        ax.text(x, y, " " + label, ha="left", va="center", fontsize=10, fontweight='bold')
+        ax.text(
+            x, y, " " + label, ha="left", va="center", fontsize=10, fontweight="bold"
+        )
 
     # Define the maximum score for x and y axes to create a square plot
     max_score = max(max(x_coords), max(y_coords), 10)
@@ -34,14 +39,46 @@ def plot_capabilities(capabilities):
     ax.axvline(mid_point, color="gray", linestyle="--", linewidth=1)
 
     # Set the axis labels
-    ax.set_xlabel("Sustainability (Scarcity + NonReplicability)", fontsize=12, fontweight='bold')
-    ax.set_ylabel("Value Generation (ValuePotential + Irreplaceability)", fontsize=12, fontweight='bold')
+    ax.set_xlabel(
+        "Sustainability (Scarcity + NonReplicability)", fontsize=12, fontweight="bold"
+    )
+    ax.set_ylabel(
+        "Value Generation (ValuePotential + Irreplaceability)",
+        fontsize=12,
+        fontweight="bold",
+    )
 
     # Set axis labels for Low and High
-    ax.text(0, -0.5, "Low", ha="center", va="center", fontsize=12, fontweight='bold')
-    ax.text(max_score, -0.5, "High", ha="center", va="center", fontsize=12, fontweight='bold')
-    ax.text(-0.5, 0, "Low", ha="center", va="center", fontsize=12, fontweight='bold', rotation=90)
-    ax.text(-0.5, max_score, "High", ha="center", va="center", fontsize=12, fontweight='bold', rotation=90)
+    ax.text(0, -0.5, "Low", ha="center", va="center", fontsize=12, fontweight="bold")
+    ax.text(
+        max_score,
+        -0.5,
+        "High",
+        ha="center",
+        va="center",
+        fontsize=12,
+        fontweight="bold",
+    )
+    ax.text(
+        -0.5,
+        0,
+        "Low",
+        ha="center",
+        va="center",
+        fontsize=12,
+        fontweight="bold",
+        rotation=90,
+    )
+    ax.text(
+        -0.5,
+        max_score,
+        "High",
+        ha="center",
+        va="center",
+        fontsize=12,
+        fontweight="bold",
+        rotation=90,
+    )
 
     # Set the axis ranges to be equal
     ax.set_xlim(0, max_score)
@@ -52,7 +89,7 @@ def plot_capabilities(capabilities):
     ax.set_yticks([])
 
     # Add grid
-    ax.grid(True, which="both", linestyle="--", linewidth=0.5, color='gray')
+    ax.grid(True, which="both", linestyle="--", linewidth=0.5, color="gray")
 
     # Set background to white and adjust plot
     ax.set_facecolor("white")

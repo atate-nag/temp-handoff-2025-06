@@ -17,6 +17,7 @@ import datetime
 import tiktoken
 from config.conf import setup_config, read_config
 import logging
+import logging.config
 
 if "socrates_main" not in logging.root.manager.loggerDict.keys():
     for name, logger in logging.root.manager.loggerDict.items():

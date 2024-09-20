@@ -9,10 +9,14 @@ import uuid
 import datetime
 from graph_workflow.linkedin_agent import LinkedinAgent
 import logging
+import logging.config
 
-if not logging.getLogger().hasHandlers():
-    with open("config/logging_config.json") as json_file:
-        logging.config.dictConfig(json.load(json_file))
+if "socrates_main" not in logging.root.manager.loggerDict.keys():
+    logging.config.fileConfig(
+        "config/logging_config_socrates.ini",
+        defaults={"date": datetime.datetime.now()},
+        disable_existing_loggers=True,
+    )
 logger = logging.getLogger("socrates_main")
 
 # setup openaAI
