@@ -16,11 +16,11 @@ load_dotenv()
 import uuid
 import json
 
-try:
-    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
-    multiprocessing.set_start_method("spawn")
-except Exception as e:
-    logger.error(__name__ + " - " + str(e))
+# try:
+#     logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+#     multiprocessing.set_start_method("spawn")
+# except Exception as e:
+#     logger.error(__name__ + " - " + str(e))
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")

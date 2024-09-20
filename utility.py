@@ -29,12 +29,12 @@ if "socrates_main" not in logging.root.manager.loggerDict.keys():
         defaults={"date": str(datetime.datetime.now())},
         disable_existing_loggers=False,
     )
-try:
-    logger = logging.getLogger("socrates_main")
-    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
-    mp.set_start_method("spawn")
-except Exception as e:
-    print(e)
+# try:
+#     logger = logging.getLogger("socrates_main")
+#     logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+#     mp.set_start_method("spawn")
+# except Exception as e:
+#     print(e)
 
 d = datetime.datetime.now()
 d = d.strftime("%m-%d-%Y %H:%M:%S")

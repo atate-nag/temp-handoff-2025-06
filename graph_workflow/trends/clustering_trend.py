@@ -25,11 +25,11 @@ load_dotenv()
 import uuid
 import copy
 
-try:
-    logger.debug(f"{mp.get_start_method()} ---- {__name__}")
-    mp.set_start_method("spawn")
-except Exception as e:
-    logger.error(__name__ + " - " + str(e))
+# try:
+#     logger.debug(f"{mp.get_start_method()} ---- {__name__}")
+#     mp.set_start_method("spawn")
+# except Exception as e:
+#     logger.error(__name__ + " - " + str(e))
 
 uri = os.getenv("NEO4J_URL")
 user = os.getenv("NEO4J_USER")
