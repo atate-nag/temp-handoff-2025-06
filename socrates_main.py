@@ -48,7 +48,7 @@ from config.conf import setup_config, read_config
 import logging
 import logging.config
 
-from decomp_task.execute import run_decomp
+#from decomp_task.execute import run_decomp
 
 d = datetime.datetime.now()
 d = d.strftime("%m-%d-%Y %H:%M:%S")
@@ -67,9 +67,9 @@ logger = logging.getLogger("socrates_main")
 logger.info("Started")
 # Example usage
 model_config = {
-    "model_type": "openai_assistants",
+    "model_type": "openai_chat",
     "api_key": os.getenv("OPENAI_API_KEY"),
-    "model": "gpt-4o",
+    "model": "o1-preview",
     #'model': 'gpt-3.5-turbo',
 }
 file_handler = FileHandler()
@@ -159,7 +159,7 @@ def get_step_function(step_name):
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
         "runReport": run_report,
-        "runReport2": run_decomp,
+        #"runReport2": run_decomp,
     }
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
@@ -419,8 +419,6 @@ def get_gics_code_and_name(company_name):
     logger.info(f"gics_code: {gics_code}")
     gics_name = [gics_mapping.get(g_code, "") if g_code else "" for g_code in gics_code]
     return gics_code, gics_name
-
-
 def get_file_paths(company_name, problemsFile):
     """
     Give a single company, extracts the problem, company and trend data
@@ -455,7 +453,7 @@ def run_scenarios(companyName, problemsFile):
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
         company_name, problemsFile
     )
-    scenarios_return_file, scenarios_response_file = generate_scenarios(
+    scenarios_return_file = generate_scenarios(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
 
@@ -473,7 +471,7 @@ def generate_scenarios(
     """
     Executes the scenarios agent  for a single company
     """
-    agent_configs = [{"agent_type": "full_graph_scenario_agent"}]
+    agent_configs = [{"agent_type": "full_graph_connector_scenario_agent"}]
     scenarios_manager = AgentManager(
         connector,
         file_handler,
@@ -483,36 +481,10 @@ def generate_scenarios(
     )
     scenarios_manager.run_workflow()
     scenarios_return_data = scenarios_manager.return_dict()
-    logger.info(f"scenarios_return_data: {str(scenarios_return_data)}")
-    # logger.info(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
-    # scenarios_return_data
-    # scenarios_response = scenarios_manager.agent_response
-    # logger.info(f"scenarios_response: {str(scenarios_response)}")
-    # logger.info(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
-    # assert False
-    # scenarios_response = scenarios_manager.get("response_file")
-    logger.info(f"scenarios_response: {scenarios_return_data}")
-    logger.info(f"scenarios_return_data: {scenarios_manager}")
-    scenarios_output = scenarios_return_data.get("output_file")
-    scenarios_response = scenarios_return_data.get("response_file")
-    logger.info(f"scenarios_output: {scenarios_output}")
-    logger.info(f"scenarios_response: {scenarios_response}")
-    # logger.info(f"scenarios_output: {scenarios_output}")
-    scenarios_local_output = connector.download_and_write_local(
-        f"scenarios_output_{company_name}", scenarios_output
+    scenarios_local_response, scenarios_local_output = connector.write_output_to_local(
+        f"scenarios_output_{company_name}", scenarios_return_data
     )
-    logger.info(f"scenarios_local_output: {scenarios_local_output}")
-    # scenarios_local_response = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
-    # logger.info(f"scenarios_local_response: {scenarios_local_response}")
-    # scenarios_response_file = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
-    # assert False
-    # logger.debug(f"scenarios output = {scenarios_output}")
-    scenarios_response_file = file_handler.write_local_json(
-        f"scenarios_{company_name}" + run_id, json.dumps(scenarios_response)
-    )
-    # #scenarios_return_file = connector.download_and_write_local(f"_scenarios_output_{company_name}", scenarios_output )
-    # logger.info(f"completed scenarios for {company_name}")
-    return scenarios_local_output, scenarios_response_file
+    return scenarios_local_response, scenarios_local_output
 
 
 def run_frameworks(companyName, problemsFile):
@@ -551,13 +523,16 @@ def generate_frameworks(
         use_qm_agents=True,
     )
     frameworks_manager.run_workflow()
-    frameworks_dictionary_return = frameworks_manager.return_dict()
-    frameworks_output = frameworks_dictionary_return.get("output_file")
-    logger.debug(f"the frameworks output file is {frameworks_output}")
-    frameworks_return_local_file = connector.download_and_write_local(
-        f"frameworks_output_{company_name}" + run_id, frameworks_output
+    frameworks_return_data = frameworks_manager.return_dict()
+    frameworks_response, frameworks_local_output = connector.write_output_to_local(
+        f"frameworks_output_{company_name}", frameworks_return_data
     )
-    return frameworks_return_local_file
+    # frameworks_output = frameworks_dictionary_return.get("output_file")
+    # logger.debug(f"the frameworks output file is {frameworks_output}")
+    # frameworks_return_local_file = connector.download_and_write_local(
+    #     f"frameworks_output_{company_name}" + run_id, frameworks_output
+    # )
+    return frameworks_local_output
 
 
 def run_report(companyName, problemsFile):
@@ -693,7 +668,6 @@ def run_strategy(companyName, problemsFile):
     # # Write the markdown report to a file
     # with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
     #     file.write(markdown)
-
 
 if __name__ == "__main__":
     main()

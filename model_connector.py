@@ -3,7 +3,9 @@ from openai import OpenAI
 from debug import dprint
 from datetime import datetime, timedelta
 from agent_configs import AgentConfigs
-
+import os
+import uuid
+import sys
 
 class ModelConnector(ABC):
     def __init__(self, config, filehandler):
@@ -12,6 +14,12 @@ class ModelConnector(ABC):
         self.last_timestamp = 0
         self.filehandler = filehandler
         self.model = config.get("model")
+        self.tools = []
+        self.initial_message = {}
+        self.conversation_histories = {}
+        self.file_contents = {}
+        self.messages_per_thread = {}
+        self.last_response = {}
 
     @abstractmethod
     def initialize_client(self):
@@ -22,7 +30,7 @@ class ModelConnector(ABC):
         pass
 
     @abstractmethod
-    def retrieve(self, thread, run):
+    def retrieve(self, agent_id, thread, run):
         pass
 
     @abstractmethod
@@ -30,16 +38,208 @@ class ModelConnector(ABC):
         pass
 
 
+class OpenAIChatConnector(ModelConnector):
+    def initialize_client(self):
+        client = OpenAI()
+        return client
+
+    def retrieve(self, agent_id, thread_id, run_id):
+        messages = self.initial_message[agent_id] + self.messages_per_thread[thread_id]
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+        )
+        self.messages_per_thread[thread_id].append({"role": "assistant", "content": completion.choices[0].message.content})
+        self.last_response[thread_id] = completion.choices[0].message.content
+        return completion
+
+    def agent_clone(self, agent, parent=None):
+        source_assistant_id = agent
+        client = self.client
+        # Retrieve the list of assistants
+        my_assistants = client.beta.assistants.list(order="desc", limit=100).data
+        # Find the assistant by IDg
+        source_assistant = None
+        for assistant in my_assistants:
+            if assistant.id == source_assistant_id:
+                source_assistant = assistant
+                break
+
+        if source_assistant is None:
+            print("Assistant not found.")
+            return
+
+        # Prepare the payload for creating a new assistant
+        # Copy all relevant fields except the ID and created_at
+
+        agent_data = {
+            "name": "Cloned Chat Agent",
+            "description": source_assistant.description,
+            "model": self.model,
+            "instructions": source_assistant.instructions,
+            "tools": [{"type": "code_interpreter"}],
+            "temperature": source_assistant.temperature,
+            "top_p": source_assistant.top_p,
+        }
+        # instead of making a new assistant, we will store the assistant data in agent config
+        # self.initial_message[parent.id] = [{"role": "system", "content": source_assistant.instructions}]
+        # o1-preview doesn't allow system messages so instead insert instructions into a user message
+
+        self.initial_message[parent.id] = [{"role": "user" , "content" : source_assistant.instructions}]
+
+        # # now add the file content
+        # file_contents = self.file_contents.get(parent.id, {})
+        # dprint("file_content is ",file_contents)
+        #
+        # if file_contents:
+        #     combined_content = ''
+        #     for uid, content in file_contents.items():
+        #         # Optionally, summarize or truncate content
+        #         combined_content += f"Content of file (UID: {uid}):\n{content}\n\n"
+        #     self.initial_message[parent.id].append({
+        #         "role": "user",
+        #         "content": f"Here's information extracted from my files:\n{combined_content}"
+        #     })
+        # # Add the conversation history to the messages
+        # # Store the messages object for the thread
+        # # instead of returning an agent_id we return parent with is Agent ID to denote Chat API
+        # dprint(f"the initial message is {self.initial_message[parent.id]}")
+        # sys.exit()
+        return parent
+
+    def clean_up(self):
+        pass
+
+    def generate_response(self, prompt):
+        pass
+
+    def upload_locals(self, agent_id, file_paths):
+        # Initialize dictionaries if they don't exist
+        if not hasattr(self, 'file_contents'):
+            self.file_contents = {}
+        if not hasattr(self, 'file_uids'):
+            self.file_uids = {}
+        if agent_id not in self.file_contents:
+            self.file_contents[agent_id] = {}
+        if agent_id not in self.file_uids:
+            self.file_uids[agent_id] = {}
+
+        # Read and store the content of each file with a generated UID
+
+        uploaded = []
+        combined_content = ''
+        for file_path in file_paths:
+            try:
+                with open(file_path, 'r') as file:
+                    content = file.read()
+                    # Generate a unique identifier for the file
+                    file_uid = str(uuid.uuid4())
+                    self.file_contents[agent_id][file_uid] = content
+                    # # Optionally, store the original file name for reference
+                    self.file_uids[agent_id][file_uid] = file_path
+                    uploaded.append(file_uid)
+                    # now add the file content
+                    file_contents = self.file_contents.get(agent_id, {})
+                    if file_contents:
+                        for uid, content in file_contents.items():
+                            # Optionally, summarize or truncate content
+                            combined_content += f"Content of file (UID: {uid}):\n{content}\n\n"
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+
+        self.initial_message[agent_id].append({
+            "role": "user",
+            "content": f"Here's information extracted from my files:\n{combined_content}"
+        })
+
+        return uploaded
+
+    def upload_file_ids(self, agent_id, file_ids):
+        # Since Chat Completions does not upload, this just returns the list of stored files
+        return self.file_uids[agent_id]
+
+    def add_message(self, thread, agent_id, instructions):
+        """
+        Add a message to the conversation history for the given thread
+        and store the messages object for later use.
+        """
+        thread_id = thread.id
+        # Build the messages object to be used later
+        # Store the messages object for the thread
+        dprint("thread id is " + thread_id)
+        if thread_id not in self.messages_per_thread:
+            self.messages_per_thread[thread_id] = []
+
+        self.messages_per_thread[thread_id].append({
+            "role": "user",
+            "content": instructions,
+        })
+
+        dprint("messages per thread is " + str(self.messages_per_thread[thread_id]))
+        return
+
+    def create_run(self, thread, assistant_id):
+        # completions does not have a concept of run_create
+        # so we just return thread_id, this may not suffice
+        return thread
+
+    def agent_retrieve(self, agent, thread):
+        """
+        returns all the relevant output from an agent run
+        including response text and separated json output
+        For Chat API
+        """
+
+        latest_response = self.last_response[thread.id]
+        inline_json = self.filehandler.extract_json_from_response_text(latest_response)
+        agent_output = {
+            "output_file": None,
+            "response_text": self.messages_per_thread[thread.id],
+            "response_file": None,
+            "inline_dict": inline_json,
+        }
+        return agent_output
+
+    def write_output_to_local(self, tag, output):
+        response = output.get("response_text")
+        inline = output.get("inline_dict")
+        # content = output.get("response_text")
+        response_file = self.filehandler.write_local_dict(tag, response)
+        tag += "_inline"
+        inline_file = self.filehandler.write_local_dict(tag, inline)
+        return response_file, inline_file
+
+    def download_and_write_local(self, tag, file):
+        content = self.client.files.content(file)
+        dprint(f"content is {content}")
+        local = self.filehandler.write_local_bin_to_json(tag, content)
+        dprint(f"local is {local}")
+        return local
+
 class OpenAIAssistantsConnector(ModelConnector):
     def initialize_client(self):
         client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
         return client
 
     def retrieve(self, thread_id, run_id):
+        # assistant API can allow status retrieval
         retrieve = self.client.beta.threads.runs.retrieve(
             thread_id=thread_id, run_id=run_id
         )
-        return retrieve
+        if retrieve.status == "completed":
+            dprint(f"Run {run_id} completed successfully.")
+            return True
+        elif retrieve.status in ["failed", "incomplete", "expired"]:
+            dprint(f"Run {run_id} failed with status: {retrieve.status}")
+            return None
+
+    def create_run(self, thread, agent_id):
+        model_run = self.client.beta.threads.runs.create(
+                thread_id=thread.id,
+                assistant_id=agent_id,
+                model=self.model,
+                tools=[{"type": "code_interpreter"}])
+        return model_run
 
     def agent_clone(self, agent):
         source_assistant_id = agent
@@ -103,22 +303,16 @@ class OpenAIAssistantsConnector(ModelConnector):
         including output file and response text
         """
         new_messages = self.get_new_messages(thread)
-        for message in new_messages:
-            dprint(f"message: {message}")
         file_id = self.retrieve_file_annotation(new_messages)
-        dprint("after retrieve_file_annotation, the file_id spotted is ", file_id)
         latest_response = self.get_response(new_messages)
-        dprint(f"latest response is {latest_response}")
         uploaded_response = self.upload_text_to_file(latest_response)
-        dprint(f"uploaded response is {uploaded_response}")
         inline_json = self.filehandler.extract_json_from_response_text(latest_response)
-        dprint(f"inline json is {inline_json}")
         agent_output = {
             "output_file": file_id,
             "response_file": uploaded_response,
+            "response_text" : None,
             "inline_dict": inline_json,
         }
-        dprint(f"agent_output is {agent_output}")
         return agent_output
 
     def retrieve_direct_agent_content(self, agent_id, response, output_file):
@@ -126,14 +320,12 @@ class OpenAIAssistantsConnector(ModelConnector):
         Retrieves the content from a file, annotations or set of messages.
         """
         # TODO make this more intelligent - get the best JSON from either
-        dprint(f"output file is {output_file}")
         if output_file:
             json_data = self.filehandler.retrieve_file_content_dict(
                 agent_id, output_file
             )
             if json_data:
                 return json_data
-        dprint(f"going to json extraction")
         json_data = self.filehandler.extract_json_from_response_text(response)
         if json_data:
             return json_data
@@ -383,5 +575,7 @@ class ModelConnectorFactory:
         model_type = config["model_type"]
         if model_type == "openai_assistants":
             return OpenAIAssistantsConnector(config, filehandler)
+        elif model_type == "openai_chat":
+            return OpenAIChatConnector(config,filehandler)
         else:
             raise "model not yet supported"

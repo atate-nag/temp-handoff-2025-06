@@ -31,6 +31,8 @@ class Agent:
         self.last_validated_output = None
         self.agent_type = None
         self.run_limit = 10  #  TODO should be a workflow parameter
+        # dummy arg for ChatAPI which will return ID of Agent class
+        self.id = f"id_{id(self)}"
         """
             Each state transition will follow this path:
             before_validation  ->   validation ->  after_validation - > transition 
@@ -125,6 +127,7 @@ class Agent:
         dprint("Running validations for state transition from Zero to Initialised")
         try:
             unvalidated_data = self.unvalidated_data.get_data_for_state("Zero")
+            dprint(f"DEBUG0 ****: qm_id = {unvalidated_data['qm_id']} and type is {type(unvalidated_data['qm_id'])}")
             validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
             agent_configs_valid = AgentConfigs.get_agent_details(
                 validated_workflow_context.agent_type
@@ -139,17 +142,20 @@ class Agent:
             self.validated.set_data("agent_config", agent_configs_valid)
             self.validated.set_data("agent_context", agent_context_valid)
 
-            # TODO replace this with connector.clone.agent
-
             my_agent = self.connector.agent_clone(
                 self.validated.agent_context.agent_id,
+                self
             )
+            dprint("DEBUG1 *********")
 
             if my_agent:
                 self.validated.agent_context.agent_id = my_agent.id
             else:
                 dprint("Agent clone was not created - Aborting")
                 raise Exception("Agent clone was not created")
+
+            dprint("DEBUG2 *********")
+            dprint(f"qm id = {qm_id}")
             self.validated.set_data("qm_id", qm_id)
             self.agent_type = validated_workflow_context.agent_type
 
@@ -202,23 +208,20 @@ class Agent:
             uploaded_assistant_files = self.connector.upload_locals(agent_id, file_list)
             dprint(f"Uploaded from locals are {uploaded_assistant_files}")
 
-        agent_response_file = agent_output_file = agent_inline_dict = None
+        agent_response_file = agent_output_file = agent_inline_dict = agent_response_text = None
         if self.user_data.get("agent_output"):
             output = self.user_data["agent_output"]
             agent_response_file = output["response_file"]
+            agent_response_text = output["response_text"]
             agent_output_file = output["output_file"]
             agent_inline_dict = output["inline_dict"]
         print("doing the agent output stuff")
-        if self.user_data.get("agent_output"):
-            output = self.user_data["agent_output"]
-            agent_response_file = output["response_file"]
-            agent_output_file = output["output_file"]
-            agent_inline_dict = output["inline_dict"]
 
         self.unvalidated_data.set_data_for_state(
             "Initialised",
             agent_output_file=agent_output_file,
             agent_response_file=agent_response_file,
+            agent_response_text=agent_response_text,
             agent_inline_dict=agent_inline_dict,
             asst_input_files=uploaded_assistant_files,
             input_files=self.user_data.get("input_files"),
@@ -257,7 +260,7 @@ class Agent:
             agent_thread = self.validated.agent_thread
             dprint("Retrieved agent thread from validated data.")
 
-            agent_output_file = agent_response_file = agent_inline_dict = (
+            agent_output_file = agent_response_file = agent_response_text = agent_inline_dict = (
                 agent_schema_errors
             ) = agent_requirements = None
             dprint("Initialized multiple variables to None for further validation.")
@@ -271,6 +274,8 @@ class Agent:
 
             if self.user_data["agent_output"]:
                 agent_response_file = unvalidated_data["agent_response_file"]
+                agent_response_text = unvalidated_data["agent_response_text"]
+
                 dprint("Agent response file retrieved from unvalidated data.")
 
                 agent_output_file = unvalidated_data["agent_output_file"]
@@ -291,6 +296,8 @@ class Agent:
             dprint("Agent output file set in validated data.")
 
             self.validated.set_data("agent_response_file", agent_response_file)
+            self.validated.set_data("agent_response_text", agent_response_text)
+
             dprint("Agent response file set in validated data.")
 
             self.validated.set_data("agent_inline_dict", agent_inline_dict)
@@ -358,7 +365,8 @@ class Agent:
                 parent=self.validated.agent_thread,
                 retrieval_limit=20,
                 input_files=self.validated.asst_input_files,
-                agent_response=self.validated.agent_response_file,
+                agent_response_file=self.validated.agent_response_file,
+                agent_response_text=self.validated.agent_response_text,
                 agent_output=self.validated.agent_output_file,
                 agent_requirements=self.validated.agent_requirements,
                 output_schema=self.validated.agent_context.output_schema,
@@ -467,6 +475,7 @@ class Agent:
         self.validated.set_data("file_paths", None)
         self.validated.set_data("agent_output_file", None)
         self.validated.set_data("agent_response_file", None)
+        self.validated.set_data("agent_response_text", None)
         self.validated.set_data("agent_inline_dict", None)
 
     def after_validation_running_to_retrieved(self, unvalidated_data):

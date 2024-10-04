@@ -19,6 +19,8 @@ class AgentThread:
         self.runobjs = []
         self.returnobjs = []
         self.file_handler = file_handler
+        # Note: This is always using Assistants API to create a thread, even if
+        # the connector is going to use Chat Completions API
         self.thread = self.client.beta.threads.create()
         dprint(f"created initial thread {self.thread.id}")
         # self.last_timestamp = 0
@@ -32,7 +34,8 @@ class AgentThread:
         parent,
         retrieval_limit,
         input_files,
-        agent_response,
+        agent_response_file,
+        agent_response_text,
         agent_output,
         agent_requirements,
         output_schema,
@@ -42,15 +45,20 @@ class AgentThread:
     ):
         dprint("creating new run")
         file_ids = []
-
+        agent_response = None
         connector = parent.connector
 
         if input_files:
             file_ids.extend(input_files)
 
-        if agent_response:
+        if agent_response_file:
             print("agent_response to pass to run is detected")
-            file_ids.append(agent_response)
+            file_ids.append(agent_response_file)
+            agent_response = agent_response_file
+
+        if agent_response_text:
+            print("agent_response to pass to run is detected")
+            agent_response = agent_response_text
 
         if agent_output:
             print("agent_output to pass to run is detected")
@@ -79,7 +87,8 @@ class AgentThread:
             file_paths=file_paths,
         )
         dprint(f"created new run prompt")
-        self.connector.add_message(self.thread, run_prompt)
+        self.connector.add_message(self.thread, parent.agent_id, run_prompt)
+
         run.create_run()
         dprint(f"created new run")
         self.runobjs.append(run)
@@ -109,7 +118,6 @@ class AgentThread:
         except Exception as e:
             dprint(f"Error retrieving output: {e}")
             agent_output = None
-        dprint(f"structured_output: {agent_output}")
         if agent_output is None:
             dprint(f"No JSON in responses, need to reissue")
             self.output_dict = None
@@ -119,11 +127,12 @@ class AgentThread:
         self.output_dict = {
             "run_obj": self.runobjs[-1].id,
             "response_file": agent_output["response_file"],
+            "response_text": agent_output["response_text"],
             "output_file": agent_output["output_file"],
             "inline_dict": agent_output["inline_dict"],
         }
         self.returnobjs.append(self.output_dict)
-        self.full_response.append(agent_output["response_file"])
+        self.full_response.append(agent_output["response_text"])
         return self.output_dict
 
 
@@ -163,15 +172,11 @@ class RunObj(BaseModel):
     def create_run(self):
         if self.model_run is None:
             client = self.parent.client
-            # TODO replace with connector.run
-            model_run = client.beta.threads.runs.create(
-                thread_id=self.parent.thread.id,
+            model_run = self.parent.connector.create_run(
+                thread=self.parent.thread,
                 assistant_id=self.parent.agent_id,
-                # model="gpt-4-turbo-preview",
-                tools=[{"type": "code_interpreter"}],
             )
             self.set_model_run(model_run)
-            print(f"Created run {self.model_run.id}")
         else:
             print("Run already created.")
 
@@ -188,7 +193,7 @@ class RunObj(BaseModel):
             print("No run to retrieve.")
             return None
         start_time = time.time()
-        retrieve = self.retrieve_run_and_wait(self.model_run.id)
+        retrieve = self.retrieve_run_and_wait(self.model_run)
         end_time = time.time()
         print("Retrieve time: " + str(end_time - start_time))
         return retrieve
@@ -200,19 +205,13 @@ class RunObj(BaseModel):
 
         while retries < self.retrieval_limit:
             try:
+                dprint("Calling model-connector retrieve")
                 retrieve = self.parent.connector.retrieve(
-                    thread_id=thread_id, run_id=run_id
+                    thread_id=thread_id, run_id=run_id, agent_id=self.parent.agent_id
                 )
-                dprint(f"Assistant status: {retrieve.status}")
+                if retrieve is not None:
+                    return retrieve
 
-                if retrieve.status == "completed":
-                    dprint(f"Run {run_id} completed successfully.")
-                    return True
-                elif retrieve.status in ["failed", "incomplete", "expired"]:
-                    dprint(f"Run {run_id} failed with status: {retrieve.status}")
-                    return None
-
-                time.sleep(5)
             except Exception as e:
                 print(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
                 dprint(f"Error retrieving run {run_id} for thread {thread_id}: {e}")

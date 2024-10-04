@@ -120,18 +120,11 @@ class AgentContextModel(BaseModel):
 
     @field_validator("agent_id")
     def validate_agent_id(cls, v):
-        dprint("validating id", v)
-        if not re.match(r"^asst_[A-Za-z0-9]{24}$", v):
+        print("validating id", v)
+        # Updated regular expression to allow both formats
+        if not re.match(r"^(asst_[A-Za-z0-9]{24}|id_\d{11})$", v):
             raise ValueError(
-                "ID must start with 'asst_' followed by 24 alphanumeric characters."
-            )
-        return v
-
-    @validator("qm_id", always=True)
-    def validate_qm_id(cls, v):
-        if v is not None and not re.match(r"^asst_[A-Za-z0-9]{24}$", v):
-            raise ValueError(
-                "QM ID must start with 'asst_' followed by 24 alphanumeric characters."
+                "ID must start with 'asst_' followed by 24 alphanumeric characters, or 'id_' followed by 11 digits."
             )
         return v
 

@@ -476,6 +476,126 @@
   },
       "prompt" : "Generate the appropriate scenarios for the problem as described in the problem breakdown and the data assessment in files: {INPUT_FILES}"
     },
+    "full_graph_connector_scenario_agent": {
+      "agent_id" : "asst_AnpwENSbCzVYSmvk3Ctp2Bdi",
+      "description": "Scenario Agent",
+      "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "ProblemStatement": {
+        "type": "string"
+      },
+      "ProblemStatementBreakdown": {
+        "type": "object",
+        "properties": {
+          "MainTask": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "MainObjective": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ConstraintsRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "InformationContext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Definitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Concepts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "MainTask",
+          "MainObjective",
+          "ConstraintsRequirements",
+          "InformationContext",
+          "Definitions",
+          "Concepts"
+        ]
+      },
+      "Scenarios": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "ScenarioID": { "type": "string" },
+            "Description": { "type": "string" },
+            "TrendsReferenced": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            },
+            "Cost": { "type": "number" },
+            "OpportunityCost": { "type": "number" },
+            "ValueGain": { "type": "number" },
+            "Risk": { "type": "number" },
+            "RiskAversionLambda": { "type": "number" },
+            "UtilityScore": { "type": "number" }
+          },
+          "required": [
+            "ScenarioID",
+            "Description",
+            "TrendsReferenced",
+            "Cost",
+            "OpportunityCost",
+            "ValueGain",
+            "Risk",
+            "RiskAversionLambda",
+            "UtilityScore"
+          ]
+        }
+      },
+      "UtilityAssessment": {
+        "type": "object",
+        "properties": {
+          "ParameterRequirements": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "RequestedBy": { "type": "string" }
+        },
+        "required": ["ParameterRequirements", "RequestedBy"]
+      },
+      "Prioritization": {
+        "type": "string"
+      },
+      "Analysis": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "ProblemStatement",
+      "ProblemStatementBreakdown",
+      "Scenarios",
+      "UtilityAssessment",
+      "Prioritization",
+      "Analysis"
+    ]
+  },
+      "prompt" : "Generate the appropriate scenarios for the problem as described in the problem statement, trend data and detailed company data"
+    },
     "full_graph_frameworks_agent": {
       "agent_id" : "asst_FsNGA3T3mrCtmh1SZVVahpCC",
       "description": "Frameworks Agent",
@@ -1074,8 +1194,8 @@
         "additionalProperties": false,
         "description": "Schema for validating agent output."
       },
-      "prompt": "Check if the agent completed the task. The agent response is in the file : {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}. Please perform your 5-stage QM process using this data as input",
-      "instructions": "The agent followed your instructions, the new response is in the file : {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}. Additionally, the following errors were detected when comparing the agent's output against the provided schema: {AGENT_SCHEMA_ERRORS}. Please repeat all of your 5 QM stages, using the same process on the new data."
+      "prompt": "Check if the agent completed the task. The agent response is {AGENT_RESPONSE}. If generated, the external output produced by the agent is in file: {AGENT_OUTPUT}. The required schema of the output is schema={AGENT_REQUIREMENTS}. Please perform your 5-stage QM process using this data as input",
+      "instructions": "The agent followed your instructions, the new response is  {AGENT_RESPONSE}, and a new output file {AGENT_OUTPUT}. Additionally, the following errors were detected when comparing the agent's output against the provided schema: {AGENT_SCHEMA_ERRORS}. Please repeat all of your 5 QM stages, using the same process on the new data."
     },
     "qm_agent": {
       "agent_id": "asst_49YnOtEIzaLI8scAJsiqLw8G",
