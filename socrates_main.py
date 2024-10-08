@@ -549,27 +549,28 @@ def run_report(companyName, problemsFile):
     )
 
     scenarios_response_file = (
-        f"./Intermediates/local_scenarios_response_{company_name}.json"
+        f"./Intermediates/local_scenarios_output_{company_name}.json"
     )
     scenarios_return_file = (
-        f"./Intermediates/local_scenarios_return_{company_name}.json"
+        f"./Intermediates/local_scenarios_output_{company_name}_inline.json"
     )
-    frameworks_file_path = f"./Intermediates/local_frameworks_file_{company_name}.json"
+    frameworks_file_path = f"./Intermediates/local_frameworks_output_{company_name}.json"
 
-    reporting_return_file = generate_report(
+    reporting_return = generate_report(
         company_name,
         scenarios_response_file,
         scenarios_return_file,
         frameworks_file_path,
         trends_file_path,
     )
-    if reporting_return_file:
-        report_content = connector.download_and_write_local(
-            f"strategic_report_{company_name}" + run_id, reporting_return_file
-        )
-        logger.debug(
-            f"completed report generation for {company_name} at file {reporting_return_file}"
-        )
+    if reporting_return:
+        text = reporting_return.get("inline_dict")
+        # text = inline['content']
+        markdown = dict_to_markdown(text)
+        markdown = "# " + companyName + " Strategic Report\n\n" + markdown
+        # # Write the markdown report to a file
+        with open(f"./Strategic Reports/{companyName}_{run_id}_strategic_report.md", "w") as file:
+            file.write(markdown)
     else:
         logger.debug(f"Error: Report generation for {company_name} failed")
 
@@ -598,15 +599,20 @@ def generate_report(
             frameworks_file_path,
             trends_file_path,
         ],
-        use_qm_agents=True,
+        use_qm_agents=False,
     )
     reporting_manager.run_workflow()
     reporting_return = reporting_manager.return_dict()
-    reporting_output_file = reporting_return["output_file"]
-    reporting_output_local_file = connector.download_and_write_local(
-        f"strategic_report_{company_name}" + run_id, reporting_output_file
-    )
-    return reporting_output_local_file
+    print("reporting_return", reporting_return)
+
+    # report_content, reporting_return_file = connector.write_output_to_local(
+    #     f"strategic_report_{company_name}" + run_id, reporting_return
+    # )
+
+    # report_content, reporting_return_file = connector.write_report(
+    #     f"strategic_report_{company_name}" + run_id, reporting_return
+    # )
+    return reporting_return
 
 
 @retry(number_of_retry=1)  # Retry the function once in case of failure
@@ -615,20 +621,22 @@ def run_strategy(companyName, problemsFile):
     Executes the strategic analysis process for a given company.
     (this is the full workload automation)
     """
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     # Get the files and paths for the necessary files related to the company and problem
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
         company_name, problemsFile
     )
     # Generate scenarios using the scenarios agent
-    scenarios_response, scenarios_return_file = generate_scenarios(
+    scenarios_response_file, scenarios_return_file = generate_scenarios(
         companyName, problem_file_path, trends_file_path, company_file_path
     )
 
-    scenarios_response_file = file_handler.write_local_json(
-        f"scenarios_{company_name}", json.dumps(scenarios_response)
-    )
-    logger.info(f"scenarios_response_file: {scenarios_response_file}")
+    # scenarios_response_file = file_handler.write_local_json(
+    #     f"scenarios_{company_name}", json.dumps(scenarios_response)
+    # )
+    # logger.info(f"scenarios_response_file: {scenarios_response_file}")
 
     # logger.info(connector.retrieve_file_content(scenarios_response_file))
     # assert scenarios_response_file.startswith("./Intermediates")
@@ -643,10 +651,10 @@ def run_strategy(companyName, problemsFile):
     # logger.info(f"frameworks_file_path: {frameworks_file_path}")
     # assert frameworks_file_path.startswith("./Intermediates")
     # Generate a strategic report using the reporting agent
-    logger.info(f"scenarios_response_file: {scenarios_response_file}")
-    logger.info(f"scenarios_return_file: {scenarios_return_file}")
-    logger.info(f"frameworks_file_path: {frameworks_file_path}")
-    reporting_return_file = generate_report(
+    # logger.info(f"scenarios_response_file: {scenarios_response_file}")
+    # logger.info(f"scenarios_return_file: {scenarios_return_file}")
+    # logger.info(f"frameworks_file_path: {frameworks_file_path}")
+    reporting_return = generate_report(
         company_name,
         scenarios_response_file,
         scenarios_return_file,
@@ -654,20 +662,19 @@ def run_strategy(companyName, problemsFile):
         trends_file_path,
     )
 
-    logger.info(f"reporting_return_file: {reporting_return_file}")
     # assert reporting_return_file.startswith("./Intermediates")
     # report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-    logger.debug(
-        f"completed strategic analysis for {company_name} at file {reporting_return_file}"
-    )
-    # with open(report_path, "w") as file:
-    #     file.write(json.dumps(reporting_return))
-    # # Convert the report to markdown format
-    # markdown = dict_to_markdown(reporting_return)
-    # markdown = "# " + companyName + " Strategic Report\n\n" + markdown
-    # # Write the markdown report to a file
-    # with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
-    #     file.write(markdown)
+
+    if reporting_return:
+        text = reporting_return.get("inline_dict")
+        # text = inline['content']
+        markdown = dict_to_markdown(text)
+        markdown = "# " + companyName + " Strategic Report\n\n" + markdown
+        # # Write the markdown report to a file
+        with open(f"./Strategic Reports/{companyName}_{run_id}_strategic_report.md", "w") as file:
+            file.write(markdown)
+    else:
+        logger.debug(f"Error: Report generation for {company_name} failed")
 
 if __name__ == "__main__":
     main()

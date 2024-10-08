@@ -599,10 +599,10 @@
     "full_graph_frameworks_agent": {
       "agent_id" : "asst_FsNGA3T3mrCtmh1SZVVahpCC",
       "description": "Frameworks Agent",
-          "output_schema": {
+      "output_schema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "type": "object",
-    "properties": {
+      "type": "object",
+      "properties": {
       "ProblemStatement": {
         "type": "string"
       },
@@ -655,6 +655,28 @@
           "Concepts"
         ]
       },
+      "CapabilityAnalysis": {
+        "type": "object",
+        "properties": {
+          "Capabilities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "NameOfCapability": { "type": "string" },
+                "Description": { "type": "string" },
+                "Importance": { "type": "number", "minimum": 0, "maximum": 100 }
+              },
+              "required": [
+                "NameOfCapability",
+                "Description",
+                "Importance"
+              ]
+            }
+          }
+        },
+        "required": ["Capabilities"]
+      },
       "StrategicFrameworks": {
         "type": "array",
         "items": {
@@ -693,16 +715,17 @@
         }
       }
     },
-    "required": [
-      "ProblemStatement",
-      "ProblemStatementBreakdown",
-      "StrategicFrameworks",
-      "Prioritization",
-      "Analysis"
-    ]
-  },
-      "prompt" : "Perform the strategic analysis for the problem as described in the problem statement, trend data and detailed company data in {INPUT_FILES}"
-      },
+      "required": [
+        "ProblemStatement",
+        "ProblemStatementBreakdown",
+        "CapabilityAnalysis",
+        "StrategicFrameworks",
+        "Prioritization",
+        "Analysis"
+      ]
+    },
+    "prompt" : "Perform the strategic analysis for the problem as described in the problem statement, trend data and detailed company data in {INPUT_FILES}"
+    },
     "frameworks_agent": {
     "agent_id" : "asst_GKlcpySNgUvbBlzueLAzmBv9",
     "description": "Frameworks Agent",

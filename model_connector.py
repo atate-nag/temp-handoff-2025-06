@@ -209,6 +209,16 @@ class OpenAIChatConnector(ModelConnector):
         inline_file = self.filehandler.write_local_dict(tag, inline)
         return response_file, inline_file
 
+    # def write_report(self, tag, output):
+    #     response = output.get("response_text")
+    #     inline = output.get("inline_dict")
+    #     text = inline['content']
+    #     # content = output.get("response_text")
+    #     response_file = self.filehandler.write_local_dict(tag, response)
+    #     tag += "_inline"
+    #     inline_file = self.filehandler.write_local_dict(tag, inline)
+    #     return response_file, inline_file
+
     def download_and_write_local(self, tag, file):
         content = self.client.files.content(file)
         dprint(f"content is {content}")
