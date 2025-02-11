@@ -201,6 +201,8 @@ class FileHandler:
             json.dump(data, file)
         return file_path
 
+
+
     def local_json_read(self, local_filename):
         # reads local json file and returns dictionary
         with open(f"{local_filename}", "r", encoding="utf-8") as json_file:

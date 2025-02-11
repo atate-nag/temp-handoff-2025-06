@@ -37,6 +37,13 @@ class ModelConnector(ABC):
     def clean_up(self):
         pass
 
+    @abstractmethod
+    def create_run(self, thread, agent_id):
+        pass
+
+    @abstractmethod
+    def retrieve(self, agent_id, thread_id, run_id):
+        pass
 
 class OpenAIChatConnector(ModelConnector):
     def initialize_client(self):
@@ -86,25 +93,6 @@ class OpenAIChatConnector(ModelConnector):
         # o1-preview doesn't allow system messages so instead insert instructions into a user message
 
         self.initial_message[parent.id] = [{"role": "user" , "content" : source_assistant.instructions}]
-
-        # # now add the file content
-        # file_contents = self.file_contents.get(parent.id, {})
-        # dprint("file_content is ",file_contents)
-        #
-        # if file_contents:
-        #     combined_content = ''
-        #     for uid, content in file_contents.items():
-        #         # Optionally, summarize or truncate content
-        #         combined_content += f"Content of file (UID: {uid}):\n{content}\n\n"
-        #     self.initial_message[parent.id].append({
-        #         "role": "user",
-        #         "content": f"Here's information extracted from my files:\n{combined_content}"
-        #     })
-        # # Add the conversation history to the messages
-        # # Store the messages object for the thread
-        # # instead of returning an agent_id we return parent with is Agent ID to denote Chat API
-        # dprint(f"the initial message is {self.initial_message[parent.id]}")
-        # sys.exit()
         return parent
 
     def clean_up(self):
@@ -166,7 +154,6 @@ class OpenAIChatConnector(ModelConnector):
         thread_id = thread.id
         # Build the messages object to be used later
         # Store the messages object for the thread
-        dprint("thread id is " + thread_id)
         if thread_id not in self.messages_per_thread:
             self.messages_per_thread[thread_id] = []
 
@@ -175,10 +162,9 @@ class OpenAIChatConnector(ModelConnector):
             "content": instructions,
         })
 
-        dprint("messages per thread is " + str(self.messages_per_thread[thread_id]))
         return
 
-    def create_run(self, thread, assistant_id):
+    def create_run(self, thread, agent_id):
         # completions does not have a concept of run_create
         # so we just return thread_id, this may not suffice
         return thread
@@ -221,21 +207,23 @@ class OpenAIChatConnector(ModelConnector):
 
     def download_and_write_local(self, tag, file):
         content = self.client.files.content(file)
-        dprint(f"content is {content}")
         local = self.filehandler.write_local_bin_to_json(tag, content)
-        dprint(f"local is {local}")
         return local
 
 class OpenAIAssistantsConnector(ModelConnector):
+
+
     def initialize_client(self):
         client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
         return client
 
-    def retrieve(self, thread_id, run_id):
+    def retrieve(self, agent_id, thread_id, run_id):
         # assistant API can allow status retrieval
+        dprint("retrieving run with thread " + thread_id + " and run " + run_id)
         retrieve = self.client.beta.threads.runs.retrieve(
             thread_id=thread_id, run_id=run_id
         )
+        dprint("retrieved run with status " + retrieve.status)
         if retrieve.status == "completed":
             dprint(f"Run {run_id} completed successfully.")
             return True
@@ -251,7 +239,7 @@ class OpenAIAssistantsConnector(ModelConnector):
                 tools=[{"type": "code_interpreter"}])
         return model_run
 
-    def agent_clone(self, agent):
+    def agent_clone(self, agent, parent=None):
         source_assistant_id = agent
         client = self.client
         # Retrieve the list of assistants
@@ -277,8 +265,8 @@ class OpenAIAssistantsConnector(ModelConnector):
             "model": self.model,
             "instructions": source_assistant.instructions,
             "tools": [{"type": "code_interpreter"}],
-            "temperature": source_assistant.temperature,
-            "top_p": source_assistant.top_p,
+         #   "temperature": source_assistant.temperature,
+         #   "top_p": source_assistant.top_p,
         }
         new_assistant = client.beta.assistants.create(**assistant_data)
         return new_assistant
@@ -312,15 +300,15 @@ class OpenAIAssistantsConnector(ModelConnector):
         returns all the relevant output from an agent run
         including output file and response text
         """
-        new_messages = self.get_new_messages(thread)
+        all_messages, new_messages = self.get_all_and_new_messages(thread)
         file_id = self.retrieve_file_annotation(new_messages)
         latest_response = self.get_response(new_messages)
-        uploaded_response = self.upload_text_to_file(latest_response)
+        #uploaded_response = self.upload_text_to_file(latest_response)
         inline_json = self.filehandler.extract_json_from_response_text(latest_response)
         agent_output = {
             "output_file": file_id,
-            "response_file": uploaded_response,
-            "response_text" : None,
+            "response_file": None,
+            "response_text" : all_messages,
             "inline_dict": inline_json,
         }
         return agent_output
@@ -340,7 +328,8 @@ class OpenAIAssistantsConnector(ModelConnector):
         if json_data:
             return json_data
 
-    def add_message(self, thread, instructions):
+    def add_message(self, thread, agent_id, instructions):
+
         """
         add a message {prompt} to the thread
         """
@@ -370,13 +359,10 @@ class OpenAIAssistantsConnector(ModelConnector):
 
     def download_and_write_local(self, tag, file):
         content = self.client.files.content(file)
-        dprint(f"content is {content}")
         local = self.filehandler.write_local_bin_to_json(tag, content)
-        dprint(f"local is {local}")
         return local
 
     def retrieve_file_content(self, file):
-        dprint(f"in retrieve_file_content  with file {file}")
         content = self.client.files.content(file)
         return content
 
@@ -391,6 +377,21 @@ class OpenAIAssistantsConnector(ModelConnector):
         # Gather new messages
         new_messages = [msg for msg in messages if msg.created_at > self.last_timestamp]
         return new_messages
+
+    def get_all_messages(self, thread):
+        """
+        just return the latest messages, i.e the last response
+        """
+        # Fetch all messages from the thread
+        messages = self.client.beta.threads.messages.list(thread_id=thread.id).data
+        # Sort the messages by the created_at timestamp just in case they are not in order
+        messages.sort(key=lambda msg: msg.created_at)
+        return messages
+
+    def get_all_and_new_messages(self, thread):
+        new_messages = self.get_new_messages(thread)
+        all_messages = self.get_all_messages(thread)
+        return all_messages, new_messages
 
     def upload_text_to_file(self, text):
         with open(f"./Intermediates/response.json", "w", encoding="utf-8") as file:
@@ -413,6 +414,32 @@ class OpenAIAssistantsConnector(ModelConnector):
         if new_messages:
             self.last_timestamp = new_messages[-1].created_at
         return response
+
+    def write_output_to_local(self, tag, output):
+        response = output.get("response_text")
+        # content = output.get("response_text")
+        # response_file = self.filehandler.write_local_dict(tag, response)
+        # Extract the text content
+        texts = []
+        for message in output['response_text']:
+            for content_block in message.content:  # Dot notation for accessing 'content'
+                if hasattr(content_block, 'text') and hasattr(content_block.text, 'value'):
+                    texts.append(content_block.text.value)
+
+        text_content = "\n\n".join(texts)  # Each message separated by two line breaks for readability
+
+        # Write the content to a file
+        file_path = "response_text.txt"
+
+        # Save the text content to a file in a readable format
+        response_file = self.filehandler.write_local_txt(tag+'_response', text_content)
+        #response_file = output.get("response_file")
+        #dprint(f"response_file is {response_file}")
+        #self.download_and_write_local(tag+'_response', response_file)
+        output_file = output.get("output_file")
+        dprint(f"output_file is {output_file}")
+        self.download_and_write_local(tag + '_output', output_file)
+        return response_file, output_file
 
     def delete_oldest_assistant_files(self, agent_id, max_files=6):
         client = self.client

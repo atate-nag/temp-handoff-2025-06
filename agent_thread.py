@@ -72,10 +72,8 @@ class AgentThread:
         run = RunObj(
             parent=parent, input_files=input_files, retrieval_limit=retrieval_limit
         )
-        dprint(f"created new run")
         if prompt is None:
             prompt = self.initial_prompt
-        dprint(f"creating new run prompt")
 
         run_prompt = run.generate_runtime_prompt(
             prompt,
@@ -88,11 +86,8 @@ class AgentThread:
         )
         dprint(f"created new run prompt")
         self.connector.add_message(self.thread, parent.agent_id, run_prompt)
-
         run.create_run()
-        dprint(f"created new run")
         self.runobjs.append(run)
-        dprint(f"appended runobj")
 
         return run
 
@@ -174,7 +169,7 @@ class RunObj(BaseModel):
             client = self.parent.client
             model_run = self.parent.connector.create_run(
                 thread=self.parent.thread,
-                assistant_id=self.parent.agent_id,
+                agent_id=self.parent.agent_id,
             )
             self.set_model_run(model_run)
         else:
@@ -198,28 +193,28 @@ class RunObj(BaseModel):
         print("Retrieve time: " + str(end_time - start_time))
         return retrieve
 
-    def retrieve_run_and_wait(self, run_id):
+    def retrieve_run_and_wait(self, run):
         retries = 0
         client = self.parent.client
         thread_id = self.parent.thread.id
 
         while retries < self.retrieval_limit:
             try:
-                dprint("Calling model-connector retrieve")
                 retrieve = self.parent.connector.retrieve(
-                    thread_id=thread_id, run_id=run_id, agent_id=self.parent.agent_id
+                    thread_id=thread_id, run_id=run.id, agent_id=self.parent.agent_id
                 )
                 if retrieve is not None:
                     return retrieve
 
             except Exception as e:
-                print(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
-                dprint(f"Error retrieving run {run_id} for thread {thread_id}: {e}")
+                print(f"Error retrieving run {run.id} for thread {thread_id}: {e}")
+                dprint(f"Error retrieving run {run.id} for thread {thread_id}: {e}")
                 retries += 1
-                time.sleep(5)
 
-        print(f"Run {run_id} did not complete after {self.retrieval_limit} queries.")
-        dprint(f"Run {run_id} did not complete after {self.retrieval_limit} queries.")
+            time.sleep(10)
+
+        print(f"Run {run.id} did not complete after {self.retrieval_limit} queries.")
+        dprint(f"Run {run.id} did not complete after {self.retrieval_limit} queries.")
 
         return None
 

@@ -1,7 +1,6 @@
 from pptx import Presentation
 from pptx.util import Inches, Pt
 import matplotlib.pyplot as plt
-from trend_radar import generate_trend_radar
 from capabilities import plot_capabilities
 from challenges import plot_challenges
 from actions import print_actions_pretty

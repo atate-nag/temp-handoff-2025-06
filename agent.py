@@ -127,7 +127,6 @@ class Agent:
         dprint("Running validations for state transition from Zero to Initialised")
         try:
             unvalidated_data = self.unvalidated_data.get_data_for_state("Zero")
-            dprint(f"DEBUG0 ****: qm_id = {unvalidated_data['qm_id']} and type is {type(unvalidated_data['qm_id'])}")
             validated_workflow_context = WorkFlowContextModel(**unvalidated_data)
             agent_configs_valid = AgentConfigs.get_agent_details(
                 validated_workflow_context.agent_type
@@ -146,16 +145,12 @@ class Agent:
                 self.validated.agent_context.agent_id,
                 self
             )
-            dprint("DEBUG1 *********")
-
             if my_agent:
                 self.validated.agent_context.agent_id = my_agent.id
             else:
                 dprint("Agent clone was not created - Aborting")
                 raise Exception("Agent clone was not created")
 
-            dprint("DEBUG2 *********")
-            dprint(f"qm id = {qm_id}")
             self.validated.set_data("qm_id", qm_id)
             self.agent_type = validated_workflow_context.agent_type
 

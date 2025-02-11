@@ -67,13 +67,13 @@ logger = logging.getLogger("socrates_main")
 logger.info("Started")
 # Example usage
 model_config = {
-    "model_type": "openai_chat",
+    "model_type": "openai_assistants",
     "api_key": os.getenv("OPENAI_API_KEY"),
-    "model": "o1-preview",
+    "model": "gpt-4o"
+    #"model": "o1",
     #'model': 'gpt-3.5-turbo',
 }
 file_handler = FileHandler()
-
 connector = ModelConnectorFactory.create_connector(model_config, file_handler)
 client = connector.client
 
@@ -159,6 +159,7 @@ def get_step_function(step_name):
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
         "runReport": run_report,
+        "runSnapshot": run_snapshot,
         #"runReport2": run_decomp,
     }
     return step_map.get(step_name, None)
@@ -453,13 +454,13 @@ def run_scenarios(companyName, problemsFile):
     problem_file_path, trends_file_path, company_file_path = get_file_paths(
         company_name, problemsFile
     )
-    scenarios_return_file = generate_scenarios(
+    scenarios_return_file, scenarios_response_file = generate_scenarios(
         company_name, problem_file_path, trends_file_path, company_file_path
     )
 
     # Add validation and quality checks of scenarios outputs
     logger.debug(
-        f"The final scenarios output is available in file {scenarios_return_file}"
+        f"The final scenarios output is available in file {scenarios_return_file} and response file {scenarios_response_file}"
     )
 
 
@@ -481,6 +482,7 @@ def generate_scenarios(
     )
     scenarios_manager.run_workflow()
     scenarios_return_data = scenarios_manager.return_dict()
+    print(f" return data is {scenarios_return_data} ")
     scenarios_local_response, scenarios_local_output = connector.write_output_to_local(
         f"scenarios_output_{company_name}", scenarios_return_data
     )
@@ -533,6 +535,40 @@ def generate_frameworks(
     #     f"frameworks_output_{company_name}" + run_id, frameworks_output
     # )
     return frameworks_local_output
+
+def run_snapshot(companyName, problemsFile):
+    """
+    Runs a snapshot for a single company
+    """
+
+    conf = read_config()
+    run_id = "_" + conf.get("run_id")
+
+    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
+    )
+
+    print(f"company_name: {company_name} problem_file_path: {problem_file_path} "
+           f"trends_file_path: {trends_file_path} company_file_path: {company_file_path} "
+          f"company_file_path: {company_file_path}")
+
+    scenarios_response_file = (
+        f"./Intermediates/local_scenarios_output_{company_name}.json"
+    )
+    scenarios_return_file = (
+        f"./Intermediates/local_scenarios_output_{company_name}_inline.json"
+    )
+    frameworks_file_path = f"./Intermediates/local_frameworks_output_{company_name}.json"
+
+    # prs = Presentation()
+    # Slide titles
+    slide_titles = ["Company", "Problem", "Trend Radar", "Scenarios", "Recomendations"]
+    # image_paths = {
+    #     "Trend Radar": "trend radar.png",
+    #     "Capabilities": "capabilities.png",
+    #     "Challenges": "challenges.png",
+    # }
 
 
 def run_report(companyName, problemsFile):
