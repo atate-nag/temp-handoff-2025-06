@@ -1,6 +1,8 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 load_dotenv()
 from agent_workflow_manager import AgentManager
@@ -48,7 +50,7 @@ from config.conf import setup_config, read_config
 import logging
 import logging.config
 
-from decomp_task.execute import run_decomp
+#from decomp_task.execute import run_decomp
 
 d = datetime.datetime.now()
 d = d.strftime("%m-%d-%Y %H:%M:%S")
@@ -159,7 +161,6 @@ def get_step_function(step_name):
         "runFrameworks": run_frameworks,
         "runScenarios": run_scenarios,
         "runReport": run_report,
-        "runReport2": run_decomp,
     }
     return step_map.get(step_name, None)
     #    Note: camelCase naming denotes parameters directly inherited from the json config file
@@ -464,7 +465,6 @@ def run_scenarios(companyName, problemsFile):
         f"The final scenarios output is available in file {scenarios_return_file}"
     )
 
-
 def generate_scenarios(
     company_name, problem_file_path, trends_file_path, company_file_path
 ):
@@ -479,7 +479,7 @@ def generate_scenarios(
         file_handler,
         agent_configs,
         [problem_file_path, trends_file_path, company_file_path],
-        use_qm_agents=True,
+        use_qm_agents=False,
     )
     scenarios_manager.run_workflow()
     scenarios_return_data = scenarios_manager.return_dict()
@@ -633,6 +633,42 @@ def generate_report(
     )
     return reporting_output_local_file
 
+def evaluate_scenarios(scenarios_file_path: str, companyName: str) -> float:
+    """
+    Makes a call to an AI assistant that evaluates the given scenarios file,
+    returning a numerical score (e.g., 0.0 - 1.0).
+    """
+    # -- Example placeholder: replace with your real "evaluation" AI assistant call --
+    print(f"Evaluating scenarios for {companyName} in {scenarios_file_path}...")
+    # Return a dummy score, or your real evaluation result:
+    return 0.75
+
+def generate_and_evaluate_scenarios(companyName: str, problemsFile: str) -> float:
+    """
+    1. Generates a set of scenarios using generate_scenarios (the original agent).
+    2. Evaluates them using evaluate_scenarios (the new agent).
+    Returns an evaluation score for the generated scenarios.
+    """
+    # Clean up the company name for use in file paths
+    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
+
+    # 1. Obtain file paths for the problem
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
+    )
+
+    # 2. Call generate_scenarios for this single run
+    scenarios_response, scenarios_return_file = generate_scenarios(
+        companyName,
+        problem_file_path,
+        trends_file_path,
+        company_file_path
+    )
+    print(f"Scenarios response for {companyName}: {scenarios_response}")
+
+    # 3. Evaluate the generated scenarios
+    score = evaluate_scenarios(scenarios_return_file, companyName)
+    return score
 
 @retry(number_of_retry=1)  # Retry the function once in case of failure
 def run_strategy(companyName, problemsFile):
@@ -646,53 +682,55 @@ def run_strategy(companyName, problemsFile):
         company_name, problemsFile
     )
     # Generate scenarios using the scenarios agent
+
     scenarios_response, scenarios_return_file = generate_scenarios(
         companyName, problem_file_path, trends_file_path, company_file_path
     )
 
-    scenarios_response_file = file_handler.write_local_json(
-        f"scenarios_{company_name}", json.dumps(scenarios_response)
-    )
-    logger.info(f"scenarios_response_file: {scenarios_response_file}")
+    results = {}
+    max_workers = 20
+    n_samples = 20
 
-    # logger.info(connector.retrieve_file_content(scenarios_response_file))
-    # assert scenarios_response_file.startswith("./Intermediates")
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit n_samples times the same call
+        futures = [
+            executor.submit(generate_and_evaluate_scenarios, companyName, problemsFile)
+            for _ in range(n_samples)
+        ]
 
-    # logger.info(f"scenarios_return_file: {scenarios_return_file}")
-    # assert scenarios_return_file.startswith("./Intermediates")
-    # Generate frameworks using the frameworks agent
-    frameworks_file_path = generate_frameworks(
-        company_name, problem_file_path, trends_file_path, company_file_path
+        # As each job completes, retrieve its result (score)
+        for future_idx, future in enumerate(as_completed(futures), 1):
+            try:
+                score = future.result()
+                results.append(score)
+                print(f"Sample {future_idx}: score = {score}")
+            except Exception as e:
+                print(f"Error in sample {future_idx}: {e}")
+
+        print(f"Results: {results}")
+    return results
+
+
+@retry(number_of_retry=1)  # Retry the function once in case of failure
+def run_dashboard(companyName, problemsFile):
+    """
+    Generates the dashboard of views for a company
+    """
+    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
+    # Get the files and paths for the necessary files related to the company and problem
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(
+        company_name, problemsFile
     )
 
-    # logger.info(f"frameworks_file_path: {frameworks_file_path}")
-    # assert frameworks_file_path.startswith("./Intermediates")
-    # Generate a strategic report using the reporting agent
-    logger.info(f"scenarios_response_file: {scenarios_response_file}")
-    logger.info(f"scenarios_return_file: {scenarios_return_file}")
-    logger.info(f"frameworks_file_path: {frameworks_file_path}")
-    reporting_return_file = generate_report(
-        company_name,
-        scenarios_response_file,
-        scenarios_return_file,
-        frameworks_file_path,
-        trends_file_path,
-    )
+    # generate the 5-forces
 
-    logger.info(f"reporting_return_file: {reporting_return_file}")
-    # assert reporting_return_file.startswith("./Intermediates")
-    # report_content = connector.download_and_write_local(f"_strategic_report_{company_name}", reporting_return_file)
-    logger.debug(
-        f"completed strategic analysis for {company_name} at file {reporting_return_file}"
-    )
-    # with open(report_path, "w") as file:
-    #     file.write(json.dumps(reporting_return))
-    # # Convert the report to markdown format
-    # markdown = dict_to_markdown(reporting_return)
-    # markdown = "# " + companyName + " Strategic Report\n\n" + markdown
-    # # Write the markdown report to a file
-    # with open(f"./Strategic Reports/{companyName}_strategic_report.md", "w") as file:
-    #     file.write(markdown)
+    # generate the Capabilities
+
+    # generate the trends radar
+
+    # generate the PESTLE analysis
+
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@
       }
     },
     "runStrategy" : {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "companyName": "Valero_Energy",
         "debug" : false,
@@ -151,7 +151,7 @@
       }
     },
     "runReport2" : {
-      "enabled": true,
+      "enabled": false,
       "parameters": {
         "company": "Amazon"   
       }
