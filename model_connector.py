@@ -29,6 +29,12 @@ class ModelConnector(ABC):
     def clean_up(self):
         pass
 
+class OpenAIResponsesConnector(ModelConnector):
+    def initialize_client(self):
+        client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
+        return client
+
+
 
 class OpenAIAssistantsConnector(ModelConnector):
     def initialize_client(self):

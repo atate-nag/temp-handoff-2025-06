@@ -683,9 +683,15 @@ def run_strategy(companyName, problemsFile):
     )
     # Generate scenarios using the scenarios agent
 
-    scenarios_response, scenarios_return_file = generate_scenarios(
-        companyName, problem_file_path, trends_file_path, company_file_path
-    )
+    # first we will
+
+    async def run_agent():
+        result = await Runner.run(triage_agent, input="Hola, ¿cómo estás?")
+        print(result.final_output)
+
+
+    asyncio.run(run_agent())
+
 
     results = {}
     max_workers = 20
