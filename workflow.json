@@ -1,7 +1,7 @@
 {
   "workflow": {
     "cleanUp": {
-      "enabled": true
+      "enabled": false
     },
     "fill_graph": {
       "step":"fill_graph",
@@ -65,7 +65,7 @@
       }
     },
     "runStrategy" : {
-      "enabled": false,
+      "enabled": true,
       "parameters": {
         "companyName": "Citigroup",
         "problemsFile" : "./problem_statements.json"

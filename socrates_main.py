@@ -447,7 +447,6 @@ def get_file_paths(company_name, problemsFile):
     )
     return problem_file_path, trends_file_path, company_file_path
 
-
 def run_scenarios(companyName, problemsFile):
     """
     Runs the stand-alone scenarios analysis for a single company
@@ -678,44 +677,51 @@ def run_strategy(companyName, problemsFile):
     """
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     # Get the files and paths for the necessary files related to the company and problem
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        company_name, problemsFile
+    problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
+
+    problem = file_handler.local_json_read(problem_file_path)
+    trends = file_handler.local_json_read(trends_file_path)
+    company_data = file_handler.local_json_read(company_file_path)
+
+    print("Problem is:", problem)
+
+    # Build the single prompt (same data for all calls)
+    prompt = (
+        f"Generate the scenarios for Company - {company_name}. "
+        f"The inputs are: "
+        f"1) The problem_statement is {problem}, "
+        f"2) The curated trend data is {trends}, "
+        f"3) Additional information about the company is {company_data}."
     )
-    # Generate scenarios using the scenarios agent
 
-    # first we will
+    # -- PARALLEL EXECUTION LOGIC --
 
-    async def run_agent():
-        result = await Runner.run(triage_agent, input="Hola, ¿cómo estás?")
-        print(result.final_output)
+    import asyncio
+    from agents import Agent, Runner
+    from agent_scenarios import scenarios_agent
 
+    # We'll define a simple coroutine that runs the agent once:
+    async def run_agent_once(prompt):
+        # Runs the same agent with the same prompt
+        result = await Runner.run(scenarios_agent, input=prompt)
+        return result.final_output
 
-    asyncio.run(run_agent())
+    # Now define an async function to schedule multiple parallel calls:
+    async def main():
+        # Suppose we want 3 parallel calls to the same prompt:
+        tasks = [asyncio.create_task(run_agent_once(prompt)) for _ in range(30)]
 
+        # Gather the results from all calls
+        results = await asyncio.gather(*tasks)
 
-    results = {}
-    max_workers = 20
-    n_samples = 20
+        # Print out the results
+        for i, r in enumerate(results, start=1):
+            print(f"--- Result from parallel call #{i} ---")
+            print(r)
+            print("-------------------------------------")
 
-    results = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit n_samples times the same call
-        futures = [
-            executor.submit(generate_and_evaluate_scenarios, companyName, problemsFile)
-            for _ in range(n_samples)
-        ]
-
-        # As each job completes, retrieve its result (score)
-        for future_idx, future in enumerate(as_completed(futures), 1):
-            try:
-                score = future.result()
-                results.append(score)
-                print(f"Sample {future_idx}: score = {score}")
-            except Exception as e:
-                print(f"Error in sample {future_idx}: {e}")
-
-        print(f"Results: {results}")
-    return results
+    # Finally, run the main() coroutine
+    asyncio.run(main())
 
 
 @retry(number_of_retry=1)  # Retry the function once in case of failure
