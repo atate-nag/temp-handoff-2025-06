@@ -669,14 +669,18 @@ def generate_and_evaluate_scenarios(companyName: str, problemsFile: str) -> floa
     score = evaluate_scenarios(scenarios_return_file, companyName)
     return score
 
-@retry(number_of_retry=1)  # Retry the function once in case of failure
 def run_strategy(companyName, problemsFile):
     """
     Executes the strategic analysis process for a given company.
-    (this is the full workload automation)
     """
+    import asyncio
+    from agents import Agent, Runner
+    from agent_scenarios import scenarios_agent
+    # Suppose you also have an assessor agent in something like agent_assessor.py
+    # from agent_assessor import assessor_agent
+
+    # 1) Load your data
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    # Get the files and paths for the necessary files related to the company and problem
     problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
 
     problem = file_handler.local_json_read(problem_file_path)
@@ -685,7 +689,7 @@ def run_strategy(companyName, problemsFile):
 
     print("Problem is:", problem)
 
-    # Build the single prompt (same data for all calls)
+    # 2) Build the single prompt (same data for all calls)
     prompt = (
         f"Generate the scenarios for Company - {company_name}. "
         f"The inputs are: "
@@ -694,31 +698,62 @@ def run_strategy(companyName, problemsFile):
         f"3) Additional information about the company is {company_data}."
     )
 
-    # -- PARALLEL EXECUTION LOGIC --
-
-    import asyncio
-    from agents import Agent, Runner
-    from agent_scenarios import scenarios_agent
-
-    # We'll define a simple coroutine that runs the agent once:
     async def run_agent_once(prompt):
-        # Runs the same agent with the same prompt
+        """
+        Runs the same scenarios agent with the same prompt and returns its final output.
+        """
         result = await Runner.run(scenarios_agent, input=prompt)
         return result.final_output
 
-    # Now define an async function to schedule multiple parallel calls:
+    # Example: Suppose you have an assessor agent to score or evaluate scenario outputs.
+    # If it's in a module named agent_assessor, you'd do:
+    from agent_scenarios_assessor import scenarios_assessor_agent
+
+    async def run_assessment(responses):
+        """
+        Passes the combined responses to the assessor agent for scoring or evaluation.
+        """
+        # Combine all responses into a single string (with spacing or separation)
+        combined_responses = "\n\n---\n\n".join(responses)
+
+        # Build a prompt for the assessor agent
+        assessment_prompt = (
+            f"Here are the results from multiple parallel scenario analyses for {company_name}:\n"
+            f"{combined_responses}\n\n"
+            "Please assess these scenarios and provide a summary or scores for each."
+        )
+
+        # Run the assessor agent
+        assessment_result = await Runner.run(scenarios_assessor_agent, input=assessment_prompt)
+        return assessment_result.final_output
+
     async def main():
-        # Suppose we want 3 parallel calls to the same prompt:
+        # 3) Create multiple tasks for the same prompt
+        # Adjust the range(...) if you want more or fewer parallel calls
         tasks = [asyncio.create_task(run_agent_once(prompt)) for _ in range(30)]
 
-        # Gather the results from all calls
-        results = await asyncio.gather(*tasks)
+        # 4) Run them in parallel and gather results
+        scenario_outputs = await asyncio.gather(*tasks)
 
-        # Print out the results
-        for i, r in enumerate(results, start=1):
-            print(f"--- Result from parallel call #{i} ---")
-            print(r)
-            print("-------------------------------------")
+        # 5) Label each scenario with an ID and store them
+        labeled_scenarios = []
+        for i, scenario_text in enumerate(scenario_outputs, start=1):
+            labeled_scenarios.append(f"Scenario Report #{i}:\n{scenario_text}")
+
+        # 6) Write all labeled scenario outputs to a file
+        output_filename = f"{company_name}_parallel_scenarios.txt"
+        combined_text = "\n\n---\n\n".join(labeled_scenarios)
+        with open(output_filename, "w", encoding="utf-8") as f:
+            f.write(combined_text)
+        print(f"All scenario responses (with IDs) written to {output_filename}")
+
+        # 6) Pass all results to the assessor agent
+        assessment = await run_assessment(labeled_scenarios)
+
+        # 7) Print out the assessment
+        print("=== Assessment of Parallel Scenario Outputs ===")
+        print(assessment)
+        print("===============================================")
 
     # Finally, run the main() coroutine
     asyncio.run(main())
