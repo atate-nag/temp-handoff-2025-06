@@ -68,7 +68,9 @@
       "enabled": true,
       "parameters": {
         "companyName": "Citigroup",
-        "problemsFile" : "./problem_statements.json"
+        "problemsFile" : "./problem_statements.json",
+        "debug_scenarios" : true,
+        "debug_frameworks" : false
       }
     }
   }
