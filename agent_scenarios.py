@@ -2,6 +2,7 @@ from agents import Agent, Runner
 
 scenarios_agent = Agent(
     name="Scenarios agent",
+    model = "o3-mini",
     instructions=""" You are providing support for a production workflow in a strategy consultancy. This is not a simulation,
     you must perform real analysis on real data that will be used by your colleagues to provide services for clients. 
     You are the strategic scenario evaluator. You specialise in taking a set of data from a company, and some 

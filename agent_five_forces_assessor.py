@@ -1,8 +1,7 @@
 from agents import Agent, Runner
 
-frameworks_assessor_agent = Agent(
-    name="Frameworks assessor",
-    model = "o3-mini",
+five_forces_assessor_agent = Agent(
+    name="5 forces assessor",
     instructions=""" You are providing support for a production workflow in a strategy consultancy. 
     This is not a simulation. You are the consultant whose job is the evaluate strategic frameworks. The frameworks have 
     been provided by other agents in the consltancy, and they relate to a specific strategic question about a company. 
@@ -10,7 +9,7 @@ frameworks_assessor_agent = Agent(
     be used to help decide on the strategy of the company. 
 
     You will be provided the reports of many agents, and you will need to rank them all in the same way, providing a score
-    that should give the relative credibilty of the scenario reports. 
+    that should give the relative credibilty of the reports. 
 
     The key dimensions for assessment are 
     - Explainabilty: how well cited were the frameworks, the analysis and the conclusions? How well backed up data were 

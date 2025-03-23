@@ -669,33 +669,26 @@ def generate_and_evaluate_scenarios(companyName: str, problemsFile: str) -> floa
     score = evaluate_scenarios(scenarios_return_file, companyName)
     return score
 
-def run_strategy(companyName, problemsFile, debug_scenarios=1, debug_frameworks=1, debug_five_forces=0):
+from agents import Agent, Runner, ItemHelpers, TResponseInputItem
+from agent_and_assessor import EvaluationFeedback, run_agent_assessor_in_parallel
+
+def run_strategy(
+    companyName: str,
+    problemsFile: str,
+    debug_scenarios = False,
+    debug_frameworks = False,
+    debug_five_forces = False,
+    num_parallel_workflows: int = 3,
+    max_rounds: int = 3
+):
     """
-    Executes the strategic analysis process for a given company, in a generalized manner.
-
-    We define a list of 'workflows,' each containing:
-      - a generation agent
-      - an assessor agent
-      - a prompt for generation
-      - a label prefix (e.g., 'Scenario', 'Framework')
-      - a filename to store or read previously generated data
-      - a debug flag (0 or 1) indicating whether to generate fresh data or reuse old
-
-    Then we run them all in one go.
+    Example strategy function that:
+     - Loads input data
+     - Builds a single scenario prompt
+     - Runs multiple Agent→Assessor loops in parallel
+     - Returns all final outputs
     """
     import asyncio
-    from agents import Agent, Runner
-    # Agents for SCENARIOS
-    from agent_scenarios import scenarios_agent
-    from agent_scenarios_assessor import scenarios_assessor_agent
-    # Agents for FRAMEWORKS
-    from agent_frameworks import frameworks_agent
-    from agent_frameworks_assessor import frameworks_assessor_agent
-
-    # Agents for FRAMEWORKS
-    from agent_5_forces import five_forces_agent
-    # from agent_frameworks_assessor import frameworks_assessor_agent
-
     # 1) Load your data
     company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
     problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
@@ -704,161 +697,44 @@ def run_strategy(companyName, problemsFile, debug_scenarios=1, debug_frameworks=
     trends = file_handler.local_json_read(trends_file_path)
     company_data = file_handler.local_json_read(company_file_path)
 
-    print("Problem is:", problem)
+    from agent_scenarios import scenarios_agent
+    from agent_scenarios_assessor import scenarios_assessor_agent
+    from qm import qm_general_agent
 
-    # 2) Build prompts
-    scenario_prompt = (
-        f"Generate the scenarios for Company - {company_name}. "
-        f"The inputs are: "
-        f"1) The problem_statement is {problem}, "
-        f"2) The curated trend data is {trends}, "
-        f"3) Additional information about the company is {company_data}."
+    scenario_generator_agent= scenarios_agent
+    scenario_assessor_agent= qm_general_agent   # using general QM for now
+
+    # 2) Create a single prompt for scenario generation
+    combined_prompt = (
+        f"Generate a scenario for {companyName}.\n"
+        f"Problem: {problem}\n"
+        f"Trends: {trends}\n"
+        f"Company Data: {company_data}\n\n"
+        "Be as creative and detailed as possible."
     )
 
-    frameworks_prompt = (
-        f"Generate strategic frameworks for Company - {company_name}. "
-        f"Consider the same inputs used for scenario generation: "
-        f"1) Problem statement {problem}, "
-        f"2) Trend data {trends}, "
-        f"3) Company data {company_data}. "
-        "Focus on relevant strategic models or frameworks that would help address the problem."
-    )
-
-    five_forces_prompt = (
-        f"Generate the 5 Forces analysis for Company - {company_name}. "
-        f"The inputs are: "
-        f"1) The problem_statement is {problem}, "
-        f"2) The curated trend data is {trends}, "
-        f"3) Additional information about the company is {company_data}."
-    )
-
-    # Filenames for storing scenario outputs or frameworks outputs
-    scenario_filename = f"{company_name}_parallel_scenarios.txt"
-    frameworks_filename = f"{company_name}_parallel_frameworks.txt"
-    five_forces_filename = f"{company_name}_parallel_five_forces.txt"
-
-    # 3) Define the "workflows" for generation + assessment
-    #    Each workflow is a dict containing everything we need.
-    workflows = [
-        {
-            "name": "Scenarios",  # Friendly label used in printing
-            "agent": scenarios_agent,
-            "assessor_agent": scenarios_assessor_agent,
-            "prompt": scenario_prompt,
-            "label_prefix": "Scenario",
-            "output_filename": scenario_filename,
-            "debug_mode": debug_scenarios,
-        },
-        {
-            "name": "Frameworks",  # Another friendly label
-            "agent": frameworks_agent,
-            "assessor_agent": frameworks_assessor_agent,
-            "prompt": frameworks_prompt,
-            "label_prefix": "Framework",
-            "output_filename": frameworks_filename,
-            "debug_mode": debug_frameworks,
-        },
-        {
-            "name": "5 Forces",  # Another friendly label
-            "agent": five_forces_agent,
-            "assessor_agent": None,
-            "prompt": five_forces_prompt,
-            "label_prefix": "5 Forces",
-            "output_filename": five_forces_filename,
-            "debug_mode": debug_five_forces,
-        }
-    ]
-
-    # -------------- Helper Functions --------------
-
-    async def run_agent_once(agent: Agent, prompt_text: str):
-        """Runs the given agent with the given prompt, returns final_output (str)."""
-        result = await Runner.run(agent, input=prompt_text)
-        return result.final_output
-
-    async def generate_in_parallel(
-        agent: Agent,
-        prompt_text: str,
-        label_prefix: str,
-        output_filename: str,
-        debug_mode: int = 0,
-        num_parallel_calls: int = 3
-    ):
-        """
-        - If debug_mode == 1, skip running new tasks and read from output_filename.
-        - Otherwise, run num_parallel_calls calls in parallel, label them, write to output_filename.
-        Returns list of labeled strings.
-        """
-        if debug_mode == 1:
-            print(f"[DEBUG] Skipping new generation for '{label_prefix}' and reading from {output_filename}")
-            with open(output_filename, "r", encoding="utf-8") as f:
-                file_content = f.read()
-            labeled_entries = file_content.split("\n\n---\n\n")
-        else:
-            print(f"[INFO] Generating {num_parallel_calls} parallel '{label_prefix}' calls...")
-            tasks = [asyncio.create_task(run_agent_once(agent, prompt_text)) for _ in range(num_parallel_calls)]
-            raw_outputs = await asyncio.gather(*tasks)
-
-            labeled_entries = []
-            for i, text in enumerate(raw_outputs, start=1):
-                labeled_entries.append(f"{label_prefix} Report #{i}:\n{text}")
-
-            # Write them to file
-            combined_text = "\n\n---\n\n".join(labeled_entries)
-            with open(output_filename, "w", encoding="utf-8") as f:
-                f.write(combined_text)
-
-            print(f"[INFO] Wrote {label_prefix} reports to {output_filename}")
-
-        return labeled_entries
-
-    async def run_assessment(assessor_agent: Agent, labeled_entries: list[str], label_prefix: str):
-        """
-        Combine the labeled entries, pass them to the assessor agent, and return final output.
-        """
-        combined_text = "\n\n---\n\n".join(labeled_entries)
-        assessment_prompt = (
-            f"Below are the results for '{label_prefix}' generation:\n\n"
-            f"{combined_text}\n\n"
-            "Please provide a separate score or summary for each item above."
+    # 3) Run N parallel workflows, each with its own Agent→Assessor loop
+    final_scenarios = asyncio.run(
+        run_agent_assessor_in_parallel(
+            generator_agent=scenario_generator_agent,
+            assessor_agent=scenario_assessor_agent,
+            initial_prompt=combined_prompt,
+            num_parallel_workflows=num_parallel_workflows,
+            max_rounds=max_rounds
         )
-        assessment_result = await Runner.run(assessor_agent, input=assessment_prompt)
-        return assessment_result.final_output
+    )
 
-    # -------------- The Orchestration --------------
+    # 4) Print or store them
+    print("\n======== All Final Scenarios =======")
+    for i, scenario in enumerate(final_scenarios, start=1):
+        print(f"Workflow #{i} Final Output:\n{scenario}\n---\n")
 
-    async def orchestrate_workflows():
-        """
-        Go through each workflow, generate in parallel, then assess.
-        """
-        for wf in workflows:
-            name = wf["name"]
-            print(f"\n=== Starting Workflow: {name} ===")
+    # (Optional) You might do your own logic to pick the best scenario
+    # For example, if your assessor returned a score for each iteration,
+    # you'd store it in the scenario text or a separate data structure.
 
-            # Generate
-            labeled_outputs = await generate_in_parallel(
-                agent=wf["agent"],
-                prompt_text=wf["prompt"],
-                label_prefix=wf["label_prefix"],
-                output_filename=wf["output_filename"],
-                debug_mode=wf["debug_mode"],
-                num_parallel_calls=3
-            )
-
-            # Assess
-            assessment_result = await run_assessment(
-                assessor_agent=wf["assessor_agent"],
-                labeled_entries=labeled_outputs,
-                label_prefix=wf["label_prefix"]
-            )
-
-            print(f"\n=== {name} Assessment ===")
-            print(assessment_result)
-            print("========================")
-
-    # Finally, run everything
-    asyncio.run(orchestrate_workflows())
-
+    # 5) Return them or do whatever you like
+    return final_scenarios
 
 @retry(number_of_retry=1)  # Retry the function once in case of failure
 def run_dashboard(companyName, problemsFile):

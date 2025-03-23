@@ -3,6 +3,7 @@ from agents import Agent, Runner
 
 five_forces_agent = Agent(
     name="5 Forces agent",
+    model="o3-mini",
     instructions="""
 
     You are providing support for a production workflow in a strategy consultancy. This is not a 

@@ -70,7 +70,8 @@
         "companyName": "Citigroup",
         "problemsFile" : "./problem_statements.json",
         "debug_scenarios" : true,
-        "debug_frameworks" : false
+        "debug_frameworks" : true,
+        "debug_five_forces" : false
       }
     }
   }
