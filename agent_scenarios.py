@@ -1,4 +1,4 @@
-from agents import Agent, Runner
+from local_agents import Agent, Runner
 
 scenarios_agent = Agent(
     name="Scenarios agent",

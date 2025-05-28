@@ -1,4 +1,4 @@
-from agents import Agent, Runner
+from local_agents import Agent, Runner
 
 frameworks_agent = Agent(
     name="Frameworks agent",

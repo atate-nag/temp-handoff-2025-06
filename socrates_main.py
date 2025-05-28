@@ -1,761 +1,536 @@
+#!/usr/bin/env python3
 import os
-from openai import OpenAI
-from dotenv import load_dotenv
-import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-load_dotenv()
-from agent_workflow_manager import AgentManager
-from graph_workflow.full_graph import (
-    dump_company_graph_to_plain_txt,
-    dump_company_graph_to_json,
-    get_trends_from_gics_code,
-    save_curated_trend_data,
-    get_curated_trend_data,
-    save_condensed_trend_data,
-    get_condensed_trend_data,
-    save_condensed_company_data,
-    get_condensed_company_data,
-)
-from filehandler import FileHandler
-from graph_workflow.build_graph import fill_graph
-from graph_workflow.extract_insights import get_insights
-from graph_workflow.trends.trends_analyser import generate_trends
-from graph_workflow.trends.clustering_trend import cluster_trends
-from graph_workflow.clustering import generate_capabilities_per_cluster
-from chains import (
-    chain_scenario,
-    chain_framework,
-    chain_report,
-    summary_chain,
-    generate_report_plan,
-)
-from report_agent import Agent as ReportAgent
-from report_agent import get_subsections, find_and_fill
-import json, re
-from model_connector import ModelConnectorFactory
+import json
 import datetime
-
-from utility import (
-    dict_to_plain_text,
-    json_to_markdown,
-    dict_to_markdown,
-    retry,
-    condense,
-    invoke,
-    report_to_markdown,
-)
-
-from config.conf import setup_config, read_config
-import logging
 import logging.config
 
-#from decomp_task.execute import run_decomp
+from agents import Agent
+import asyncio
+from dotenv import load_dotenv
+from filehandler import FileHandler
+from model_connector import ModelConnectorFactory
+from config.conf import read_config, setup_config
+from company_data import get_file_paths
+from typing import Any
 
-d = datetime.datetime.now()
-d = d.strftime("%m-%d-%Y %H:%M:%S")
+from agent_and_assessor import run_single_workflow_with_verifier, single_agent_verify_assess_loop
+
+# AI Agents
+from local_agents.initial_crux_agent import initial_crux_agent
+
+from local_agents.citation_verifier import citation_verifier_agent
+from local_agents.background_agent import background_agent
+from local_agents.framework_selector_agent import framework_selector_agent
+from local_agents.trend_radar_agent import trend_radar_agent
+from local_agents.challenge_processing_agent import challenge_processing_agent
+from local_agents.report_composer_agent import report_composer_agent
 
 
-if "socrates_main" not in logging.root.manager.loggerDict.keys():
+from local_agents.generic_assessor_agent import generic_assessor_agent
+# future specialist agents (uncomment when implemented)
+from local_agents.forces_agent import forces_agent as forces_agent
+from local_agents.five_forces_assessor_agent import five_forces_assessor_agent
+from local_agents.pest_agent import pest_agent
+from local_agents.financial_screen_agent import financial_screener_agent
+from local_agents.VRIO_agent import vrio_agent
+from local_agents.bcg_matrix_agent import bcg_matrix_agent
+from local_agents.blue_ocean_agent import blue_ocean_agent
+from local_agents.value_chain_agent import value_chain_agent
+from local_agents.seven_s_agent import seven_s_agent
+from local_agents.ansoff_agent import ansoff_agent
+from local_agents.ge_mckinsey_agent import ge_mckinsey_agent
+from local_agents.core_competence_agent import core_competence_agent
+from local_agents.bowman_clock_agent import bowman_clock_agent
+
+# from local_agents.vrio_analyst_agent import vrio_analyst_agent
+# from local_agents.vrio_assessor import vrio_assessor_agent
+# from local_agents.finance_assessor import finance_assessor_agent
+from local_agents.report_assessor_agent import report_assessor_agent
+
+from local_agents.synthesizer_agent import synthesizer_agent
+from local_agents.summariser_agent import summariser_agent
+
+for _agent in [
+    trend_radar_agent,
+    pest_agent,
+    financial_screener_agent,
+    initial_crux_agent,
+    forces_agent,
+    vrio_agent,
+    challenge_processing_agent,
+    synthesizer_agent,
+    report_composer_agent,
+    generic_assessor_agent,
+    bcg_matrix_agent,
+    blue_ocean_agent,
+    value_chain_agent,
+    seven_s_agent ,
+    ansoff_agent ,
+    ge_mckinsey_agent,
+    core_competence_agent,
+    bowman_clock_agent,
+    report_assessor_agent
+]:
+    _agent.model = "o3-mini"
+
+from utils.md_to_docx import write_markdown, md_to_docx
+from utils.token_tools import as_token_limited_json, MAX_PROMPT_TOKENS
+from utils.capability_plot import generate_capability_plot
+from company_data import fetch_basic_financials, ticker_map
+# ----------------------------------------------------------------------------
+# ENV + LOGGING
+# ----------------------------------------------------------------------------
+load_dotenv()
+if "socrates_main" not in logging.root.manager.loggerDict:
     logging.config.fileConfig(
         "config/logging_config_socrates.ini",
         defaults={"date": datetime.datetime.now()},
         disable_existing_loggers=True,
     )
-
-
 logger = logging.getLogger("socrates_main")
+logger.info("Started Socrates Main")
 
-logger.info("Started")
-# Example usage
+# ----------------------------------------------------------------------------
+# MODEL CONNECTOR
+# ----------------------------------------------------------------------------
 model_config = {
     "model_type": "openai_assistants",
     "api_key": os.getenv("OPENAI_API_KEY"),
-    "model": "gpt-4o",
-    #'model': 'gpt-3.5-turbo',
+    "model": "gpt-o3",
 }
 file_handler = FileHandler()
-
 connector = ModelConnectorFactory.create_connector(model_config, file_handler)
-client = connector.client
 
-uri = os.getenv("NEO4J_URL")
-user = os.getenv("NEO4J_USER")
-password = os.getenv("NEO4J_PASSWORD")
-database = os.getenv("NEO4J_DATABASE")
-
-# Load the workflow configuration
-with open("workflow.json", "r") as file:
-    config = json.load(file)
-workflow_config = config["workflow"]
-
-gics_mapping = {
-    10: "Energy",
-    15: "Materials",
-    20: "Industrials",
-    25: "Consumer Discretionary",
-    30: "Consumer Staples",
-    35: "Health Care",
-    40: "Financials",
-    45: "Information Technology",
-    50: "Communication Services",
-    55: "Utilities",
-    60: "Real Estate",
-}
-
-# This is the local file handler. remote files are dealt with in ModelConnector
-
-
-def execute_workflow(workflow_config=workflow_config):
-    """Executes the workflow steps based on the configuration."""
-    logger.debug(f"workflow config is {workflow_config}")
-    logger.debug("Enabled workflow steps:")
-    for step_name, details in workflow_config.items():
-        logger.info(f"- {step_name}")
-        logger.info(f"details: {details}")
-        step = details.get("step", step_name)
-        logger.info(f"step: {step}")
-        if details.get("enabled", False):
-            func = get_step_function(step)
-            run_id = step_name + "_" + str(datetime.datetime.now())
-            setup_config(**{"run_id": run_id})
-
-            if func:
-                # Unpack all parameters dynamically for the function
-                parameters = details.get("parameters", {})
-                logger.debug(
-                    f"- Executing {step_name} with parameters: {parameters}..."
-                )
-                func(**parameters)  # Use ** to unpack and pass named parameters
-            else:
-                logger.debug(f"No function defined for {step}.")
-    logger.debug("Finished workflow steps.")
-
-
-def main():
-    enabled_steps = [
-        step for step, details in workflow_config.items() if details["enabled"]
-    ]
-    logger.debug("Enabled workflow steps:")
-    for step in enabled_steps:
-        logger.debug(f"- {step}")
-    execute_workflow()
-
-
-def get_step_function(step_name):
-    """
-    Returns the function mapped to the specified workflow step without executing it.
-    """
-    step_map = {
-        # administrative routines
-        "cleanUp": clean_up,
-        # graph manipulation and display routines
-        "fillGraph": fill_graph,
-        "getInsights": get_insights,
-        "condenseTrends": condense_trends,
-        "condenseCompanyData": condense_company_data,
-        "getCapabilities": generate_capabilities_per_cluster,
-        "getTrends": generate_trends,
-        "clusterTrends": cluster_trends,
-        "runStrategy": run_strategy,
-        "runFrameworks": run_frameworks,
-        "runScenarios": run_scenarios,
-        "runReport": run_report,
-    }
-    return step_map.get(step_name, None)
-    #    Note: camelCase naming denotes parameters directly inherited from the json config file
-
-
-def get_capabilities(companyName, problemsFile):
-    """
-    Generates the capabilities for a given company.
-    """
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_data = get_problem(company_name, problemsFile)
-    problem_file_path = file_handler.write_local_json(
-        f"problem_{company_name}", json.dumps(problem_data)
-    )
-    company_full_data = get_company_data(companyName, problem_data)
-    capabilities = generate_capabilities_per_cluster(
-        [company_name], compute_embeddings=True, number_of_processes=5
-    )
-    logger.debug("capabilities:", capabilities)
-    return capabilities
-
-
-def condense_trends(company_name, problemsFile):
-    gics_code, _ = get_gics_code_and_name(company_name)
-    trends = get_curated_trend_data(company_name, gics_code, problemsFile)
-    problem = get_problem(company_name, problemsFile)
-    context = problem
-    subject = f"""
-The trends impacting {company_name}
-    """
-    if not trends:
-        trends = get_trends_from_gics_code(gics_code, problem)
-        trends = trends["trends"]
-        save_curated_trend_data(company_name, gics_code, problem, trends)
-    condensed_trends = condense(
-        trends,
-        "statement",
-        context,
-        subject,
-        number_of_clusters=10,
-        number_of_processes=5,
-    )
-
-    save_condensed_trend_data(company_name, problem, condensed_trends)
-
-
-def condense_company_data(company_name, problem):
-    # problem = get_problem(company_name, problemsFile)
-    logger.info("company_name", company_name)
-    logger.info("problem", problem)
-    company_data = dump_company_graph_to_json(company_name, problem)
-
-    # the full capabilities
-    logger.info("company_data", company_data)
-    context = problem
-    subject = f"""
-The insights and capabilities of {company_name}
-    """
-    company_data_full = [x for x in company_data["insights"]]
-    company_data_full.extend([x for x in company_data["capabilities"]])
-    condensed_company_data = condense(
-        company_data_full,
-        "statement",
-        context,
-        subject,
-        number_of_clusters=50,
-        number_of_processes=5,
-    )
-    logger.info("Saving condensed company data")
-    save_condensed_company_data(company_name, problem, condensed_company_data)
-
-
-def get_problem(company_name, problemsFile):
-    """
-    Retrieves the problem statement for a given company from a JSON file.
-    """
-    with open(problemsFile, "r") as file:
-        problem_statements = json.load(file)
-        # Retrieve the problem statement for the given company name
-        statement = ""
-    if company_name in problem_statements:
-        statement = problem_statements[company_name]
-        return statement.replace("'", "\\'")
-    else:
-        logger.debug(
-            f"Problem statement not found for the specified company {company_name}."
-        )
-        raise Exception(
-            f"Problem statement not found for the specified company {company_name}."
-        )
-
-
-def get_trends(company_name, problemFile, force_recreate=False):
-    """
-    Retrieves the trends for a given company.
-    Will load from archive if available, otherwise will generate new trends unless force_recreate is set to True.
-    Will store to archive after generation.
-    """
-    problem = get_problem(company_name, problemFile)
-    gics_code, gics_name = get_gics_code_and_name(company_name)
-    logger.debug(f"gics_code: {gics_code}")
-    condense_trend_data = get_condensed_trend_data(company_name, problem)
-    curated_trend_data = get_curated_trend_data(company_name, gics_code, problem)
-
-    trend_data = None  # Initialize trend_data
-
-    if condense_trend_data and not force_recreate:
-        logger.debug(f"Loaded condensed trends from archive")
-        trend_data = condense_trend_data
-    elif curated_trend_data and not force_recreate:
-        logger.debug(f"Loaded trends from archive")
-        trend_data = condense_trends(company_name, problemFile)
-    else:
-        curated_trend_data = get_trends_from_gics_code(gics_code, problem)
-        logger.debug(f"Generated trends")
-        save_curated_trend_data(company_name, gics_code, problem, curated_trend_data)
-        trend_data = condense_trends(company_name, problemFile)
-        logger.debug(f"Saved trends to archive")
-
-    # implement validation and checking of trends
-
-    return trend_data
-
-
-def get_company_data(companyName, problem_statement):
-    """
-    Retrieves the full data for a given company
-    """
-    logger.debug(" calling get_company_data with companyName: ", companyName)
-    condensed_company_data = get_condensed_company_data(companyName, problem_statement)
-    if condensed_company_data:
-        logger.debug(f"Loaded condensed company data from archive")
-        company_full_data = condensed_company_data
-    else:
-        condense_company_data(companyName, problem_statement)
-        logger.info("Getting condensed company data")
-        company_full_data = get_condensed_company_data(companyName, problem_statement)
-    # implement validation and checking of trends
-    return company_full_data
-
-
-def clean_up():
-    connector.clean_up()
-
-
-def create_json_filename(company_name):
-    """
-    Generates a JSON filename from a company name by normalizing it and adding the appropriate file extension.
-
-    Args:
-    company_name (str): The name of the company.
-
-    Returns:
-    str: A filename based on the company name, suitable for saving as a JSON file.
-    """
-    # Normalize the string: convert to lowercase
-    normalized_name = company_name.lower()
-
-    # Remove special characters and replace spaces with underscores
-    filename = re.sub(
-        r"[^a-z0-9 ]", "", normalized_name
-    )  # Remove anything not a letter, number, or space
-    filename = filename.replace(" ", "_")  # Replace spaces with underscores
-
-    # Add the .json extension
-    filename += ".json"
-    return filename
-
-
-def get_gics_code_and_name(company_name):
-    company_to_gics = {
-        "Tesla": [25],
-        "McKesson": [35],
-        "Elevance_Health": [35],
-        "Costco_Wholesale": [30],
-        "Marathon_Petroleum": [10],
-        "Exxon_Mobil": [10],
-        "Valero_Energy": [10],
-        "Chevron": [10],
-        "Alphabet": [50],
-        "CVS_Health": [35],
-        "Walmart": [30],
-        "Cardinal_Health": [35],
-        "Berkshire_Hathaway": [40],
-        "JPMorgan_Chase": [40],
-        "AmerisourceBergen": [35],
-        "ConocoPhillips": [10],
-        "AT&T": [50],
-        "Amazon": [25],
-        "Kroger": [30],
-        "UnitedHealth_Group": [35],
-        "Apple": [45],
-        "Phillips_66": [10],
-        "Ford Motor": [25],
-        "Home Depot": [25],
-        "General Motors": [25],
-        "Centene": [35],
-        "Verizon Communications": [35],
-        "Walgreens Boots Alliance": [30],
-        "Fannie Mae": [40],
-        "Comcast": [50],
-        "Meta Platforms": [50],
-        "Bank of America": [40],
-        "Target": [30],
-        "Dell Technologies": [45],
-        "Archer Daniels Midland": [30],
-        "Citigroup": [40],
-        "United Parcel Service": [20],
-        "Pfizer": [35],
-        "Lowe's": [20],
-        "Johnson & Johnson": [35],
-        "FedEx": [20],
-        "Humana": [35],
-        "Energy Transfer": [10],
-        "State Farm Insurance": [40],
-        "Freddie Mac": [40],
-        "PepsiCo": [30],
-        "Wells Fargo": [40],
-        "Walt Disney": [50],
-        "Procter & Gamble": [30],
-        "General Electric": [20],
-        "Albertsons": [30],
-        "MetLife": [40],
-        "Goldman Sachs Group": [40],
-        "Sysco": [30],
-        "Raytheon Technologies": [20],
-        "Boeing": [20],
-        "StoneX Group": [40],
-        "Lockheed Martin": [20],
-        "Morgan Stanley": [40],
-        "Intel": [45],
-        "HP": [45],
-        "nag": [45],
-        "TD Synnex": [45],
-        "International Business Machines": [45],
-        "HCA Healthcare": [35],
-        "Prudential Financial": [40],
-        "Caterpillar": [20],
-        "Merck": [35],
-        "World Fuel Services": [10],
-    }
-    gics_mapping = {
-        10: "Energy",
-        15: "Materials",
-        20: "Industrials",
-        25: "Consumer Discretionary",
-        30: "Consumer Staples",
-        35: "Health Care",
-        40: "Financials",
-        45: "Information Technology",
-        50: "Communication Services",
-        55: "Utilities",
-        60: "Real Estate",
-    }
-    logger.info(f"company_name: {company_name}")
-    gics_code = company_to_gics.get(company_name, None)
-    logger.info(f"gics_code: {gics_code}")
-    gics_name = [gics_mapping.get(g_code, "") if g_code else "" for g_code in gics_code]
-    return gics_code, gics_name
-
-
-def get_file_paths(company_name, problemsFile):
-    """
-    Give a single company, extracts the problem, company and trend data
-    and generates files suitable for agent processing
-    """
-    conf = read_config()
-    run_id = "_" + conf.get("run_id")
-
-    company_name = company_name.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_data = get_problem(company_name, problemsFile)
-    problem_file_path = file_handler.write_local_json(
-        f"problem_{company_name}" + run_id, json.dumps(problem_data)
-    )
-    trends = get_trends(company_name, problemsFile, force_recreate=False)
-    company_full_data = get_company_data(company_name, problem_data)
-
-    trends_file_path = file_handler.write_local_json(
-        f"company_trends_{company_name}" + run_id, json.dumps(trends)
-    )
-
-    company_file_path = file_handler.write_local_json(
-        f"company_data_{company_name}" + run_id, json.dumps(company_full_data)
-    )
-    return problem_file_path, trends_file_path, company_file_path
-
-def run_scenarios(companyName, problemsFile):
-    """
-    Runs the stand-alone scenarios analysis for a single company
-    """
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        company_name, problemsFile
-    )
-    scenarios_return_file, scenarios_response_file = generate_scenarios(
-        company_name, problem_file_path, trends_file_path, company_file_path
-    )
-
-    # Add validation and quality checks of scenarios outputs
-    logger.debug(
-        f"The final scenarios output is available in file {scenarios_return_file}"
-    )
-
-def generate_scenarios(
-    company_name, problem_file_path, trends_file_path, company_file_path
-):
-    conf = read_config()
-    run_id = "_" + conf.get("run_id")
-    """
-    Executes the scenarios agent  for a single company
-    """
-    agent_configs = [{"agent_type": "full_graph_scenario_agent"}]
-    scenarios_manager = AgentManager(
-        connector,
-        file_handler,
-        agent_configs,
-        [problem_file_path, trends_file_path, company_file_path],
-        use_qm_agents=False,
-    )
-    scenarios_manager.run_workflow()
-    scenarios_return_data = scenarios_manager.return_dict()
-    logger.info(f"scenarios_return_data: {str(scenarios_return_data)}")
-    # logger.info(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
-    # scenarios_return_data
-    # scenarios_response = scenarios_manager.agent_response
-    # logger.info(f"scenarios_response: {str(scenarios_response)}")
-    # logger.info(f"scenarios_return_data: {str(scenarios_return_data.keys())}")
-    # assert False
-    # scenarios_response = scenarios_manager.get("response_file")
-    logger.info(f"scenarios_response: {scenarios_return_data}")
-    logger.info(f"scenarios_return_data: {scenarios_manager}")
-    scenarios_output = scenarios_return_data.get("output_file")
-    scenarios_response = scenarios_return_data.get("response_file")
-    logger.info(f"scenarios_output: {scenarios_output}")
-    logger.info(f"scenarios_response: {scenarios_response}")
-    # logger.info(f"scenarios_output: {scenarios_output}")
-    scenarios_local_output = connector.download_and_write_local(
-        f"scenarios_output_{company_name}", scenarios_output
-    )
-    logger.info(f"scenarios_local_output: {scenarios_local_output}")
-    # scenarios_local_response = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
-    # logger.info(f"scenarios_local_response: {scenarios_local_response}")
-    # scenarios_response_file = connector.download_and_write_local(f"scenarios_output_{company_name}", scenarios_response )
-    # assert False
-    # logger.debug(f"scenarios output = {scenarios_output}")
-    scenarios_response_file = file_handler.write_local_json(
-        f"scenarios_{company_name}" + run_id, json.dumps(scenarios_response)
-    )
-    # #scenarios_return_file = connector.download_and_write_local(f"_scenarios_output_{company_name}", scenarios_output )
-    # logger.info(f"completed scenarios for {company_name}")
-    return scenarios_local_output, scenarios_response_file
-
-
-def run_frameworks(companyName, problemsFile):
-    """
-    Runs a stand-alone frameworks agent for a single company
-    """
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        company_name, problemsFile
-    )
-    frameworks_file = generate_frameworks(
-        company_name, problem_file_path, trends_file_path, company_file_path
-    )
-    logger.debug(f"the frameworks output file is {frameworks_file}")
-    # Add validation and quality checks of frameworks outputs
-
-
-def generate_frameworks(
-    company_name, problem_file_path, trends_file_path, company_file_path
-):
-    """
-    Executes the frameworks agent  for a single company
-    """
-
-    conf = read_config()
-    run_id = "_" + conf.get("run_id")
-
-    agent_configs = [{"agent_type": "full_graph_frameworks_agent"}]
-    for path in [problem_file_path, trends_file_path, company_file_path]:
-        logger.info(f"Path: {path}")
-    frameworks_manager = AgentManager(
-        connector,
-        file_handler,
-        agent_configs,
-        [problem_file_path, trends_file_path, company_file_path],
-        use_qm_agents=True,
-    )
-    frameworks_manager.run_workflow()
-    frameworks_dictionary_return = frameworks_manager.return_dict()
-    frameworks_output = frameworks_dictionary_return.get("output_file")
-    logger.debug(f"the frameworks output file is {frameworks_output}")
-    frameworks_return_local_file = connector.download_and_write_local(
-        f"frameworks_output_{company_name}" + run_id, frameworks_output
-    )
-    return frameworks_return_local_file
-
-
-def run_report(companyName, problemsFile):
-    """
-    Runs a stand-alone report generation for a single company
-    """
-
-    conf = read_config()
-    run_id = "_" + conf.get("run_id")
-
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        company_name, problemsFile
-    )
-
-    scenarios_response_file = (
-        f"./Intermediates/local_scenarios_response_{company_name}.json"
-    )
-    scenarios_return_file = (
-        f"./Intermediates/local_scenarios_return_{company_name}.json"
-    )
-    frameworks_file_path = f"./Intermediates/local_frameworks_file_{company_name}.json"
-
-    reporting_return_file = generate_report(
-        company_name,
-        scenarios_response_file,
-        scenarios_return_file,
-        frameworks_file_path,
-        trends_file_path,
-    )
-    if reporting_return_file:
-        report_content = connector.download_and_write_local(
-            f"strategic_report_{company_name}" + run_id, reporting_return_file
-        )
-        logger.debug(
-            f"completed report generation for {company_name} at file {reporting_return_file}"
-        )
-    else:
-        logger.debug(f"Error: Report generation for {company_name} failed")
-
-
-def generate_report(
-    company_name,
-    scenarios_response_file,
-    scenarios_return_file,
-    frameworks_file_path,
-    trends_file_path,
-):
-    """
-    Executes the report generation for a single company
-    """
-    conf = read_config()
-    run_id = "_" + conf.get("run_id")
-    logger.info(f"agent_type: full_graph_reporting_agent")
-    agent_configs = [{"agent_type": "full_graph_reporting_agent"}]
-    reporting_manager = AgentManager(
-        connector,
-        file_handler,
-        agent_configs,
-        [
-            scenarios_response_file,
-            scenarios_return_file,
-            frameworks_file_path,
-            trends_file_path,
-        ],
-        use_qm_agents=True,
-    )
-    reporting_manager.run_workflow()
-    reporting_return = reporting_manager.return_dict()
-    reporting_output_file = reporting_return["output_file"]
-    reporting_output_local_file = connector.download_and_write_local(
-        f"strategic_report_{company_name}" + run_id, reporting_output_file
-    )
-    return reporting_output_local_file
-
-def evaluate_scenarios(scenarios_file_path: str, companyName: str) -> float:
-    """
-    Makes a call to an AI assistant that evaluates the given scenarios file,
-    returning a numerical score (e.g., 0.0 - 1.0).
-    """
-    # -- Example placeholder: replace with your real "evaluation" AI assistant call --
-    print(f"Evaluating scenarios for {companyName} in {scenarios_file_path}...")
-    # Return a dummy score, or your real evaluation result:
-    return 0.75
-
-def generate_and_evaluate_scenarios(companyName: str, problemsFile: str) -> float:
-    """
-    1. Generates a set of scenarios using generate_scenarios (the original agent).
-    2. Evaluates them using evaluate_scenarios (the new agent).
-    Returns an evaluation score for the generated scenarios.
-    """
-    # Clean up the company name for use in file paths
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-
-    # 1. Obtain file paths for the problem
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        company_name, problemsFile
-    )
-
-    # 2. Call generate_scenarios for this single run
-    scenarios_response, scenarios_return_file = generate_scenarios(
-        companyName,
-        problem_file_path,
-        trends_file_path,
-        company_file_path
-    )
-    print(f"Scenarios response for {companyName}: {scenarios_response}")
-
-    # 3. Evaluate the generated scenarios
-    score = evaluate_scenarios(scenarios_return_file, companyName)
-    return score
-
-from agents import Agent, Runner, ItemHelpers, TResponseInputItem
-from agent_and_assessor import EvaluationFeedback, run_agent_assessor_in_parallel
-
+# ----------------------------------------------------------------------------
+# GICS & Data Loaders
+# ----------------------------------------------------------------------------
+from graph_workflow.full_graph import (
+    get_trends_from_gics_code, get_curated_trend_data,
+    get_condensed_trend_data, save_curated_trend_data,
+    save_condensed_trend_data, get_condensed_company_data,
+)
+
+gics_mapping = {10:"Energy",15:"Materials",20:"Industrials",25:"Consumer Discretionary",
+30:"Consumer Staples",35:"Health Care",40:"Financials",45:"Information Technology",
+50:"Communication Services",55:"Utilities",60:"Real Estate"}
+company_to_gics = { ... }  # same mapping as before
+
+def get_gics_code_and_name(company_name: str):
+    key = company_name.replace(" ","_").replace("'","")
+    codes = company_to_gics.get(key)
+    if not codes: raise KeyError(f"No GICS mapping for {company_name}")
+    return codes, [gics_mapping.get(c,"Unknown") for c in codes]
+
+def get_problem(company_name: str, problems_file: str) -> str:
+    with open(problems_file) as f:
+        all_probs = json.load(f)
+    key = company_name.replace(" ","_").replace("'","")
+    stmt = all_probs.get(key)
+    if stmt is None: raise KeyError(f"No problem statement for {company_name}")
+    return stmt
+
+# ----------------------------------------------------------------------------
+# CORE WORKFLOW
+# ----------------------------------------------------------------------------
 def run_strategy(
     companyName: str,
     problemsFile: str,
-    debug_scenarios = False,
-    debug_frameworks = False,
-    debug_five_forces = False,
-    num_parallel_workflows: int = 3,
     max_rounds: int = 3
 ):
-    """
-    Example strategy function that:
-     - Loads input data
-     - Builds a single scenario prompt
-     - Runs multiple Agent→Assessor loops in parallel
-     - Returns all final outputs
-    """
-    import asyncio
-    # 1) Load your data
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(company_name, problemsFile)
+    logger.info(f"Running strategy for {companyName}")
+    FORCES_ONLY = os.getenv("FORCES_ONLY", "1") == "0"  # default = on for now
+    # normalize names & load data
+    cname = companyName.replace(" ","_").replace("'","")
+    pfp, tfp, cfp = get_file_paths(cname, problemsFile, file_handler)
+    trends = file_handler.local_json_read(tfp)
+    company_data = file_handler.local_json_read(cfp)
 
-    problem = file_handler.local_json_read(problem_file_path)
-    trends = file_handler.local_json_read(trends_file_path)
-    company_data = file_handler.local_json_read(company_file_path)
+    # Normalise company_data → always a dict with an "overview" field
+    if isinstance(company_data, list):
+        first = company_data[0] if company_data else ""
+        if isinstance(first, dict) and "statement" in first:
+            overview = first["statement"]
+        else:  # list of strings (or mixed)
+            overview = str(first)[:200]  # take first string, truncate to 200 chars
+        company_data = {"overview": overview, "data": company_data}
 
-    from agent_scenarios import scenarios_agent
-    from agent_scenarios_assessor import scenarios_assessor_agent
-    from qm import qm_general_agent
+    ticker = ticker_map.get(companyName, "")
+    basic_fin = fetch_basic_financials(ticker)
 
-    scenario_generator_agent= scenarios_agent
-    scenario_assessor_agent= qm_general_agent   # using general QM for now
 
-    # 2) Create a single prompt for scenario generation
-    combined_prompt = (
-        f"Generate a scenario for {companyName}.\n"
-        f"Problem: {problem}\n"
-        f"Trends: {trends}\n"
-        f"Company Data: {company_data}\n\n"
-        "Be as creative and detailed as possible."
+    # 1) merge into company_data so the Screener sees it
+    company_data.setdefault("financials", basic_fin)
+
+
+    # 1) BACKGROUND AGENT
+
+    bg_prompt = f"Company Data: {company_data}\nTrends: {trends}"
+    assert background_agent is not None, f"{background_agent} generator is None"
+
+    background_json = run_single_workflow_with_verifier(
+        generator_agent=background_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=bg_prompt,
+        label="Background",
+        max_rounds=1
     )
 
-    # 3) Run N parallel workflows, each with its own Agent→Assessor loop
-    final_scenarios = asyncio.run(
-        run_agent_assessor_in_parallel(
-            generator_agent=scenario_generator_agent,
-            assessor_agent=scenario_assessor_agent,
-            initial_prompt=combined_prompt,
-            num_parallel_workflows=num_parallel_workflows,
-            max_rounds=max_rounds
+    # ----------------------------------------------------------------------
+    # 1) TREND RADAR  — exhaustive trend clustering / impact scoring
+    # ----------------------------------------------------------------------
+    trend_prompt = (
+        f"Company Data: {company_data}\nAll Trends: {trends}"
+    )
+    trend_radar_json = run_single_workflow_with_verifier(
+        generator_agent=trend_radar_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=trend_prompt,
+        label="Trend Radar",
+        max_rounds=1,
+    )
+
+    # -------------- after trend_radar_json is returned ------------------
+    trend_dict = json.loads(trend_radar_json)  # already a dict
+    cats = {
+        cluster["short_name"]: [
+            {
+                "trend": t,
+                "importance": cluster["impact"],  # crude mapping
+                "likelihood": 3,  # placeholder
+                "readiness": 8 if cluster["direction"] == "opportunity" else 5
+            }
+            for t in cluster["top_trends"]
+        ]
+        for cluster in trend_dict["trend_clusters"]
+    }
+
+    from utils.trend_radar import save_trend_radar_png
+    radar_path = save_trend_radar_png(cats, companyName)
+
+    # ----------------------------------------------------------------------
+    # 2) PEST ANALYSIS  — four bullets per P,E,S,T
+    # ----------------------------------------------------------------------
+    pest_prompt = f"trend_clusters: {trend_radar_json}"
+    pest_json = run_single_workflow_with_verifier(
+        generator_agent=pest_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=pest_prompt,
+        label="PEST Scan",
+        max_rounds=1,
+    )
+    try:
+        _pest = json.loads(pest_json)
+        for section, bullets in _pest.get("pest_bullets", {}).items():
+            _pest["pest_bullets"][section] = [
+                b for b in bullets if "Data unavailable" not in b
+            ]
+        pest_json = json.dumps(_pest)
+    except Exception as err:  # keep going even if something is odd
+        logger.warning(f"Couldn’t scrub PEST placeholders: {err}")
+
+
+# ----------------------------------------------------------------------
+# 3) FINANCIAL SCREENER  — high-level KPIs vs peers
+# --------------------------------------------------------------------
+    finance_prompt = (
+            "company_data: " + as_token_limited_json(company_data)  # ← token-safe
+    )
+    finance_json = run_single_workflow_with_verifier(
+        generator_agent=financial_screener_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=finance_prompt,
+        label="Financial Screener",
+        max_rounds=1,
+    )
+
+    # ----------------------------------------------------------------------
+    # 4) BACKGROUND BUNDLE  — feeds Mini-Crux & final report
+    # ----------------------------------------------------------------------
+    background_json = json.dumps({
+        "company_overview": company_data.get("overview", ""),
+        "trend_radar": json.loads(trend_radar_json),
+        "pest": json.loads(pest_json),
+        "finance": json.loads(finance_json)
+    })
+
+    # ----------------------------------------------------------------------
+    # 5) MINI-CRUX DISCOVERY
+    # ----------------------------------------------------------------------
+    pre_prompt = f"Background: {background_json}"
+    initial_crux_json = run_single_workflow_with_verifier(
+        generator_agent=initial_crux_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=pre_prompt,
+        label="Initial Crux",
+        max_rounds=1,
+    )
+    logger.info(f"Initial Crux JSON: {initial_crux_json}")
+
+    # ----------------------------------------------------------------------
+    # (everything below — framework selection / specialist analyses /
+    #  challenge_processing_agent / synthesizer_agent / report_composer_agent —
+    #  remains exactly as in your current file)
+
+    # 1) PRE-CRUX DIAGNOSIS
+    pre_prompt = f"Background: {background_json}"
+    assert initial_crux_agent is not None, f"{initial_crux_agent} generator is None"
+    initial_crux_json = run_single_workflow_with_verifier(
+        generator_agent=initial_crux_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=pre_prompt,
+        label="Initial Crux",
+        max_rounds=1
+    )
+    logger.info(f"Initial Crux JSON: {initial_crux_json}")
+
+    sel_prompt = f"Crux: {initial_crux_json}\nBackground: {background_json}"
+    assert framework_selector_agent is not None, f"{framework_selector_agent} generator is None"
+
+    # ------------------------------------------------------------------
+    # 2) SPECIALIST ANALYSES
+    # ------------------------------------------------------------------
+
+    # ------------- make background_json mutable -----------------------
+    # ----------------------------------------------------------------------
+    # (keep the code that builds background_json + initial_crux_json)
+    # ----------------------------------------------------------------------
+
+    # ------------- make background_json mutable ---------------------------
+    if isinstance(background_json, str):
+        try:
+            background_json = json.loads(background_json)
+        except json.JSONDecodeError:
+            background_json = {"raw": background_json}
+
+    # ----------------------------------------------------------------------
+    #  A. framework-selector  → flags
+    # ----------------------------------------------------------------------
+    sel_prompt = f"Crux: {initial_crux_json}\nBackground: {json.dumps(background_json)[:8000]}"
+    selector_raw = run_single_workflow_with_verifier(
+        generator_agent=framework_selector_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=sel_prompt,
+        label="Framework Selector",
+        max_rounds=1,
+    )
+    try:
+        flags: dict[str, Any] = json.loads(selector_raw)
+    except json.JSONDecodeError:
+        logger.warning("Selector failed JSON-parse ⇒ default to Porter + PEST")
+        flags = {"use_porter": True, "use_pest": True, "rationale": {}}
+
+    # ----------------------------------------------------------------------
+    #  B. helper → pick pretty names + rationale-lines
+    # ----------------------------------------------------------------------
+    def _extract_framework_rationale(flag_blob: dict[str, Any]) -> tuple[list[str], str]:
+        name_map = {
+            "porter": "Porter’s 5 Forces",
+            "pest": "PEST",
+            "vrio": "VRIO",
+            "blue_ocean": "Blue-Ocean",
+            "bcg": "BCG Matrix",
+            "value_chain": "Value-Chain",
+            "seven_s": "McKinsey 7-S",
+            "ansoff": "Ansoff Matrix",
+            "gem": "GE/McKinsey 9-Cell",
+            "core_comp": "Core-Competence",
+            "bowman": "Bowman Clock",
+        }
+        chosen, md_lines = [], []
+        for short_key, pretty in name_map.items():
+            if flag_blob.get(f"use_{short_key}"):
+                chosen.append(pretty)
+                expl = flag_blob.get("rationale", {}).get(short_key, "")
+                md_lines.append(f"* **{pretty}** – {expl}")
+        return chosen, "\n".join(md_lines)
+
+    chosen_fw, rationale_md = _extract_framework_rationale(flags)
+    background_json.update(
+        {
+            "frameworks_chosen": chosen_fw,
+            "frameworks_rationale_md": rationale_md,
+        }
+    )
+
+    # ----------------------------------------------------------------------
+    #  C. catalogue  flag → (dict-key, agent, assessor)
+    # ----------------------------------------------------------------------
+    flag_to_agent: dict[str, tuple[str, Agent, Agent]] = {
+        "use_porter": ("forces", forces_agent, generic_assessor_agent),
+        "use_pest": ("pest", pest_agent, generic_assessor_agent),
+        "use_vrio": ("vrio", vrio_agent, generic_assessor_agent),
+        "use_blue_ocean": ("blue", blue_ocean_agent, generic_assessor_agent),
+        "use_bcg": ("bcg", bcg_matrix_agent, generic_assessor_agent),
+        "use_value_chain": ("value", value_chain_agent, generic_assessor_agent),
+        "use_seven_s": ("7s", seven_s_agent, generic_assessor_agent),
+        "use_ansoff": ("ansoff", ansoff_agent, generic_assessor_agent),
+        "use_gem": ("gem", ge_mckinsey_agent, generic_assessor_agent),
+        "use_core_comp": ("core", core_competence_agent, generic_assessor_agent),
+        "use_bowman": ("bowman", bowman_clock_agent, generic_assessor_agent),
+    }
+
+    # ----------------------------------------------------------------------
+    #  D. build specialist_agents dict
+    # ----------------------------------------------------------------------
+    specialist_agents: dict[str, tuple[Agent, Agent]] = {}
+
+    FORCES_ONLY = os.getenv("FORCES_ONLY", "0") == "1"
+    if FORCES_ONLY:
+        specialist_agents["forces"] = (forces_agent, five_forces_assessor_agent)
+    else:
+        for flag, triplet in flag_to_agent.items():
+            if flags.get(flag):
+                key, agent, assessor = triplet
+                specialist_agents[key] = (agent, assessor)
+
+    if not specialist_agents:  # failsafe
+        specialist_agents["forces"] = (forces_agent, generic_assessor_agent)
+
+    # ----------------------------------------------------------------------
+    #  E. run each specialist analysis (with per-framework timeout)
+    # ----------------------------------------------------------------------
+    PER_FRAMEWORK_TIMEOUT = 300
+    analyses: dict[str, Any] = {}
+
+    for key, (agent, assessor) in specialist_agents.items():
+        BG_TOKENS = MAX_PROMPT_TOKENS - 5_000  # ≈ 185 000 if you kept defaults
+
+        spec_prompt = (
+            f"Initial Crux: {initial_crux_json}\n"
+            f"Background: {as_token_limited_json(background_json, BG_TOKENS)}\n"
+            f"Run {key} analysis for {companyName}"
+        )
+        try:
+            raw = asyncio.run(
+                asyncio.wait_for(
+                    single_agent_verify_assess_loop(
+                        generator_agent=agent,
+                        verifier_agent=citation_verifier_agent,
+                        assessor_agent=assessor,
+                        initial_prompt=spec_prompt,
+                        label=f"{key.capitalize()} Analysis",
+                        max_rounds=max_rounds,
+                    ),
+                    timeout=PER_FRAMEWORK_TIMEOUT,
+                )
+            )
+            parsed = json.loads(raw)
+        except asyncio.TimeoutError:
+            logger.warning(f"{key} timed-out after {PER_FRAMEWORK_TIMEOUT}s")
+            continue
+        except Exception as exc:
+            logger.warning(f"{key} failed ⇒ {exc}")
+            continue
+
+        if parsed.get("skip"):
+            logger.info(f"Skipping {key}: {parsed['skip'].get('reason', '')}")
+            continue
+
+        analyses[key] = parsed
+
+    # 3) CHALLENGES
+
+    challenge_prompt = (
+        f"Initial Crux: {initial_crux_json}\nAnalyses: {json.dumps(analyses)}\n"
+        f"Trend Radar: {trend_radar_json}"
+    )
+    assert challenge_processing_agent is not None, f"{challenge_processing_agent} generator is None"
+    challenge_json = run_single_workflow_with_verifier(
+        generator_agent=challenge_processing_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=challenge_prompt,
+        label="Challenge Processing",
+        max_rounds=2
+    )
+    analyses["challenge_map"] = json.loads(challenge_json)
+
+    # 4) SYNTHESIZER
+
+    synth_prompt = (
+        f"Initial Crux: {initial_crux_json}\nAnalyses: {json.dumps(analyses,indent=2)}"
+    )
+    assert synthesizer_agent is not None, f"{synthesizer_agent} generator is None"
+    synth_json = run_single_workflow_with_verifier(
+        generator_agent=synthesizer_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=None,
+        initial_prompt=synth_prompt,
+        label="Synthesizer",
+        max_rounds=2
+    )
+    analyses["synthesized_options"] = json.loads(synth_json)
+
+    # 5) STRATEGY MEMO
+
+    report_bundle = {
+        # replace this ↓↓↓
+        # "company_overview": company_data.get("overview",""),
+        # with this:
+        "company_overview": (
+            company_data[0]["statement"] if isinstance(company_data, list) else
+            company_data.get("overview", "")
+        ),
+        "trend_radar": json.loads(trend_radar_json),
+        "crux": json.loads(initial_crux_json),
+        "analyses": analyses,
+        "challenge_map": analyses["challenge_map"],
+        "synthesized_options": analyses["synthesized_options"],
+        "frameworks_chosen": background_json.get("frameworks_chosen", []),
+        "frameworks_rationale_md": background_json.get(
+            "frameworks_rationale_md", "*Selector returned no rationales*"
+        ),
+    }
+
+    # 6) LONG-FORM REPORT
+
+    # ------------------------------------------------------------
+    # 5) LONG-FORM REPORT  (generator + verifier + MASTERS assessor)
+    # ------------------------------------------------------------
+    report_prompt = f"DATA BUNDLE:\n{report_bundle}"
+
+    long_report = asyncio.run(
+        single_agent_verify_assess_loop(
+            generator_agent=report_composer_agent,
+            verifier_agent=citation_verifier_agent,
+            assessor_agent=report_assessor_agent,  # ★ NEW ★
+            initial_prompt=report_prompt,
+            label="Long-Form Report",
+            max_rounds=3,  # up to three drafts until the assessor scores ≥70
         )
     )
+    print("\n=== LONG-FORM STRATEGY REPORT (markdown) ===\n")
+    print(long_report)
 
-    # 4) Print or store them
-    print("\n======== All Final Scenarios =======")
-    for i, scenario in enumerate(final_scenarios, start=1):
-        print(f"Workflow #{i} Final Output:\n{scenario}\n---\n")
+    # --- Embed capability & radar plots -----------------------------------
+    vrio_tbl = analyses.get("vrio", {}).get("vrio_table", [])
+    if vrio_tbl:
+        cap_path = generate_capability_plot(vrio_tbl, companyName)
+        long_report += f"\n\n![Capability Map]({os.path.basename(cap_path)})\n"
 
-    # (Optional) You might do your own logic to pick the best scenario
-    # For example, if your assessor returned a score for each iteration,
-    # you'd store it in the scenario text or a separate data structure.
+    if radar_path:
+        long_report += f"\n\n![Trend-Radar]({os.path.basename(radar_path)})\n"
 
-    # 5) Return them or do whatever you like
-    return final_scenarios
+    # --- Write .md and convert via Pandoc --------------------------------
+    md_path = write_markdown(long_report, companyName)
+    docx_path = md_to_docx(md_path, companyName)
+    print(f"\nWord report saved → {docx_path}")
 
-@retry(number_of_retry=1)  # Retry the function once in case of failure
-def run_dashboard(companyName, problemsFile):
-    """
-    Generates the dashboard of views for a company
-    """
-    company_name = companyName.replace(" ", "_").replace(".", "").replace("'", "")
-    # Get the files and paths for the necessary files related to the company and problem
-    problem_file_path, trends_file_path, company_file_path = get_file_paths(
-        company_name, problemsFile
-    )
-
-    # generate the 5-forces
-
-    # generate the Capabilities
-
-    # generate the trends radar
-
-    # generate the PESTLE analysis
-
-
+# ----------------------------------------------------------------------------
+# ENTRYPOINT
+# ----------------------------------------------------------------------------
+def main():
+    setup_config(**{"run_id": f"runStrategy_{datetime.datetime.now()}"})
+    company = os.getenv("COMPANY_NAME", "Citigroup")
+    problems_file = os.getenv("PROBLEMS_FILE", "./problem_statements.json")
+    run_strategy(company, problems_file)
 
 if __name__ == "__main__":
     main()

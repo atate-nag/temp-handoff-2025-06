@@ -1,6 +1,7 @@
 import plotly.graph_objs as go
 import numpy as np
-import json
+import json, os
+from typing import Dict, List
 
 
 def generate_trend_radar(categories):
@@ -91,3 +92,18 @@ def generate_trend_radar(categories):
         )
 
     return fig
+def save_trend_radar_png(categories: dict, company: str) -> str:
+    fig = generate_trend_radar(categories)
+    out_dir = "./Strategic Reports"
+    os.makedirs(out_dir, exist_ok=True)
+    png_path = os.path.join(out_dir, f"{company}_trend_radar.png")
+
+    # -- try to write (needs kaleido) ----------------------------------
+    fig.write_image(png_path, scale=2)
+
+    # ---- sanity-check: raise if the file is still missing -----------
+    if not os.path.isfile(png_path):
+        raise RuntimeError(
+            f"[trend-radar] Could not write PNG – do you have `kaleido` installed?"
+        )
+    return png_path
