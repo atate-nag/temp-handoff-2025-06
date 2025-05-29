@@ -1,39 +1,35 @@
-import json, os, functools, hashlib
+# utils/cache_io.py
 from pathlib import Path
-from typing import Callable, Any
+import hashlib, json, os, pickle, functools, logging
 
-CACHE_ON = os.getenv("CACHE", "0") == "1"
-CACHE_DIR = Path("./cache")
+log = logging.getLogger(__name__)
 
-def _hash(obj: Any) -> str:
-    """Cheap hash so the same prompt with minor edits gets a new file."""
-    txt = json.dumps(obj, sort_keys=True) if not isinstance(obj, str) else obj
-    return hashlib.md5(txt.encode()).hexdigest()[:8]
+# honour the global env-var or fall back to `.cache`
+CACHE_DIR = Path(os.getenv("CACHE_DIR", ".cache"))
+CACHE_DIR.mkdir(parents=True, exist_ok=True)      # ← guarantee the folder
 
-def cached(stage_name: str) -> Callable:
-    """
-    Decorator for any function that returns *JSON-serialisable* data.
-    Usage:
-        @cached("trend_radar")
-        def build_trend_radar(...): ...
-    """
+def _stable_hash(obj) -> str:
+    return hashlib.md5(json.dumps(obj, sort_keys=True).encode()).hexdigest()[:8]
+
+def cached(tag: str):
+    """Decorator that caches a pure-function call to disk."""
     def decorator(fn):
         @functools.wraps(fn)
-        def wrapper(*args, **kw):
-            # pick the first text arg as a fingerprint (usually the prompt)
-            prompt_fingerprint = _hash(args[0]) if args else "noprompt"
-            file = CACHE_DIR / stage_name / f"{prompt_fingerprint}.json"
+        def wrapper(*args, refresh: bool = False, **kw):
+            # build file-name that’s unique for the function + its first arg
+            key_hash   = _stable_hash(args[0])          # prompt is arg[0]
+            fname      = f"{fn.__name__}_{tag}_{key_hash}.pkl"
+            cache_file = CACHE_DIR / fname
 
-            if CACHE_ON and file.exists():
-                with open(file) as f:
-                    return json.load(f)
+            if cache_file.exists() and not refresh:
+                log.info("🟢 cache-hit  %s", cache_file)
+                return pickle.loads(cache_file.read_bytes())
 
-            result = fn(*args, **kw)
-            if CACHE_ON:
-                file.parent.mkdir(parents=True, exist_ok=True)
-                with open(file, "w") as f:
-                    json.dump(result, f, indent=2)
+            log.info("🔴 cache-miss %s  (building …)", cache_file)
+            result = fn(*args, **kw)                    # call the real fn
+            cache_file.parent.mkdir(parents=True, exist_ok=True)  # safety-net
+            cache_file.write_bytes(pickle.dumps(result))
+            log.info("💾 cached     %s", cache_file)
             return result
-
         return wrapper
     return decorator

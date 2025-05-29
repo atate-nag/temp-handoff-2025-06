@@ -159,11 +159,13 @@ def build_background_bundle(
     pest_prompt = f"trend_clusters:{stable_json(build_trend_radar(tr_prompt))}"
     fin_prompt = "company_data:" + stable_json(company_data)
 
+    REFRESH_CACHE = 1  #refresh cache will mean that the builders will run, otherwise it will read an old output
+
     # 2) run (cached) builders
-    background_dict = build_background(bg_prompt)  # ← no keyword
-    trend_radar_dict = build_trend_radar(tr_prompt)
-    pest_dict = build_pest(pest_prompt)
-    finance_dict = build_finance(fin_prompt)
+    trend_radar_dict = build_trend_radar(tr_prompt, refresh=REFRESH_CACHE)
+    pest_dict = build_pest(pest_prompt, refresh=REFRESH_CACHE)
+    background_dict = build_background(bg_prompt, refresh=REFRESH_CACHE)
+    finance_dict = build_finance(fin_prompt, refresh=REFRESH_CACHE)
 
     # 3) draw radar image
     cats = {
