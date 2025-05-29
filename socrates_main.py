@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio, datetime, json, logging.config, os, pickle
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Callable
 
 from dotenv import load_dotenv
 
@@ -105,6 +105,7 @@ if "socrates_main" not in logging.root.manager.loggerDict:
 logger = logging.getLogger("socrates_main")
 logger.info("Started Socrates Main")
 import logging, utils.cache_io
+
 logging.getLogger(utils.cache_io.__name__).setLevel(logging.INFO)
 
 # model‑connector (unchanged) -------------------------------------------------
@@ -114,54 +115,50 @@ logging.getLogger(utils.cache_io.__name__).setLevel(logging.INFO)
 #     "model": "gpt-o3",
 # }
 file_handler = FileHandler()
-#connector = ModelConnectorFactory.create_connector(model_config, file_handler)
+REFRESH_CACHE = False  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helper builders with caching
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
 
-from pipeline.builders import (
-    build_background,
-    build_trend_radar,
-    build_pest,
-    build_finance,
-)
 
 from typing import Dict, Any, Tuple
 from utils.trend_radar import save_trend_radar_png
 from utils.token_tools import as_token_limited_json
-
+import pipeline.builders as builders
 from pipeline.builders import (
-    build_background,
-    build_trend_radar,
-    build_pest,
-    build_finance,
+    build_background, build_trend_radar, build_pest, build_finance,
+    build_forces, build_vrio, build_blue, build_bcg, build_value,
+    build_7s, build_ansoff, build_gem, build_core, build_bowman,
 )
+
 import json, hashlib
+
 
 def stable_json(obj: Any) -> str:
     """JSON dump with guaranteed key order and no whitespace."""
     return json.dumps(obj, sort_keys=True, separators=(",", ":"))
 
+
 def build_background_bundle(
-    company_name: str,
-    company_data: Dict[str, Any],
-    trends: list[str],
-    ) -> Tuple[Dict[str, Any], str]:
-
+        company_name: str,
+        company_data: Dict[str, Any],
+        trends: list[str],
+) -> Tuple[Dict[str, Any], str]:
     # 1) prompts
-    bg_prompt = f"Company Data:{stable_json(company_data)}\nTrends:{stable_json(trends)}"
-    tr_prompt = f"Company Data:{stable_json(company_data)}\nAll Trends:{stable_json(trends)}"
-    pest_prompt = f"trend_clusters:{stable_json(build_trend_radar(tr_prompt))}"
-    fin_prompt = "company_data:" + stable_json(company_data)
-
-    REFRESH_CACHE = os.getenv("REFRESH_CACHE") == "1"  # 1 - builders will run, 0 - use cached results
+    bg_prompt = f"Company Data:{company_data} Trends:{trends}"
+    tr_prompt = f"Company Data:{company_data} All Trends:{trends}"
+    fin_prompt = f"company_data: {company_data} "
 
     # 2) run (cached) builders
-    trend_radar_dict = build_trend_radar(tr_prompt, refresh=REFRESH_CACHE)
+    trend_radar_dict = builders.build_trend_radar(tr_prompt,
+                                                  refresh=REFRESH_CACHE)
+    pest_prompt = f"trend_radar : {trend_radar_dict} company_data: {company_data}"
     pest_dict = build_pest(pest_prompt, refresh=REFRESH_CACHE)
     background_dict = build_background(bg_prompt, refresh=REFRESH_CACHE)
     finance_dict = build_finance(fin_prompt, refresh=REFRESH_CACHE)
@@ -183,11 +180,11 @@ def build_background_bundle(
 
     # 4) assemble bundle
     background_bundle: Dict[str, Any] = {
-        "company_overview"      : background_dict.get("company_overview", ""),
-        "trend_radar"           : trend_radar_dict,
-        "pest"                  : pest_dict,
-        "finance"               : finance_dict,
-        "frameworks_chosen"     : [],
+        "company_overview": background_dict.get("company_overview", ""),
+        "trend_radar": trend_radar_dict,
+        "pest": pest_dict,
+        "finance": finance_dict,
+        "frameworks_chosen": [],
         "frameworks_rationale_md": "",
     }
 
@@ -203,7 +200,6 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     logger.info("Running strategy for %s", company_name)
     FORCES_ONLY = os.getenv("FORCES_ONLY", "0") == "1"
-    REFRESH_CACHE = os.getenv("REFRESH_CACHE", "0") == "1"
 
     # ── 1.  Load local data --------------------------------------------------
     cname = company_name.replace(" ", "_").replace("'", "")
@@ -278,8 +274,11 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
             if flags.get(flag):
                 key, agent, assessor = trip
                 specialist_agents[key] = (agent, assessor)
+
     if not specialist_agents:
         specialist_agents["forces"] = (forces_agent, generic_assessor_agent)
+
+    print("→ specialist frameworks selected:", list(specialist_agents.keys()))
 
     # keep rationale for the report ----------------------------------------
     chosen_fw, rationale_md = _extract_framework_rationale(flags)
@@ -288,39 +287,35 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_rationale_md": rationale_md,
     })
 
-    # ── 6.  Run specialist analyses ----------------------------------------
-    analyses: Dict[str, Any] = {}
-    PER_FRAMEWORK_TIMEOUT = 300
-    for key, (agent, assessor) in specialist_agents.items():
-        if key == "pest":
-            continue  # PEST is run separately
-        BG_TOKENS = MAX_PROMPT_TOKENS - 5_000
-        spec_prompt = (
-            f"Initial Crux: {initial_crux_json}\n"
-            f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
-            f"Run {key} analysis for {company_name}"
-        )
-        try:
-            raw = asyncio.run(
-                asyncio.wait_for(
-                    single_agent_verify_assess_loop(
-                        generator_agent=agent,
-                        verifier_agent=citation_verifier_agent,
-                        assessor_agent=assessor,
-                        initial_prompt=spec_prompt,
-                        label=f"{key.capitalize()} Analysis",
-                        max_rounds=max_rounds,
-                    ),
-                    timeout=PER_FRAMEWORK_TIMEOUT,
-                )
-            )
-            analyses[key] = json.loads(raw)
-        except asyncio.TimeoutError:
-            logger.warning("%s timed‑out after %ss", key, PER_FRAMEWORK_TIMEOUT)
-        except Exception as exc:
-            logger.warning("%s failed – %s", key, exc)
+    BG_TOKENS = MAX_PROMPT_TOKENS - 5_000
+    spec_prompt = (
+        f"Initial Crux: {initial_crux_json}\n"
+        f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
+        f"Run analysis for {company_name}"
+    )
 
-    # ── 7.  Challenges, synthesizer, report (unchanged logic) --------------
+    analyses: Dict[str, Any] = {}
+    if "forces" in specialist_agents:
+        analyses["forces"] = build_forces(spec_prompt, refresh=REFRESH_CACHE)
+    if "vrio" in specialist_agents:
+        analyses["vrio"] = build_vrio(spec_prompt, refresh=REFRESH_CACHE)
+    if "blue" in specialist_agents:
+        analyses["blue_ocean"] = build_blue(spec_prompt, refresh=REFRESH_CACHE)
+    if "bcg" in specialist_agents:
+        analyses["bcg"] = build_bcg(spec_prompt, refresh=REFRESH_CACHE)
+    if "value" in specialist_agents:
+        analyses["value_chain"] = build_value(spec_prompt, refresh=REFRESH_CACHE)
+    if "7s" in specialist_agents:
+        analyses["seven_s"] = build_7s(spec_prompt, refresh=REFRESH_CACHE)
+    if "ansoff" in specialist_agents:
+        analyses["ansoff"] = build_ansoff(spec_prompt, refresh=REFRESH_CACHE)
+    if "gem" in specialist_agents:
+        analyses["gem"] = build_gem(spec_prompt, refresh=REFRESH_CACHE)
+    if "core" in specialist_agents:
+        analyses["core_competence"] = build_core(spec_prompt, refresh=REFRESH_CACHE)
+    if "bowman" in specialist_agents:
+        analyses["bowman_clock"] = build_bowman(spec_prompt, refresh=REFRESH_CACHE)
+
     challenge_prompt = (
         f"Initial Crux: {initial_crux_json}\nAnalyses: {json.dumps(analyses)}\n"
         f"Trend Radar: {json.dumps(background_dict['trend_radar'])}"

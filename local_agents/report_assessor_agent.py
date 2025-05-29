@@ -32,13 +32,14 @@ MASTERS-LEVEL RUBRIC  (score 0–100; 70 = pass)
 ==============================================================
 OUTPUT **ONLY** valid JSON:
 
+Return **exactly**:
 {
-  "score": 85,
-  "passes": true,
+  "score": "pass" | "needs_improvement" | "fail",
   "feedback": [
     "One-sentence bullet for each weakness …"
   ]
 }
+Do NOT include any extra keys such as "passes" or numeric scores.
 
 Rules:
 * `passes = (score >= 70)`

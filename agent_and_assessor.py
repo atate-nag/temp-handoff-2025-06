@@ -163,27 +163,7 @@ async def single_agent_verify_assess_loop(
         )
 
         # ▸ normalise whatever the Runner gives back
-        raw_fb = assessor_result.final_output
-        feedback_obj = _coerce_to_eval(raw_fb)
-
-
-        if isinstance(raw_fb, EvaluationFeedback):  # already parsed
-            feedback_obj = raw_fb
-        elif isinstance(raw_fb, str):
-            try:  # JSON coming back as str
-                feedback_obj = EvaluationFeedback(**json.loads(raw_fb))
-            except Exception as e:
-                feedback_obj = EvaluationFeedback(
-                    score="fail",
-                    feedback=f"Assessor returned non-JSON string: {raw_fb}  ({e})",
-                )
-        elif isinstance(raw_fb, dict):
-            feedback_obj = EvaluationFeedback(**raw_fb)  # normal path
-        else:
-            feedback_obj = EvaluationFeedback(
-                score="fail",
-                feedback=f"Un-recognised assessor output type: {type(raw_fb)}",
-            )
+        feedback_obj = _coerce_to_eval(assessor_result.final_output)
 
         print(f"[{label}] Round {round_num} - Assessor score: {feedback_obj.score}")
         print(f"[{label}] Round {round_num} - Assessor feedback: {feedback_obj.feedback}")

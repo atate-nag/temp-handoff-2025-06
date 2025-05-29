@@ -36,7 +36,12 @@ Perform this for each report that is provided. Then print the scores in a simple
 report_number, score, explainability, Completeness, analytical_depth, creativity
 
 Produce this data for every report, you do not need to show which report was the best
-
+Return **exactly**:
+{
+  "score": "pass" | "needs_improvement" | "fail",
+  "feedback": "…"
+}
+Do NOT include any extra keys such as "passes" or numeric scores.
     """
 
 )
