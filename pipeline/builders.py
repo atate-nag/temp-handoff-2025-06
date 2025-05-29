@@ -23,6 +23,8 @@ from local_agents.ansoff_agent         import ansoff_agent
 from local_agents.ge_mckinsey_agent    import ge_mckinsey_agent
 from local_agents.core_competence_agent import core_competence_agent
 from local_agents.bowman_clock_agent    import bowman_clock_agent
+from local_agents.report_composer_agent import report_composer_agent
+from local_agents.report_assessor_agent import report_assessor_agent
 
 # ───────────────────────────────── helpers ──────────────────────────────────
 def _run(agent, prompt: str, label: str, rounds: int = 1) -> Dict[str, Any]:
@@ -61,6 +63,14 @@ def build_mini_crux(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
 @cached("framework-selector")
 def build_framework_selector(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(pest_agent, prompt, "Framework Selector")
+
+@cached("challenges")
+def build_challenges(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
+    return _run(pest_agent, prompt, "Challenges")
+
+@cached("synth")
+def build_synth(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
+    return _run(pest_agent, prompt, "Synthesizer")
 
 @cached("finance")
 def build_finance(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
@@ -105,3 +115,17 @@ def build_core(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
 @cached("bowman")
 def build_bowman(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(bowman_clock_agent, prompt, "Bowman Clock")
+
+
+@cached("report")
+def build_report(prompt: str, *, refresh: bool = False) -> str:
+    report = run_single_workflow_with_verifier(
+        generator_agent=report_composer_agent,
+        verifier_agent=citation_verifier_agent,
+        assessor_agent=report_assessor_agent,
+        initial_prompt=prompt,
+        label="Report Agent",
+        max_rounds=3,
+    )
+    return report
+

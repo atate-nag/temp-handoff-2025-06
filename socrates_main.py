@@ -112,6 +112,15 @@ file_handler = FileHandler()
 
 BG_TOKENS = MAX_PROMPT_TOKENS - 5_000
 
+REFRESH_ONLY = {
+    s.strip().lower()
+    for s in os.getenv("REFRESH_ONLY", "").split(",")
+    if s.strip()
+}
+def needs_refresh(tag: str) -> bool:
+    # global REFRESH_CACHE retains the old “force everything” switch
+    return REFRESH_CACHE or tag in REFRESH_ONLY
+
 REFRESH_CACHE = False  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
@@ -124,7 +133,8 @@ import pipeline.builders as builders
 from pipeline.builders import (
     build_background, build_trend_radar, build_pest, build_finance,
     build_forces, build_vrio, build_blue, build_bcg, build_value, build_framework_selector,
-    build_7s, build_ansoff, build_gem, build_core, build_bowman, build_mini_crux
+    build_7s, build_ansoff, build_gem, build_core, build_bowman, build_mini_crux, build_challenges,
+    build_synth, build_report
 )
 
 import json, hashlib
@@ -141,11 +151,11 @@ def build_background_bundle(
 
     # 2) run (cached) builders
     trend_radar_dict = builders.build_trend_radar(tr_prompt,
-                                                  refresh=REFRESH_CACHE)
+                                                  refresh=needs_refresh("trend_radar"))
     pest_prompt = f"trend_radar : {trend_radar_dict} company_data: {company_data}"
-    pest_dict = build_pest(pest_prompt, refresh=REFRESH_CACHE)
-    background_dict = build_background(bg_prompt, refresh=REFRESH_CACHE)
-    finance_dict = build_finance(fin_prompt, refresh=REFRESH_CACHE)
+    pest_dict = build_pest(pest_prompt, refresh=needs_refresh("pest"))
+    background_dict = build_background(bg_prompt, refresh=needs_refresh("background"))
+    finance_dict = build_finance(fin_prompt, refresh=needs_refresh("finance"))
 
     # 3) draw radar image
     cats = {
@@ -206,7 +216,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     # ── 3.  MINI‑CRUX --------------------------------------------------------
     pre_prompt = f"Background: {json.dumps(background_dict)}"
-    mini_crux_dict = build_mini_crux(pre_prompt, refresh=REFRESH_CACHE)
+    mini_crux_dict = build_mini_crux(pre_prompt, refresh=needs_refresh("mini_crux"))
     pre_prompt = f"Background: {json.dumps(background_dict)}"
     logger.info("Initial Crux JSON: %s", mini_crux_dict)
 
@@ -215,7 +225,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         f"Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n "
         f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
     )
-    selector_raw = build_framework_selector(sel_prompt, refresh=REFRESH_CACHE)
+    selector_raw = build_framework_selector(sel_prompt, refresh=needs_refresh("framework_selector"))
 
     logger.info(f"Framework selector output (raw): {selector_raw}")
 
@@ -278,52 +288,46 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     analyses: Dict[str, Any] = {}
     if "forces" in specialist_agents:
-        analyses["forces"] = build_forces(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["forces"] = build_forces(spec_prompt, refresh=needs_refresh("forces"))
     if "vrio" in specialist_agents:
-        analyses["vrio"] = build_vrio(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["vrio"] = build_vrio(spec_prompt, refresh=needs_refresh("vrio"))
     if "blue" in specialist_agents:
-        analyses["blue_ocean"] = build_blue(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["blue_ocean"] = build_blue(spec_prompt, refresh=needs_refresh("blue"))
     if "bcg" in specialist_agents:
-        analyses["bcg"] = build_bcg(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["bcg"] = build_bcg(spec_prompt, refresh=needs_refresh("bcg"))
     if "value" in specialist_agents:
-        analyses["value_chain"] = build_value(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["value_chain"] = build_value(spec_prompt, refresh=needs_refresh("value"))
     if "7s" in specialist_agents:
-        analyses["seven_s"] = build_7s(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["seven_s"] = build_7s(spec_prompt, refresh=needs_refresh("7s"))
     if "ansoff" in specialist_agents:
-        analyses["ansoff"] = build_ansoff(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["ansoff"] = build_ansoff(spec_prompt, refresh=needs_refresh("ansoff"))
     if "gem" in specialist_agents:
-        analyses["gem"] = build_gem(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["gem"] = build_gem(spec_prompt, refresh=needs_refresh("gem"))
     if "core" in specialist_agents:
-        analyses["core_competence"] = build_core(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["core_competence"] = build_core(spec_prompt, refresh=needs_refresh("core_competence"))
     if "bowman" in specialist_agents:
-        analyses["bowman_clock"] = build_bowman(spec_prompt, refresh=REFRESH_CACHE)
+        analyses["bowman_clock"] = build_bowman(spec_prompt, refresh=needs_refresh("bowman"))
 
     challenge_prompt = (
         f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses)}\n"
         f"Trend Radar: {json.dumps(background_dict['trend_radar'])}"
     )
-    challenge_json = run_single_workflow_with_verifier(
-        generator_agent=challenge_processing_agent,
-        verifier_agent=citation_verifier_agent,
-        assessor_agent=None,
-        initial_prompt=challenge_prompt,
-        label="Challenge Processing",
-        max_rounds=2,
-    )
-    analyses["challenge_map"] = json.loads(challenge_json)
+    challenge_dict = build_challenges(challenge_prompt, refresh=needs_refresh("challenges"))
+    analyses["challenge_map"] = challenge_dict
 
     synth_prompt = (
         f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses, indent=2)}"
     )
-    synth_json = run_single_workflow_with_verifier(
-        generator_agent=synthesizer_agent,
-        verifier_agent=citation_verifier_agent,
-        assessor_agent=None,
-        initial_prompt=synth_prompt,
-        label="Synthesizer",
-        max_rounds=2,
-    )
-    analyses["synthesized_options"] = json.loads(synth_json)
+    synth_dict = build_synth(synth_prompt, refresh=needs_refresh("synth"))
+    # synth_json = run_single_workflow_with_verifier(
+    #     generator_agent=synthesizer_agent,
+    #     verifier_agent=citation_verifier_agent,
+    #     assessor_agent=None,
+    #     initial_prompt=synth_prompt,
+    #     label="Synthesizer",
+    #     max_rounds=2,
+    # )
+    analyses["synthesized_options"] = synth_dict
 
     # ── 8.  Long‑form report (with Masters‑level assessor) -----------------
     report_bundle = {
@@ -336,17 +340,9 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_chosen": background_dict["frameworks_chosen"],
         "frameworks_rationale_md": background_dict["frameworks_rationale_md"],
     }
+    report_prompt = as_token_limited_json(f"DATA BUNDLE:\n{report_bundle}", MAX_PROMPT_TOKENS - 5_000)
+    long_report = build_report(report_prompt, refresh=needs_refresh("report"))
 
-    long_report = asyncio.run(
-        single_agent_verify_assess_loop(
-            generator_agent=report_composer_agent,
-            verifier_agent=citation_verifier_agent,
-            assessor_agent=report_assessor_agent,
-            initial_prompt=f"DATA BUNDLE:\n{report_bundle}",
-            label="Long‑Form Report",
-            max_rounds=3,
-        )
-    )
     print("\n=== LONG‑FORM STRATEGY REPORT (markdown) ===\n")
     print(long_report)
 
