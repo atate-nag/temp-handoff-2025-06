@@ -104,15 +104,17 @@ if "socrates_main" not in logging.root.manager.loggerDict:
     )
 logger = logging.getLogger("socrates_main")
 logger.info("Started Socrates Main")
+import logging, utils.cache_io
+logging.getLogger(utils.cache_io.__name__).setLevel(logging.INFO)
 
 # model‑connector (unchanged) -------------------------------------------------
-model_config = {
-    "model_type": "openai_assistants",
-    "api_key": os.getenv("OPENAI_API_KEY"),
-    "model": "gpt-o3",
-}
+# model_config = {
+#     "model_type": "openai_assistants",
+#     "api_key": os.getenv("OPENAI_API_KEY"),
+#     "model": "gpt-o3",
+# }
 file_handler = FileHandler()
-connector = ModelConnectorFactory.create_connector(model_config, file_handler)
+#connector = ModelConnectorFactory.create_connector(model_config, file_handler)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helper builders with caching
@@ -120,7 +122,6 @@ connector = ModelConnectorFactory.create_connector(model_config, file_handler)
 
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
-
 
 from pipeline.builders import (
     build_background,
@@ -149,9 +150,7 @@ def build_background_bundle(
     company_name: str,
     company_data: Dict[str, Any],
     trends: list[str],
-    *,
-    refresh_cache: bool = False,
-) -> Tuple[Dict[str, Any], str]:
+    ) -> Tuple[Dict[str, Any], str]:
 
     # 1) prompts
     bg_prompt = f"Company Data:{stable_json(company_data)}\nTrends:{stable_json(trends)}"
@@ -159,7 +158,7 @@ def build_background_bundle(
     pest_prompt = f"trend_clusters:{stable_json(build_trend_radar(tr_prompt))}"
     fin_prompt = "company_data:" + stable_json(company_data)
 
-    REFRESH_CACHE = 1  #refresh cache will mean that the builders will run, otherwise it will read an old output
+    REFRESH_CACHE = os.getenv("REFRESH_CACHE") == "1"  # 1 - builders will run, 0 - use cached results
 
     # 2) run (cached) builders
     trend_radar_dict = build_trend_radar(tr_prompt, refresh=REFRESH_CACHE)
@@ -222,7 +221,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     # ── 2.  Build / load background bundle ----------------------------------
     background_dict, radar_path = build_background_bundle(
-        company_name, company_data, trends, refresh_cache=REFRESH_CACHE
+        company_name, company_data, trends
     )
 
     # ── 3.  MINI‑CRUX --------------------------------------------------------
@@ -293,6 +292,8 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     analyses: Dict[str, Any] = {}
     PER_FRAMEWORK_TIMEOUT = 300
     for key, (agent, assessor) in specialist_agents.items():
+        if key == "pest":
+            continue  # PEST is run separately
         BG_TOKENS = MAX_PROMPT_TOKENS - 5_000
         spec_prompt = (
             f"Initial Crux: {initial_crux_json}\n"
