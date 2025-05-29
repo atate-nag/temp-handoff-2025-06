@@ -15,6 +15,49 @@ class EvaluationFeedback:
     score: Literal["pass", "needs_improvement", "fail"]
     feedback: str
 
+# ---------------------------------------------------------------------------
+# Helper: normalise every possible assessor reply into EvaluationFeedback
+# ---------------------------------------------------------------------------
+def _coerce_to_eval(raw) -> "EvaluationFeedback":
+    """Accepts strings, dicts, or already-built EvaluationFeedback objects."""
+    # Already the right type
+    if isinstance(raw, EvaluationFeedback):
+        return raw
+
+    # If it's the raw text of a ChatGPT message, try to JSON-decode
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return EvaluationFeedback(
+                score="fail",
+                feedback=f"Assessor replied with non-JSON: {raw}"
+            )
+
+    # At this point we expect a dict
+    if not isinstance(raw, dict):
+        return EvaluationFeedback(score="fail",
+                                  feedback=f"Unexpected type: {type(raw)}")
+
+    # --------- 1) Map numeric / Boolean styles to our three categories -----
+    if isinstance(raw.get("score"), (int, float)):
+        n = raw["score"]
+        cat = "pass" if n >= 70 else "needs_improvement" if n >= 50 else "fail"
+    else:
+        cat = str(raw.get("score", "fail")).lower()
+
+    # Some assessors send `"passes": true/false`
+    if cat not in {"pass", "needs_improvement", "fail"} and raw.get("passes") is not None:
+        cat = "pass" if raw["passes"] else "fail"
+
+    # --------- 2) Collapse feedback list -> str ---------------------------
+    fb = raw.get("feedback", "")
+    if isinstance(fb, list):
+        fb = "\n".join(str(x) for x in fb)
+    fb = str(fb)
+
+    return EvaluationFeedback(score=cat, feedback=fb)
+
 async def single_agent_assessor_loop(
     generator_agent: Agent,
     verifier_agent: Agent,
@@ -72,7 +115,7 @@ async def single_agent_assessor_loop(
             assessor_agent,
             input=[{"role": "user", "content": assess_input}]
         )
-        afb: EvaluationFeedback = assessor_result.final_output
+        afb = _coerce_to_eval(assessor_result.final_output)
         print(f"[{label}] Round {round_num} - Assessor score: {afb.score}")
         print(f"[{label}] Round {round_num} - Assessor feedback: {afb.feedback}")
 
@@ -118,7 +161,30 @@ async def single_agent_verify_assess_loop(
             assessor_agent,
             input=[{"role": "user", "content": assessment_input}]
         )
-        feedback_obj: EvaluationFeedback = assessor_result.final_output
+
+        # ▸ normalise whatever the Runner gives back
+        raw_fb = assessor_result.final_output
+        feedback_obj = _coerce_to_eval(raw_fb)
+
+
+        if isinstance(raw_fb, EvaluationFeedback):  # already parsed
+            feedback_obj = raw_fb
+        elif isinstance(raw_fb, str):
+            try:  # JSON coming back as str
+                feedback_obj = EvaluationFeedback(**json.loads(raw_fb))
+            except Exception as e:
+                feedback_obj = EvaluationFeedback(
+                    score="fail",
+                    feedback=f"Assessor returned non-JSON string: {raw_fb}  ({e})",
+                )
+        elif isinstance(raw_fb, dict):
+            feedback_obj = EvaluationFeedback(**raw_fb)  # normal path
+        else:
+            feedback_obj = EvaluationFeedback(
+                score="fail",
+                feedback=f"Un-recognised assessor output type: {type(raw_fb)}",
+            )
+
         print(f"[{label}] Round {round_num} - Assessor score: {feedback_obj.score}")
         print(f"[{label}] Round {round_num} - Assessor feedback: {feedback_obj.feedback}")
 
