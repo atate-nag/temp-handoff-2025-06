@@ -184,7 +184,6 @@ def build_background_bundle(
 
     return background_bundle, radar_path
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # CORE PIPELINE (run_strategy)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -228,22 +227,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     selector_raw = build_framework_selector(sel_prompt, refresh=needs_refresh("framework_selector"))
 
     logger.info(f"Framework selector output (raw): {selector_raw}")
-
-    # selector_raw = run_single_workflow_with_verifier(
-    #     generator_agent=framework_selector_agent,
-    #     verifier_agent=citation_verifier_agent,
-    #     assessor_agent=None,
-    #     initial_prompt=sel_prompt,
-    #     label="Framework Selector",
-    #     max_rounds=1,
-    # )
-    # try:
-    #     flags: Dict[str, Any] = json.loads(selector_raw)
     flags = selector_raw
-    # except json.JSONDecodeError:
-    #     logger.warning("Selector JSON failed – defaulting to Porter + PEST")
-    #     flags = {"use_porter": True, "use_pest": True, "rationale": {}}
-
     # ── 5.  Map flags → specialist agents -----------------------------------
     flag_to_agent: Dict[str, Tuple[str, Agent, Agent]] = {
         "use_porter": ("forces", forces_agent, generic_assessor_agent),
@@ -319,14 +303,6 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses, indent=2)}"
     )
     synth_dict = build_synth(synth_prompt, refresh=needs_refresh("synth"))
-    # synth_json = run_single_workflow_with_verifier(
-    #     generator_agent=synthesizer_agent,
-    #     verifier_agent=citation_verifier_agent,
-    #     assessor_agent=None,
-    #     initial_prompt=synth_prompt,
-    #     label="Synthesizer",
-    #     max_rounds=2,
-    # )
     analyses["synthesized_options"] = synth_dict
 
     # ── 8.  Long‑form report (with Masters‑level assessor) -----------------

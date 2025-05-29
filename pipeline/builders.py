@@ -27,8 +27,9 @@ from local_agents.report_composer_agent import report_composer_agent
 from local_agents.report_assessor_agent import report_assessor_agent
 
 # ───────────────────────────────── helpers ──────────────────────────────────
-def _run(agent, prompt: str, label: str, rounds: int = 1) -> Dict[str, Any]:
-    """Call the LLM agent + citation-verifier and return parsed JSON."""
+def _run(agent, prompt: str, label: str, rounds: int = 1) -> Any:
+    """Call the LLM agent + citation-verifier and return parsed JSON/str."""
+
     raw = run_single_workflow_with_verifier(
         generator_agent=agent,
         verifier_agent=citation_verifier_agent,
@@ -37,7 +38,14 @@ def _run(agent, prompt: str, label: str, rounds: int = 1) -> Dict[str, Any]:
         label=label,
         max_rounds=rounds,
     )
-    return json.loads(raw)
+
+    # ── Smoke-test the JSON/str we expect back ──────────────────────────
+    expected_type = str if label.startswith("Report") else dict
+    assert isinstance(raw, (str, dict)), (
+        f"{label}: Builder returned {type(raw)}, wanted JSON str/dict")
+
+    # If it's a string that should be JSON, parse it once here
+    return raw if isinstance(raw, dict) else json.loads(raw)
 
 
 # ───────────────────────────── cached builders ──────────────────────────────
