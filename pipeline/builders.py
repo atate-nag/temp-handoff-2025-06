@@ -58,6 +58,10 @@ def build_pest(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
 def build_mini_crux(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(pest_agent, prompt, "Mini Crux")
 
+@cached("framework-selector")
+def build_framework_selector(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
+    return _run(pest_agent, prompt, "Framework Selector")
+
 @cached("finance")
 def build_finance(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(financial_screener_agent, prompt, "Financial Screener")

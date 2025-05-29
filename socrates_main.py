@@ -108,21 +108,11 @@ import logging, utils.cache_io
 
 logging.getLogger(utils.cache_io.__name__).setLevel(logging.INFO)
 
-# model‑connector (unchanged) -------------------------------------------------
-# model_config = {
-#     "model_type": "openai_assistants",
-#     "api_key": os.getenv("OPENAI_API_KEY"),
-#     "model": "gpt-o3",
-# }
 file_handler = FileHandler()
+
+BG_TOKENS = MAX_PROMPT_TOKENS - 5_000
+
 REFRESH_CACHE = False  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Helper builders with caching
-# ──────────────────────────────────────────────────────────────────────────────
-
-
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
 
@@ -133,17 +123,11 @@ from utils.token_tools import as_token_limited_json
 import pipeline.builders as builders
 from pipeline.builders import (
     build_background, build_trend_radar, build_pest, build_finance,
-    build_forces, build_vrio, build_blue, build_bcg, build_value,
-    build_7s, build_ansoff, build_gem, build_core, build_bowman,
+    build_forces, build_vrio, build_blue, build_bcg, build_value, build_framework_selector,
+    build_7s, build_ansoff, build_gem, build_core, build_bowman, build_mini_crux
 )
 
 import json, hashlib
-
-
-def stable_json(obj: Any) -> str:
-    """JSON dump with guaranteed key order and no whitespace."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"))
-
 
 def build_background_bundle(
         company_name: str,
@@ -222,34 +206,33 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     # ── 3.  MINI‑CRUX --------------------------------------------------------
     pre_prompt = f"Background: {json.dumps(background_dict)}"
-    initial_crux_json = run_single_workflow_with_verifier(
-        generator_agent=initial_crux_agent,
-        verifier_agent=citation_verifier_agent,
-        assessor_agent=None,
-        initial_prompt=pre_prompt,
-        label="Initial Crux",
-        max_rounds=1,
-    )
-    logger.info("Initial Crux JSON: %s", initial_crux_json)
+    mini_crux_dict = build_mini_crux(pre_prompt, refresh=REFRESH_CACHE)
+    pre_prompt = f"Background: {json.dumps(background_dict)}"
+    logger.info("Initial Crux JSON: %s", mini_crux_dict)
 
     # ── 4.  Framework selector ----------------------------------------------
     sel_prompt = (
-        f"Crux: {initial_crux_json}\n"
-        f"Background: {json.dumps(background_dict)[:8000]}"
+        f"Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n "
+        f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
     )
-    selector_raw = run_single_workflow_with_verifier(
-        generator_agent=framework_selector_agent,
-        verifier_agent=citation_verifier_agent,
-        assessor_agent=None,
-        initial_prompt=sel_prompt,
-        label="Framework Selector",
-        max_rounds=1,
-    )
-    try:
-        flags: Dict[str, Any] = json.loads(selector_raw)
-    except json.JSONDecodeError:
-        logger.warning("Selector JSON failed – defaulting to Porter + PEST")
-        flags = {"use_porter": True, "use_pest": True, "rationale": {}}
+    selector_raw = build_framework_selector(sel_prompt, refresh=REFRESH_CACHE)
+
+    logger.info(f"Framework selector output (raw): {selector_raw}")
+
+    # selector_raw = run_single_workflow_with_verifier(
+    #     generator_agent=framework_selector_agent,
+    #     verifier_agent=citation_verifier_agent,
+    #     assessor_agent=None,
+    #     initial_prompt=sel_prompt,
+    #     label="Framework Selector",
+    #     max_rounds=1,
+    # )
+    # try:
+    #     flags: Dict[str, Any] = json.loads(selector_raw)
+    flags = selector_raw
+    # except json.JSONDecodeError:
+    #     logger.warning("Selector JSON failed – defaulting to Porter + PEST")
+    #     flags = {"use_porter": True, "use_pest": True, "rationale": {}}
 
     # ── 5.  Map flags → specialist agents -----------------------------------
     flag_to_agent: Dict[str, Tuple[str, Agent, Agent]] = {
@@ -287,9 +270,8 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_rationale_md": rationale_md,
     })
 
-    BG_TOKENS = MAX_PROMPT_TOKENS - 5_000
     spec_prompt = (
-        f"Initial Crux: {initial_crux_json}\n"
+        f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n"
         f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
         f"Run analysis for {company_name}"
     )
@@ -317,7 +299,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         analyses["bowman_clock"] = build_bowman(spec_prompt, refresh=REFRESH_CACHE)
 
     challenge_prompt = (
-        f"Initial Crux: {initial_crux_json}\nAnalyses: {json.dumps(analyses)}\n"
+        f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses)}\n"
         f"Trend Radar: {json.dumps(background_dict['trend_radar'])}"
     )
     challenge_json = run_single_workflow_with_verifier(
@@ -331,7 +313,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     analyses["challenge_map"] = json.loads(challenge_json)
 
     synth_prompt = (
-        f"Initial Crux: {initial_crux_json}\nAnalyses: {json.dumps(analyses, indent=2)}"
+        f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses, indent=2)}"
     )
     synth_json = run_single_workflow_with_verifier(
         generator_agent=synthesizer_agent,
@@ -347,7 +329,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     report_bundle = {
         "company_overview": background_dict["company_overview"],
         "trend_radar": background_dict["trend_radar"],
-        "crux": json.loads(initial_crux_json),
+        "crux": as_token_limited_json(mini_crux_dict, BG_TOKENS),
         "analyses": analyses,
         "challenge_map": analyses["challenge_map"],
         "synthesized_options": analyses["synthesized_options"],
