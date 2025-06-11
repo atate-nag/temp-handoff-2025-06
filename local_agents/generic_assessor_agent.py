@@ -44,5 +44,9 @@ Rules
 • If the input text is empty or has <100 characters, return:
   report_number, score, explainability, completeness, analytical_depth, creativity
   1,0,0,0,0,0
+  Fail criteria:
+1. Any in-text citation that does **not** match: \(CapitalisedWord, 4-digit-year\)
+   RegEx:  \([A-Z][A-Za-z0-9]+, [0-9]{4}\)
+   
 """
 )

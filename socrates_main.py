@@ -16,7 +16,7 @@ Environment flags
 """
 
 from __future__ import annotations
-
+import re
 import asyncio, datetime, json, logging.config, os, pickle
 from pathlib import Path
 from typing import Any, Dict, Tuple, Callable
@@ -62,6 +62,8 @@ from local_agents.trend_radar_agent import trend_radar_agent
 from local_agents.value_chain_agent import value_chain_agent
 from local_agents.VRIO_agent import vrio_agent
 from local_agents.ansoff_agent import ansoff_agent
+
+from company_data import get_gics_code_and_name
 
 # ──────────────────────────────────────────────────────────────────────────────
 # GLOBALS & one‑off setup
@@ -121,10 +123,14 @@ def needs_refresh(tag: str) -> bool:
     # global REFRESH_CACHE retains the old “force everything” switch
     return REFRESH_CACHE or tag in REFRESH_ONLY
 
-REFRESH_CACHE = False  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
+REFRESH_CACHE = True  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
-
+def fix_citations(md:str)->str:
+    md = re.sub(r'\(([A-Za-z0-9_]+),\s*([0-9]{4})\)',
+                lambda m: f'({m.group(1).replace("_","")}, {m.group(2)})',
+                md)
+    return md
 
 from typing import Dict, Any, Tuple
 from utils.trend_radar import save_trend_radar_png
@@ -134,25 +140,26 @@ from pipeline.builders import (
     build_background, build_trend_radar, build_pest, build_finance,
     build_forces, build_vrio, build_blue, build_bcg, build_value, build_framework_selector,
     build_7s, build_ansoff, build_gem, build_core, build_bowman, build_mini_crux, build_challenges,
-    build_synth, build_report
+    build_synth, build_report, build_company_profile
 )
 
 import json, hashlib
 
+
 def build_background_bundle(
-        company_name: str,
-        company_data: Dict[str, Any],
-        trends: list[str],
-) -> Tuple[Dict[str, Any], str]:
+            company_name: str,
+            company_profile: Dict[str, Any],  # renamed
+            trends: list[str],
+    ) -> Tuple[Dict[str, Any], str]:
     # 1) prompts
-    bg_prompt = f"Company Data:{company_data} Trends:{trends}"
-    tr_prompt = f"Company Data:{company_data} All Trends:{trends}"
-    fin_prompt = f"company_data: {company_data} "
+    bg_prompt = f"Company Profile: {company_profile}\nTrends: {trends}"
+    tr_prompt = f"Company Profile: {company_profile}\nAll Trends: {trends}"
+    fin_prompt = f"Company Profile: {company_profile}"
 
     # 2) run (cached) builders
     trend_radar_dict = builders.build_trend_radar(tr_prompt,
                                                   refresh=needs_refresh("trend_radar"))
-    pest_prompt = f"trend_radar : {trend_radar_dict} company_data: {company_data}"
+    pest_prompt = f"trend_radar : {trend_radar_dict} Company Profile: {company_profile}\n"
     pest_dict = build_pest(pest_prompt, refresh=needs_refresh("pest"))
     background_dict = build_background(bg_prompt, refresh=needs_refresh("background"))
     finance_dict = build_finance(fin_prompt, refresh=needs_refresh("finance"))
@@ -173,8 +180,9 @@ def build_background_bundle(
     radar_path = save_trend_radar_png(cats, company_name)
 
     # 4) assemble bundle
-    background_bundle: Dict[str, Any] = {
-        "company_overview": background_dict.get("company_overview", ""),
+    background_bundle = {
+        "company_overview": company_profile.get("overview", ""),
+        "company_profile": company_profile,
         "trend_radar": trend_radar_dict,
         "pest": pest_dict,
         "finance": finance_dict,
@@ -193,12 +201,15 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     logger.info("Running strategy for %s", company_name)
     FORCES_ONLY = os.getenv("FORCES_ONLY", "0") == "1"
+    frameworks = ["forces", "pest", "vrio", "blue_ocean", "bcg", "value_chain",
+                  "seven_s", "ansoff", "gem", "core_competence", "bowman_clock"]
 
     # ── 1.  Load local data --------------------------------------------------
     cname = company_name.replace(" ", "_").replace("'", "")
     pfp, tfp, cfp = get_file_paths(cname, problems_file, file_handler)
     trends = file_handler.local_json_read(tfp)
     company_data = file_handler.local_json_read(cfp)
+    codes, gics_names = get_gics_code_and_name(company_name)
 
     if isinstance(company_data, list):
         first = company_data[0] if company_data else ""
@@ -208,13 +219,29 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     ticker = ticker_map.get(company_name, "")
     company_data.setdefault("financials", fetch_basic_financials(ticker))
 
+    profile_payload = json.dumps({
+        "company_name": company_name,
+        "condensed_company_text": company_data,  # what you already pulled from Neo4j
+        "gics_names": gics_names  # if you have them; else []
+    })
+
+    company_profile = builders.build_company_profile(
+        profile_payload,
+        refresh=needs_refresh("company_profile")  # same helper you use elsewhere
+    )
+
+    print("Company Profile:", json.dumps(company_profile, indent=2))
+
     # ── 2.  Build / load background bundle ----------------------------------
     background_dict, radar_path = build_background_bundle(
-        company_name, company_data, trends
+        company_name,
+        company_profile,
+        trends
     )
 
     # ── 3.  MINI‑CRUX --------------------------------------------------------
     pre_prompt = f"Background: {json.dumps(background_dict)}"
+    f"Company Profile: {json.dumps(company_profile)}\n"
     mini_crux_dict = build_mini_crux(pre_prompt, refresh=needs_refresh("mini_crux"))
     pre_prompt = f"Background: {json.dumps(background_dict)}"
     logger.info("Initial Crux JSON: %s", mini_crux_dict)
@@ -266,31 +293,70 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     spec_prompt = (
         f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n"
-        f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
+        f"Company Profile: {json.dumps(company_profile, indent=2)}\n"
         f"Run analysis for {company_name}"
     )
 
+    FORCES_PROMPT = (
+    f"Company profile: {json.dumps(company_profile, indent=2 ) }  \n"
+    f"Macro bullets (PEST): {json.dumps(background_dict['pest'])}\n"
+    f"trend_clusters  : {json.dumps(background_dict['trend_radar']['trend_clusters'])}\n"
+    f"initial_crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n"
+    f"""
+    Task:
+    1. For each Porter force, assign a rating (Very Low–Very High).
+    2. Provide a concise reason tying *Citigroup-specific* facts (scale, brand, ROE)
+       to industry dynamics. Use data from company_profile or PEST.
+    3. End each reason with one APA-style in-text citation from the source list you add.
+    4. Produce final answer as **stringified JSON** exactly matching the contract below.
+    If a citation already appears in company_profile.sources or PEST, reuse it.
+
+    Contract ⇒
+    {{
+      "threat_of_entry":{{"rating":"...","reason":"..."}},
+      "supplier_power":{{...}},
+      "buyer_power":{{...}},
+      "threat_of_subs":{{...}},
+      "rivalry":{{...}},
+      "sources":[ "...", ... ]      // ≥ 5 unique APA-style refs
+    }}
+    """)
+
     analyses: Dict[str, Any] = {}
     if "forces" in specialist_agents:
-        analyses["forces"] = build_forces(spec_prompt, refresh=needs_refresh("forces"))
+        out = build_forces(FORCES_PROMPT, refresh=True)
+        print("Porter’s Five Forces output:", out)
+        # assert out["rivalry"]["rating"] in ["Low", "Medium", "High"]
+        # assert len(out["sources"]) >= 5
+        analyses["forces"] = out
+        print("Porter’s Five Forces analysis:", analyses["forces"])
     if "vrio" in specialist_agents:
         analyses["vrio"] = build_vrio(spec_prompt, refresh=needs_refresh("vrio"))
+        print("VRIO analysis:", analyses["vrio"])
     if "blue" in specialist_agents:
         analyses["blue_ocean"] = build_blue(spec_prompt, refresh=needs_refresh("blue"))
+        print("Blue Ocean analysis:", analyses["blue_ocean"])
     if "bcg" in specialist_agents:
         analyses["bcg"] = build_bcg(spec_prompt, refresh=needs_refresh("bcg"))
+        print("BCG Matrix analysis:", analyses["bcg"])
     if "value" in specialist_agents:
         analyses["value_chain"] = build_value(spec_prompt, refresh=needs_refresh("value"))
+        print("Value Chain analysis:", analyses["value_chain"])
     if "7s" in specialist_agents:
         analyses["seven_s"] = build_7s(spec_prompt, refresh=needs_refresh("7s"))
+        print("7S analysis:", analyses["seven_s"])
     if "ansoff" in specialist_agents:
         analyses["ansoff"] = build_ansoff(spec_prompt, refresh=needs_refresh("ansoff"))
+        print("Ansoff Matrix analysis:", analyses["ansoff"])
     if "gem" in specialist_agents:
         analyses["gem"] = build_gem(spec_prompt, refresh=needs_refresh("gem"))
+        print("GE/McKinsey Matrix analysis:", analyses["gem"])
     if "core" in specialist_agents:
         analyses["core_competence"] = build_core(spec_prompt, refresh=needs_refresh("core_competence"))
+        print("Core Competence analysis:", analyses["core_competence"])
     if "bowman" in specialist_agents:
         analyses["bowman_clock"] = build_bowman(spec_prompt, refresh=needs_refresh("bowman"))
+        print("Bowman’s Clock analysis:", analyses["bowman_clock"])
 
     challenge_prompt = (
         f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses)}\n"
@@ -316,8 +382,98 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_chosen": background_dict["frameworks_chosen"],
         "frameworks_rationale_md": background_dict["frameworks_rationale_md"],
     }
-    report_prompt = as_token_limited_json(f"DATA BUNDLE:\n{report_bundle}", MAX_PROMPT_TOKENS - 5_000)
-    long_report = build_report(report_prompt, refresh=needs_refresh("report"))
+
+    framework_md = ""
+    for fw in frameworks:  # frameworks = list like ["forces","pest"]
+        sec = report_bundle["analyses"].get(fw, {})
+        if not sec:
+            framework_md += f"## {fw.title()} – *Data unavailable*\n"
+        else:
+            if fw == "forces":
+                # inside run_strategy after you’ve loaded forces_json
+                forces = analyses["forces"]  # new nested structure
+                key_map = {
+                    "threat_of_entry": "Threat of new entrants",
+                    "supplier_power": "Supplier power",
+                    "buyer_power": "Buyer power",
+                    "threat_of_subs": "Threat of substitutes",
+                    "rivalry": "Rivalry",
+                }
+                bullets = []
+                for k, label in key_map.items():
+                    if k not in forces:
+                        continue
+                    meta = forces[k]  # {'rating':'Low','reason':'...'}
+                    bullets.append(f"- **{label} – {meta['rating'].title()}**: {meta['reason']}")
+                framework_md = "\n".join(bullets)
+            elif fw == "pest":
+                framework_md += "## PEST Highlights\n" + sec.get("pest_summary_md", "*Data unavailable*") + "\n"
+            else:
+                framework_md += f"## {fw.upper()} Summary\n{sec.get('summary', '*Data unavailable*')}\n"
+
+    challenge_tbl = report_bundle["challenge_map"].get("table_md", "*Data unavailable*")
+
+    from utils.report_blocks import forces_to_md, challenges_to_table
+
+    # --- 8.a · framework blocks -------------------------------------------------
+    from utils.report_blocks import (
+        forces_to_md, pest_to_md, challenges_to_table, grab_citations
+    )
+
+    # ---- 2.a · frameworks_sections_md -----------------------------------------
+    sections = []
+    for key in background_dict["frameworks_chosen"]:
+        data = analyses.get(key, {})
+        if not data:
+            sections.append(f"## {key.title()} – *Data unavailable*")
+            continue
+
+        if key == "forces":
+            body = forces_to_md(data)
+            sections.append(f"## Porter’s Five Forces\n{body}")
+
+        elif key == "pest":
+            body = pest_to_md(data.get("pest_bullets", {}))
+            sections.append(f"## PEST Highlights\n{body}")
+
+        # add elif blocks for vrio / value_chain / etc. when they come online
+
+    frameworks_sections_md = "\n\n".join(sections) or "*Data unavailable*"
+
+    # ---- 2.b · challenge_table_md ---------------------------------------------
+    challenge_list = analyses.get("challenge_map", {}).get("challenges", [])
+    challenge_table_md = challenges_to_table(challenge_list)
+
+    # ---- 2.c · citation sanity check ------------------------------------------
+    citations = (
+            grab_citations(frameworks_sections_md)
+            | grab_citations(challenge_table_md)
+            | grab_citations(background_dict["frameworks_rationale_md"])
+    )
+    if len(citations) < 8:
+        logger.warning("Only %d distinct citations – consider enriching analyses.", len(citations))
+
+    frameworks_sections_md = "\n\n".join(sections)
+
+    # --- 8.b · challenge table --------------------------------------------------
+    challenge_map = analyses.get("challenge_map", {}).get("challenges", [])
+    challenge_table_md = (
+        challenges_to_table(challenge_map) if challenge_map else "*Data unavailable*"
+    )
+
+    # ---------- final prompt ----------
+    report_prompt = as_token_limited_json(
+        {
+            "bundle": report_bundle,
+            "frameworks": background_dict["frameworks_chosen"],
+            "fw_rationale_md": background_dict["frameworks_rationale_md"],
+            "frameworks_sections_md": frameworks_sections_md,
+            "challenge_table_md": challenge_table_md,
+            "financials": background_dict["finance"],
+        },
+        MAX_PROMPT_TOKENS - 5_000,
+    )
+    long_report = fix_citations(build_report(report_prompt,refresh=needs_refresh("report")))
 
     print("\n=== LONG‑FORM STRATEGY REPORT (markdown) ===\n")
     print(long_report)
@@ -338,26 +494,22 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 # CLI entry‑point
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _extract_framework_rationale(flags: Dict[str, Any]):
-    name_map = {
-        "porter": "Porter’s 5 Forces",
-        "pest": "PEST",
-        "vrio": "VRIO",
-        "blue_ocean": "Blue‑Ocean",
-        "bcg": "BCG Matrix",
-        "value_chain": "Value‑Chain",
-        "seven_s": "McKinsey 7‑S",
-        "ansoff": "Ansoff Matrix",
-        "gem": "GE/McKinsey 9‑Cell",
-        "core_comp": "Core‑Competence",
-        "bowman": "Bowman Clock",
-    }
-    chosen, md = [], []
-    for k, pretty in name_map.items():
-        if flags.get(f"use_{k}"):
-            chosen.append(pretty)
-            md.append(f"* **{pretty}** – {flags.get('rationale', {}).get(k, '')}")
-    return chosen, "\n".join(md)
+def _extract_framework_rationale(flags: dict[str, Any]) -> tuple[list[str], str]:
+    chosen = [k.split("_", 1)[1]          # "forces" / "pest" / …
+              for k, v in flags.items() if k.startswith("use_") and v]
+
+    rationale_lines = []
+    for fw in chosen:
+        reason = flags.get("rationale", {}).get(fw)
+        if not reason:                     # fallback
+            reason = {
+                "forces": "Assesses competitive pressure and margin squeeze.",
+                "pest":   "Maps macro trends and regulatory headwinds.",
+                # … add the rest once
+            }.get(fw, "No rationale provided.")
+        rationale_lines.append(f"* **{fw.capitalize()}** – {reason}")
+
+    return chosen, "\n".join(rationale_lines)
 
 
 def main():

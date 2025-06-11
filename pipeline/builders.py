@@ -3,6 +3,7 @@ import json
 from typing import Dict, Any
 
 from utils.cache_io import cached
+from utils.normalise_cites import normalise_cites
 from agent_and_assessor import run_single_workflow_with_verifier
 
 # Import the agents once
@@ -25,11 +26,37 @@ from local_agents.core_competence_agent import core_competence_agent
 from local_agents.bowman_clock_agent    import bowman_clock_agent
 from local_agents.report_composer_agent import report_composer_agent
 from local_agents.report_assessor_agent import report_assessor_agent
+from local_agents.company_profile_agent import company_profile_agent
 
 # ───────────────────────────────── helpers ──────────────────────────────────
-def _run(agent, prompt: str, label: str, rounds: int = 1) -> Any:
-    """Call the LLM agent + citation-verifier and return parsed JSON/str."""
 
+import json, logging, re
+log = logging.getLogger(__name__)
+
+def _safe_json(s: str, label: str):
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError as e:
+        log.warning("%s – JSON parse failed: %s…", label, e)
+        # attempt simple fix – replace smart quotes & strip trailing commas
+        cleaned = re.sub(r"[“”]", '"', s).rstrip(", \n")
+        try:
+            return json.loads(cleaned)
+        except Exception:
+            return {"error": "invalid_json", "raw": cleaned}
+
+# def _run(agent, prompt: str, label: str, rounds: int = 1):
+#     raw = run_single_workflow_with_verifier(...)
+#     if label == "5-Forces":          # nested dict expected
+#         return _safe_json(raw.strip("` \n"), label)
+#     return raw if isinstance(raw, dict) else _safe_json(raw, label)
+
+
+def _run(agent, prompt: str, label: str, rounds: int = 1):
+    """
+    Call the LLM agent + citation-verifier and return parsed JSON/str.
+    If `raw` looks like JSON → dict; otherwise → untouched string.
+    """
     raw = run_single_workflow_with_verifier(
         generator_agent=agent,
         verifier_agent=citation_verifier_agent,
@@ -38,14 +65,34 @@ def _run(agent, prompt: str, label: str, rounds: int = 1) -> Any:
         label=label,
         max_rounds=rounds,
     )
+    if label == "5-Forces":          # nested dict expected
+        return _safe_json(raw.strip("` \n"), label)
+    return raw if isinstance(raw, dict) else _safe_json(raw, label)
 
-    # ── Smoke-test the JSON/str we expect back ──────────────────────────
-    expected_type = str if label.startswith("Report") else dict
-    assert isinstance(raw, (str, dict)), (
-        f"{label}: Builder returned {type(raw)}, wanted JSON str/dict")
+    # normalise citations (this keeps the type – str in, str out)
+    # if isinstance(raw, str):
+    #     raw = normalise_cites(raw)
+    #
+    # # ------------------------------------------------------------------
+    # # Safe JSON sniffing
+    # # ------------------------------------------------------------------
+    # if isinstance(raw, dict):
+    #     return raw
+    # try:
+    #     return json.loads(raw)
+    # except json.JSONDecodeError:
+    #     return json.loads(raw.strip("` \n"))
 
-    # If it's a string that should be JSON, parse it once here
-    return raw if isinstance(raw, dict) else json.loads(raw)
+    # stripped = raw.lstrip()
+    # if stripped.startswith("{") or stripped.startswith("["):
+    #     try:
+    #         return json.loads(stripped)   # happy path
+    #     except json.JSONDecodeError as err:
+    #         print(f"{label}: Looks like JSON but failed to parse – "
+    #                        f"{err}. Returning raw string.")
+
+
+
 
 
 # ───────────────────────────── cached builders ──────────────────────────────
@@ -136,4 +183,9 @@ def build_report(prompt: str, *, refresh: bool = False) -> str:
         max_rounds=3,
     )
     return report
+
+# pipeline/builders.py
+@cached("company_profile")
+def build_company_profile(prompt: str, *, refresh: bool = False):
+    return _run(company_profile_agent, prompt, "Company Profile")
 
