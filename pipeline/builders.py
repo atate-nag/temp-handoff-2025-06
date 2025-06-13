@@ -29,7 +29,8 @@ from local_agents.report_assessor_agent import report_assessor_agent
 from local_agents.company_profile_agent import company_profile_agent
 
 # ===========
-
+from local_agents.five_forces_assessor_agent import five_forces_assessor_agent
+from local_agents.generic_assessor_agent import generic_assessor_agent
 from local_agents.forces_agent import validate_forces
 
 # ───────────────────────────────── helpers ──────────────────────────────────
@@ -37,30 +38,68 @@ from local_agents.forces_agent import validate_forces
 import json, logging, re
 log = logging.getLogger(__name__)
 
-def _safe_json(s: str, label: str):
+_BRACE_DUP_RE = re.compile(r'},\s*}')     # catches  "},}"  or  "}, }"  etc.
+
+SMART_QUOTES   = re.compile(r'[“”]')
+DANGLING_COMMA = re.compile(r',(\s*[}\]])')
+EXTRA_BRACE    = re.compile(r'},\s*}')
+EMPTY_VALUE    = re.compile(r'"(\w+)":\s*,')   # "over":"",  or  "overall_pressure":,
+
+FORCES_SCHEMA = {
+    "force_meta": dict,               # optional
+    "analysis": list,                 # 5 items, each with keys →
+    "overall_pressure": (int, type(None)),
+    "synthesis": dict,                # optional
+    "sources": list,                  # ≥5 APA-style strings
+    "skip": (str, type(None)),        # optional
+}
+FORCE_NAMES = {
+    "threat_of_entry",
+    "supplier_power",
+    "buyer_power",
+    "threat_of_substitutes",
+    "rivalry",
+}
+def clean_llm_json(text: str) -> str:
+    """Idempotent, order-agnostic normaliser for almost-valid LLM JSON."""
+    text = SMART_QUOTES.sub('"', text)
+    text = EXTRA_BRACE.sub('},', text)
+    text = EMPTY_VALUE.sub(r'"\1": null,', text)
+    text = DANGLING_COMMA.sub(r'\1', text)
+    return text.strip().strip('`')
+
+def _safe_json(raw: str, label: str):
     try:
-        return json.loads(s)
-    except json.JSONDecodeError as e:
-        log.warning("%s – JSON parse failed: %s…", label, e)
-        # attempt simple fix – replace smart quotes & strip trailing commas
-        cleaned = re.sub(r"[“”]", '"', s).rstrip(", \n")
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        fixed = clean_llm_json(raw)
         try:
-            return json.loads(cleaned)
-        except Exception:
-            return {"error": "invalid_json", "raw": cleaned}
+            return json.loads(fixed)
+        except json.JSONDecodeError as e:
+            log.error("%s – JSON still invalid after fix: %s", label, e)
+            return {"error": "invalid_json", "raw": fixed}
 
-# def _run(agent, prompt: str, label: str, rounds: int = 1):
-#     raw = run_single_workflow_with_verifier(...)
-#     if label == "5-Forces":          # nested dict expected
-#         return _safe_json(raw.strip("` \n"), label)
-#     return raw if isinstance(raw, dict) else _safe_json(raw, label)
+ASSESSOR_MAP = {
+    "5-Forces":  five_forces_assessor_agent,
+    "VRIO":      generic_assessor_agent,
+    "Blue-Ocean":generic_assessor_agent,
+    "BCG Matrix":generic_assessor_agent,
+    "Value-Chain":generic_assessor_agent,
+    "McKinsey 7-S":generic_assessor_agent,
+    "Ansoff":    generic_assessor_agent,
+    "GE/McKinsey":generic_assessor_agent,
+    "Core-Competence":generic_assessor_agent,
+    "Bowman Clock":generic_assessor_agent,
+    # "Report Agent" handled separately below
+}
 
-
+# 3️⃣  drop-in replacement for _run()
 def _run(agent, prompt: str, label: str, rounds: int = 1):
     """
-    Call the LLM agent + citation-verifier and return parsed JSON/str.
-    If `raw` looks like JSON → dict; otherwise → untouched string.
+    Call LLM generator + citation-verifier (+ optional assessor) and
+    return parsed JSON/str.
     """
+    assessor = ASSESSOR_MAP.get(label)  # None if not mapped
     raw = run_single_workflow_with_verifier(
         generator_agent=agent,
         verifier_agent=citation_verifier_agent,
@@ -69,35 +108,14 @@ def _run(agent, prompt: str, label: str, rounds: int = 1):
         label=label,
         max_rounds=rounds,
     )
-    if label == "5-Forces":          # nested dict expected
-        return _safe_json(raw.strip("` \n"), label)
+
+    # ── SPECIAL-CASE: Five Forces needs pre-normalisation ────────────
+    if label == "5-Forces":
+        parsed = _safe_json(raw.strip("` \n"), label)
+        # normalise BEFORE verifier / assessor results are surfaced
+        return normalise_forces(parsed)
+
     return raw if isinstance(raw, dict) else _safe_json(raw, label)
-
-    # normalise citations (this keeps the type – str in, str out)
-    # if isinstance(raw, str):
-    #     raw = normalise_cites(raw)
-    #
-    # # ------------------------------------------------------------------
-    # # Safe JSON sniffing
-    # # ------------------------------------------------------------------
-    # if isinstance(raw, dict):
-    #     return raw
-    # try:
-    #     return json.loads(raw)
-    # except json.JSONDecodeError:
-    #     return json.loads(raw.strip("` \n"))
-
-    # stripped = raw.lstrip()
-    # if stripped.startswith("{") or stripped.startswith("["):
-    #     try:
-    #         return json.loads(stripped)   # happy path
-    #     except json.JSONDecodeError as err:
-    #         print(f"{label}: Looks like JSON but failed to parse – "
-    #                        f"{err}. Returning raw string.")
-
-
-
-
 
 # ───────────────────────────── cached builders ──────────────────────────────
 # NB: the extra `*, refresh: bool = False` is only there so callers can supply
@@ -127,42 +145,95 @@ def build_framework_selector(prompt: str, *, refresh: bool = False) -> Dict[str,
 def build_challenges(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(pest_agent, prompt, "Challenges")
 
+# ───────────────────────────── cached builders ──────────────────────────────
 @cached("synth")
 def build_synth(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
-    return _run(pest_agent, prompt, "Synthesizer")
+    """
+    Run the Synthesizer agent and surface any APA-style citations so that
+    downstream steps (build_report, etc.) can count them without cracking
+    open nested JSON blobs.
+    """
+    raw = _run(pest_agent, prompt, "Synthesizer")  # ← same as before
+
+    # ------------------  NEW: pull citations into plain text  ----------------
+    import re, json
+    APA_RE = re.compile(r"\([^)]+,\s?\d{4}\)")     # accepts (Source,2024) OR (Source, 2024)
+
+    # whatever the Synthesizer produced, turn it into a flat string
+    flat_txt = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
+
+    cites = set(APA_RE.findall(flat_txt))
+
+    # package up the result exactly as callers expect (plus two extra keys)
+    return {
+        "synth_payload": raw,      # keep the original object for whoever needs it
+        "citations": cites,
+        "citations_md": " ".join(sorted(cites)) if cites else "",
+    }
+
 
 @cached("finance")
 def build_finance(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(financial_screener_agent, prompt, "Financial Screener")
 
-def build_forces(prompt: str, *, refresh: bool = False) -> dict:
-    raw = _run(forces_agent, prompt, "5-Forces")
-    data = raw if isinstance(raw, dict) else json.loads(raw)
+RATING_MAP = {
+    "very low": 1, "low": 2, "medium": 3, "high": 4, "very high": 5
+}
 
-    # ⇣ accept flat OR wrapped schema
-    if "analysis" not in data:
-        # convert flat ⇒ wrapped
-        forces_keys = [
-            "threat_of_entry","supplier_power","buyer_power",
-            "threat_of_substitutes","rivalry"
-        ]
-        analysis = []
-        for k in forces_keys:
-            if k not in data:
-                raise ValueError(f"Missing {k}")
-            entry = data.pop(k)
-            entry["force"] = k
-            analysis.append(entry)
-        data = {
-            "analysis": analysis,
-            "overall_pressure": int(round(sum(e["rating"] for e in analysis)/len(analysis))),
-            "skip": None,
-            **data      # keeps synthesis, sources, etc.
+def _to_int_rating(val):
+    """
+    Ensure every rating is an int 1-5.
+    Accepts words (Low, High, etc.) or numeric strings.
+    """
+    if isinstance(val, int):
+        return max(1, min(5, val))
+    if isinstance(val, str):
+        val = val.strip().lower()
+        if val in RATING_MAP:
+            return RATING_MAP[val]
+        if val.isdigit():
+            return max(1, min(5, int(val)))
+    raise ValueError(f"Unrecognised rating: {val!r}")
+
+
+def normalise_forces(doc: dict) -> dict:
+    # ① wrap flat → obj
+    if "analysis" not in doc:
+        doc = {
+            "analysis": [
+                {**doc.pop(k), "force": k} for k in FORCE_NAMES if k in doc
+            ],
+            **doc,
         }
 
-    data = validate_forces(data)          # now passes
-    return data
+    # ② back-fill / clamp
+    for f in doc["analysis"]:
+        f["strength"] = int(f.get("strength", f["rating"]))
+        f["strength"] = max(1, min(5, f["strength"]))
 
+    # ③ guarantee completeness
+    present = {f["force"] for f in doc["analysis"]}
+    missing  = FORCE_NAMES - present
+    for m in missing:
+        doc["analysis"].append({
+            "force": m, "rating": 3, "direction": "↔", "drivers": [],
+            "quant": {}, "strength": 3,
+        })
+
+    doc["overall_pressure"] = round(
+        sum(f["strength"] for f in doc["analysis"]) / 5
+    )
+
+    return doc
+
+
+# def build_forces(prompt: str, *, refresh: bool=False) -> dict:
+#     raw = _run(forces_agent, prompt, "5-Forces")
+#     parsed = _safe_json(raw if isinstance(raw,str) else json.dumps(raw), "5-Forces")
+#     return normalise_forces(parsed)
+
+def build_forces(prompt: str, *, refresh: bool=False) -> dict:
+    return _run(forces_agent, prompt, "5-Forces")
 
 @cached("vrio")
 def build_vrio(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:

@@ -11,6 +11,8 @@ generic_assessor_agent = Agent(
 You are an independent quality‑assurance consultant in a strategy
 consulting workflow (real client work, not a simulation).
 
+
+
 Task: evaluate ONE or several strategic‑analysis reports produced by
 other AI agents. The reports may employ any framework (Porter, VRIO,
 PEST, Blue‑Ocean, etc.). Your scoring rubric is **framework‑agnostic**;

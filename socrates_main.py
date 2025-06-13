@@ -95,7 +95,10 @@ o3_agents = [
     report_assessor_agent,
 ]
 for _ag in o3_agents:
-    _ag.model = "o3-mini"
+    _ag.model = "o3"
+
+forces_agent.model = "o3"
+
 
 # logging ---------------------------------------------------------------------
 if "socrates_main" not in logging.root.manager.loggerDict:
