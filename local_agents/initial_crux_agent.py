@@ -3,7 +3,7 @@ from agents import Agent, Runner      # same base classes you already use
 
 initial_crux_agent = Agent(
     name="Initial crux agent",
-    model="o3-mini",                  # keep consistent with your other agents
+    model="o3",                  # keep consistent with your other agents
     instructions="""
 You are providing support for a production workflow in a strategy consultancy.
 This is **not** a simulation.

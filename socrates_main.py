@@ -48,7 +48,7 @@ from local_agents.citation_verifier import citation_verifier_agent
 from local_agents.core_competence_agent import core_competence_agent
 from local_agents.five_forces_assessor_agent import five_forces_assessor_agent
 from local_agents.financial_screen_agent import financial_screener_agent
-from local_agents.forces_agent import forces_agent
+from local_agents.forces_agent import forces_agent, generate_forces_prompt
 from local_agents.framework_selector_agent import framework_selector_agent
 from local_agents.generic_assessor_agent import generic_assessor_agent
 from local_agents.ge_mckinsey_agent import ge_mckinsey_agent
@@ -297,37 +297,12 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         f"Run analysis for {company_name}"
     )
 
-    FORCES_PROMPT = (
-    f"Company profile: {json.dumps(company_profile, indent=2 ) }  \n"
-    f"Macro bullets (PEST): {json.dumps(background_dict['pest'])}\n"
-    f"trend_clusters  : {json.dumps(background_dict['trend_radar']['trend_clusters'])}\n"
-    f"initial_crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n"
-    f"""
-    Task:
-    1. For each Porter force, assign a rating (Very Low–Very High).
-    2. Provide a concise reason tying *Citigroup-specific* facts (scale, brand, ROE)
-       to industry dynamics. Use data from company_profile or PEST.
-    3. End each reason with one APA-style in-text citation from the source list you add.
-    4. Produce final answer as **stringified JSON** exactly matching the contract below.
-    If a citation already appears in company_profile.sources or PEST, reuse it.
-
-    Contract ⇒
-    {{
-      "threat_of_entry":{{"rating":"...","reason":"..."}},
-      "supplier_power":{{...}},
-      "buyer_power":{{...}},
-      "threat_of_subs":{{...}},
-      "rivalry":{{...}},
-      "sources":[ "...", ... ]      // ≥ 5 unique APA-style refs
-    }}
-    """)
+    forces_prompt = generate_forces_prompt(company_profile, background_dict, mini_crux_dict, BG_TOKENS)
 
     analyses: Dict[str, Any] = {}
     if "forces" in specialist_agents:
-        out = build_forces(FORCES_PROMPT, refresh=True)
+        out = build_forces(forces_prompt, refresh=True)
         print("Porter’s Five Forces output:", out)
-        # assert out["rivalry"]["rating"] in ["Low", "Medium", "High"]
-        # assert len(out["sources"]) >= 5
         analyses["forces"] = out
         print("Porter’s Five Forces analysis:", analyses["forces"])
     if "vrio" in specialist_agents:

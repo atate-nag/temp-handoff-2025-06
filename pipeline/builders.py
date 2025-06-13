@@ -28,6 +28,10 @@ from local_agents.report_composer_agent import report_composer_agent
 from local_agents.report_assessor_agent import report_assessor_agent
 from local_agents.company_profile_agent import company_profile_agent
 
+# ===========
+
+from local_agents.forces_agent import validate_forces
+
 # ───────────────────────────────── helpers ──────────────────────────────────
 
 import json, logging, re
@@ -131,9 +135,34 @@ def build_synth(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
 def build_finance(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(financial_screener_agent, prompt, "Financial Screener")
 
-@cached("forces")        # → .cache/build_forces_*.pkl
-def build_forces(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
-    return _run(forces_agent, prompt, "5-Forces")
+def build_forces(prompt: str, *, refresh: bool = False) -> dict:
+    raw = _run(forces_agent, prompt, "5-Forces")
+    data = raw if isinstance(raw, dict) else json.loads(raw)
+
+    # ⇣ accept flat OR wrapped schema
+    if "analysis" not in data:
+        # convert flat ⇒ wrapped
+        forces_keys = [
+            "threat_of_entry","supplier_power","buyer_power",
+            "threat_of_substitutes","rivalry"
+        ]
+        analysis = []
+        for k in forces_keys:
+            if k not in data:
+                raise ValueError(f"Missing {k}")
+            entry = data.pop(k)
+            entry["force"] = k
+            analysis.append(entry)
+        data = {
+            "analysis": analysis,
+            "overall_pressure": int(round(sum(e["rating"] for e in analysis)/len(analysis))),
+            "skip": None,
+            **data      # keeps synthesis, sources, etc.
+        }
+
+    data = validate_forces(data)          # now passes
+    return data
+
 
 @cached("vrio")
 def build_vrio(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
