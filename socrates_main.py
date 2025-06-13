@@ -123,7 +123,7 @@ def needs_refresh(tag: str) -> bool:
     # global REFRESH_CACHE retains the old “force everything” switch
     return REFRESH_CACHE or tag in REFRESH_ONLY
 
-REFRESH_CACHE = True  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
+REFRESH_CACHE = False  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
 def fix_citations(md:str)->str:

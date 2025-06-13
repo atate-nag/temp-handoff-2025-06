@@ -83,23 +83,57 @@ If Initial-Crux shows the issue is *purely* internal (culture, cost, IT hygiene)
 
 
 def validate_forces(d: dict) -> dict:
-    required = {"new_entrants","supplier_power","buyer_power",
-                "substitutes","rivalry"}
-    if "analysis" not in d: raise ValueError("Missing analysis key")
+    required = {"threat_of_entry","supplier_power","buyer_power",
+                "threat_of_substitutes","rivalry"}
+
+    # ── convert flat → legacy, if needed ─────────────────────────────────
+    if "analysis" not in d:
+        missing = required - d.keys()
+        if missing:
+            raise ValueError(f"Missing forces {missing}")
+
+        def _to_strength(rating: str) -> int:
+            table = {"very low":1,"low":2,"medium":3,"high":4,"very high":5}
+            return table.get(rating.lower(),3)
+
+        d["analysis"] = []
+        for fkey in required:
+            f      = d[fkey]
+            strength = int(f.get("strength", _to_strength(f.get("rating","medium"))))
+            strength = max(1, min(5, strength))
+            d["analysis"].append({
+                "force":     fkey,
+                "strength":  strength,              # ← now present
+                "drivers":   f.get("drivers", []),
+                "evidence":  f.get("evidence", []),
+                "direction": f.get("direction", "→ stable"),
+                "quant":     f.get("quant", None),
+            })
+
+    # ── verify & post-process ────────────────────────────────────────────
     f_seen = {f["force"] for f in d["analysis"]}
     if f_seen != required:
         raise ValueError(f"Expected forces {required}, got {f_seen}")
 
-    # Force numeric type & bounds
-    for force in d["analysis"]:
-        force["strength"] = int(force["strength"])
-        force["strength"] = max(1, min(5, force["strength"]))  # clamp
+    def _rating_to_strength(r: str | int) -> int:
+        tbl = {"very low": 1, "low": 2, "medium": 3, "high": 4, "very high": 5}
+        if isinstance(r, (int, float)):  # agent already used numbers
+            return max(1, min(5, int(r)))
+        return tbl.get(str(r).lower(), 3)
 
-    # Re-compute overall_pressure deterministically
+    # ── verify & post-process ──────────────────────────────────────────────
+    for force in d["analysis"]:
+        # add this shim
+        if "strength" not in force:
+            force["strength"] = _rating_to_strength(force.get("rating", "medium"))
+        # now the key is guaranteed
+        force["strength"] = max(1, min(5, int(force["strength"])))
+
     d["overall_pressure"] = round(
         sum(f["strength"] for f in d["analysis"]) / 5
     )
     return d
+
 
 import json
 from utils.token_tools import as_token_limited_json
