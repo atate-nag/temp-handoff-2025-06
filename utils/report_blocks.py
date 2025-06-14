@@ -42,5 +42,26 @@ def challenges_to_table(ch_list: list[dict]) -> str:
 
 
 # Utility to extract APA-style citations -------------------------------------
+import re
+
+#  (SomeSource, 2024)          ✔
+#  (Some-Source_123.pdf,2024)  ✔
+#  (WEF,2024a)                 ✔
+#  (foo bar)                   ✘  (no comma + year → ignored)
+CITE_RE = re.compile(
+    r"""\(
+        (?P<source>[A-Z][A-Za-z0-9_.-]+)   # 1+ word chars / _ . -
+        ,\s*                               # comma + optional space
+        (?P<year>\d{4}[a-z]? )             # 4-digit year, optional letter
+        \)""",
+    re.VERBOSE,
+)
+
 def grab_citations(text: str) -> set[str]:
-    return set(re.findall(r"\([A-Z][A-Za-z0-9]+, \d{4}\)", text))
+    """
+    Return every distinct citation string that looks like
+    '(SomeSource, 2024)'.
+    The whole '(Source, YYYY)' block is kept so the caller’s behaviour
+    stays unchanged.
+    """
+    return {m.group(0) for m in CITE_RE.finditer(text)}

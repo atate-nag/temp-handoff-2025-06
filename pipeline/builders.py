@@ -3,6 +3,7 @@ import json
 from typing import Dict, Any
 
 from utils.cache_io import cached
+from utils.normalise_forces import normalise_forces
 from utils.normalise_cites import normalise_cites
 from agent_and_assessor import run_single_workflow_with_verifier
 
@@ -99,11 +100,11 @@ def _run(agent, prompt: str, label: str, rounds: int = 1):
     Call LLM generator + citation-verifier (+ optional assessor) and
     return parsed JSON/str.
     """
-    assessor = ASSESSOR_MAP.get(label)  # None if not mapped
+    assessor = ASSESSOR_MAP.get(label)
     raw = run_single_workflow_with_verifier(
         generator_agent=agent,
         verifier_agent=citation_verifier_agent,
-        assessor_agent=None,
+        assessor_agent=assessor,
         initial_prompt=prompt,
         label=label,
         max_rounds=rounds,
@@ -127,7 +128,26 @@ def build_background(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
 
 @cached("trend_radar")
 def build_trend_radar(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
-    return _run(trend_radar_agent, prompt, "Trend Radar")
+    res = _run(trend_radar_agent, prompt, "Trend Radar")   # ← what you had
+
+    # ── new “silent placeholder” guard ────────────────────────────────
+    import os
+    from pathlib import Path
+
+    # 1️⃣ get or create a path
+    path = res.get("png_path")
+    if not path:
+        # deterministic fallback name (company slug or hash is fine too)
+        path = "Strategic Reports/placeholder_trend_radar.png"
+        res["png_path"] = path
+
+    # 2️⃣ if the file does NOT exist, make a 1×1 transparent PNG
+    if not os.path.exists(path):
+        from PIL import Image          # pillow is already in the venv
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGBA", (1, 1), (255, 255, 255, 0)).save(path)
+
+    return res
 
 @cached("pest")
 def build_pest(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
@@ -146,30 +166,31 @@ def build_challenges(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(pest_agent, prompt, "Challenges")
 
 # ───────────────────────────── cached builders ──────────────────────────────
+# pipeline/builders.py  – replace the current build_synth
+
 @cached("synth")
 def build_synth(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     """
-    Run the Synthesizer agent and surface any APA-style citations so that
-    downstream steps (build_report, etc.) can count them without cracking
-    open nested JSON blobs.
+    Pull citations straight from the latest trend-radar payload.
+    This avoids an unnecessary LLM call and guarantees we always
+    have some citations for the report.
     """
-    raw = _run(pest_agent, prompt, "Synthesizer")  # ← same as before
+    # 1️⃣ Ensure we use the most recent radar (respect refresh flag)
+    radar_doc = build_trend_radar(prompt, refresh=refresh)
 
-    # ------------------  NEW: pull citations into plain text  ----------------
+    # 2️⃣ Grep APA-style citations from the JSON dump
     import re, json
-    APA_RE = re.compile(r"\([^)]+,\s?\d{4}\)")     # accepts (Source,2024) OR (Source, 2024)
+    APA_RE = re.compile(r"\([^)]+,\s?\d{4}\)")
+    flat = json.dumps(radar_doc, ensure_ascii=False)
+    cites = set(APA_RE.findall(flat))
 
-    # whatever the Synthesizer produced, turn it into a flat string
-    flat_txt = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
-
-    cites = set(APA_RE.findall(flat_txt))
-
-    # package up the result exactly as callers expect (plus two extra keys)
+    # 3️⃣ Return the same shape every caller already expects
     return {
-        "synth_payload": raw,      # keep the original object for whoever needs it
-        "citations": cites,
-        "citations_md": " ".join(sorted(cites)) if cites else "",
+        "synth_payload": radar_doc,                 # whatever we may need later
+        "citations": cites,                         # usable programmatically
+        "citations_md": " ".join(sorted(cites)),    # string for the doc template
     }
+
 
 
 @cached("finance")
@@ -196,35 +217,35 @@ def _to_int_rating(val):
     raise ValueError(f"Unrecognised rating: {val!r}")
 
 
-def normalise_forces(doc: dict) -> dict:
-    # ① wrap flat → obj
-    if "analysis" not in doc:
-        doc = {
-            "analysis": [
-                {**doc.pop(k), "force": k} for k in FORCE_NAMES if k in doc
-            ],
-            **doc,
-        }
-
-    # ② back-fill / clamp
-    for f in doc["analysis"]:
-        f["strength"] = int(f.get("strength", f["rating"]))
-        f["strength"] = max(1, min(5, f["strength"]))
-
-    # ③ guarantee completeness
-    present = {f["force"] for f in doc["analysis"]}
-    missing  = FORCE_NAMES - present
-    for m in missing:
-        doc["analysis"].append({
-            "force": m, "rating": 3, "direction": "↔", "drivers": [],
-            "quant": {}, "strength": 3,
-        })
-
-    doc["overall_pressure"] = round(
-        sum(f["strength"] for f in doc["analysis"]) / 5
-    )
-
-    return doc
+# def normalise_forces(doc: dict) -> dict:
+#     # ① wrap flat → obj
+#     if "analysis" not in doc:
+#         doc = {
+#             "analysis": [
+#                 {**doc.pop(k), "force": k} for k in FORCE_NAMES if k in doc
+#             ],
+#             **doc,
+#         }
+#
+#     # ② back-fill / clamp
+#     for f in doc["analysis"]:
+#         f["strength"] = int(f.get("strength", f["rating"]))
+#         f["strength"] = max(1, min(5, f["strength"]))
+#
+#     # ③ guarantee completeness
+#     present = {f["force"] for f in doc["analysis"]}
+#     missing  = FORCE_NAMES - present
+#     for m in missing:
+#         doc["analysis"].append({
+#             "force": m, "rating": 3, "direction": "↔", "drivers": [],
+#             "quant": {}, "strength": 3,
+#         })
+#
+#     doc["overall_pressure"] = round(
+#         sum(f["strength"] for f in doc["analysis"]) / 5
+#     )
+#
+#     return doc
 
 
 # def build_forces(prompt: str, *, refresh: bool=False) -> dict:
