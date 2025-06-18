@@ -27,9 +27,18 @@ report_composer_agent = Agent(
 ## Peer & Financial Snapshot
 # High-level Challenges
 # Trends Analysis
+{% if frameworks_chosen %}
 ### Frameworks Chosen
-# Detailed Strategic Frameworks          ← paste frameworks_sections_md
-# Key Strategic Challenges               ← paste challenge_table_md
+{{ frameworks_chosen }}
+{% endif %}
+{% if frameworks_sections_md %}
+### Detailed Strategic Frameworks
+{{ frameworks_sections_md }}
+{% endif %}
+{% if challenges.pest_bullets %}
+# Key Strategic Challenges
+{{ challenges.pest_bullets | to_nice_md }}  ← paste challenge_table_md
+{% endif %}
 # Recommendations
 ## Diagnosis of Crux
 ## Preferred Option & Rationale

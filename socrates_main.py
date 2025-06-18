@@ -162,6 +162,7 @@ def build_background_bundle(
     # 2) run (cached) builders
     trend_radar_dict = builders.build_trend_radar(tr_prompt,
                                                   refresh=needs_refresh("trend_radar"))
+
     pest_prompt = f"trend_radar : {trend_radar_dict} Company Profile: {company_profile}\n"
     pest_dict = build_pest(pest_prompt, refresh=needs_refresh("pest"))
     background_dict = build_background(bg_prompt, refresh=needs_refresh("background"))
@@ -256,6 +257,9 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     )
     selector_raw = build_framework_selector(sel_prompt, refresh=needs_refresh("framework_selector"))
 
+    # Hack - use Porter’s Five Forces by default
+    selector_raw["use_porter"] = True
+
     logger.info(f"Framework selector output (raw): {selector_raw}")
     flags = selector_raw
     # ── 5.  Map flags → specialist agents -----------------------------------
@@ -293,6 +297,12 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_chosen": chosen_fw,
         "frameworks_rationale_md": rationale_md,
     })
+    # Hack - hard force the 5 forces to be used
+
+    if "forces" not in background_dict["frameworks_chosen"]:
+        background_dict["frameworks_chosen"].insert(0, "forces")
+
+    logger.info("Frameworks chosen: %s", background_dict["frameworks_chosen"])
 
     spec_prompt = (
         f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n"
@@ -302,11 +312,18 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     forces_prompt = generate_forces_prompt(company_profile, background_dict, mini_crux_dict, BG_TOKENS)
 
+    def _index_forces(forces_json: Dict[str, Any]) -> Dict[str, Any]:
+        """Turn the list under ['analysis'] into a dict keyed by force name."""
+        idx = {item["force"]: item for item in forces_json.get("analysis", [])}
+        idx["synthesis"] = forces_json.get("synthesis", {})
+        return idx
+
     analyses: Dict[str, Any] = {}
     if "forces" in specialist_agents:
         out = build_forces(forces_prompt, refresh=True)
         print("Porter’s Five Forces output:", out)
-        analyses["forces"] = out
+        analyses["forces_raw"] = out
+        analyses["forces"] = _index_forces(out)
         print("Porter’s Five Forces analysis:", analyses["forces"])
     if "vrio" in specialist_agents:
         analyses["vrio"] = build_vrio(spec_prompt, refresh=needs_refresh("vrio"))
@@ -361,45 +378,51 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_rationale_md": background_dict["frameworks_rationale_md"],
     }
 
-    framework_md = ""
-    for fw in frameworks:  # frameworks = list like ["forces","pest"]
-        sec = report_bundle["analyses"].get(fw, {})
-        if not sec:
-            framework_md += f"## {fw.title()} – *Data unavailable*\n"
-        else:
-            if fw == "forces":
-                # inside run_strategy after you’ve loaded forces_json
-                forces = analyses["forces"]  # new nested structure
-                key_map = {
-                    "threat_of_entry": "Threat of new entrants",
-                    "supplier_power": "Supplier power",
-                    "buyer_power": "Buyer power",
-                    "threat_of_subs": "Threat of substitutes",
-                    "rivalry": "Rivalry",
-                }
-                bullets = []
-                for k, label in key_map.items():
-                    if k not in forces:
-                        continue
-                    meta = forces[k]  # {'rating':'Low','reason':'...'}
-                    bullets.append(f"- **{label} – {meta['rating'].title()}**: {meta['reason']}")
-                framework_md = "\n".join(bullets)
-            elif fw == "pest":
-                framework_md += "## PEST Highlights\n" + sec.get("pest_summary_md", "*Data unavailable*") + "\n"
-            else:
-                framework_md += f"## {fw.upper()} Summary\n{sec.get('summary', '*Data unavailable*')}\n"
+    report_bundle["5-Forces"] = analyses.get("forces", {})
+
+    # framework_md = ""
+    # for fw in frameworks:  # frameworks = list like ["forces","pest"]
+    #     sec = report_bundle["analyses"].get(fw, {})
+    #     if not sec:
+    #         framework_md += f"## {fw.title()} – *Data unavailable*\n"
+    #     else:
+    #         if fw == "forces":
+    #             # inside run_strategy after you’ve loaded forces_json
+    #             forces = analyses["forces"]  # new nested structure
+    #             key_map = {
+    #                 "threat_of_entry": "Threat of new entrants",
+    #                 "supplier_power": "Supplier power",
+    #                 "buyer_power": "Buyer power",
+    #                 "threat_of_substitutes": "Threat of substitutes",
+    #                 "rivalry": "Rivalry",
+    #             }
+    #             bullets = []
+    #             for k, label in key_map.items():
+    #                 if k not in forces:
+    #                     continue
+    #                 meta = forces[k]  # now a dict
+    #                 bullets.append(
+    #                     f"- **{label} – {str(meta['rating']).title()}**: "
+    #                     f"{meta['drivers'][0] if meta.get('drivers') else ''}"
+    #                 )
+    #             framework_md = "\n".join(bullets)
+    #         elif fw == "pest":
+    #             framework_md += "## PEST Highlights\n" + sec.get("pest_summary_md", "*Data unavailable*") + "\n"
+    #         else:
+    #             framework_md += f"## {fw.upper()} Summary\n{sec.get('summary', '*Data unavailable*')}\n"
 
     challenge_tbl = report_bundle["challenge_map"].get("table_md", "*Data unavailable*")
-
-    from utils.report_blocks import forces_to_md, challenges_to_table
 
     # --- 8.a · framework blocks -------------------------------------------------
     from utils.report_blocks import (
         forces_to_md, pest_to_md, challenges_to_table, grab_citations
     )
 
+
     # ---- 2.a · frameworks_sections_md -----------------------------------------
     sections = []
+
+
     for key in background_dict["frameworks_chosen"]:
         data = analyses.get(key, {})
         if not data:
@@ -407,7 +430,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
             continue
 
         if key == "forces":
-            body = forces_to_md(data)
+            body = forces_to_md(analyses["forces"])  # now passes the indexed dict
             sections.append(f"## Porter’s Five Forces\n{body}")
 
         elif key == "pest":
@@ -416,28 +439,34 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
         # add elif blocks for vrio / value_chain / etc. when they come online
 
-    frameworks_sections_md = "\n\n".join(sections) or "*Data unavailable*"
-
     # ---- 2.b · challenge_table_md ---------------------------------------------
     challenge_list = analyses.get("challenge_map", {}).get("challenges", [])
     challenge_table_md = challenges_to_table(challenge_list)
 
     # ---- 2.c · citation sanity check ------------------------------------------
+    # build the markdown first
+    frameworks_sections_md = "\n\n".join(sections)
+
+    # pull Porter citations
+    porter_sources = report_bundle.get("5-Forces", {}).get("sources", [])
+
+    # optional: add them to the human-readable markdown
+    refs_md = "## Sources\n" + " ".join(porter_sources)
+    frameworks_sections_md += "\n\n" + refs_md
+
+    # now run the citation check
     citations = (
             grab_citations(frameworks_sections_md)
             | grab_citations(challenge_table_md)
             | grab_citations(background_dict["frameworks_rationale_md"])
     )
+
+    logger.debug("Found %d citations: %s", len(citations), list(citations)[:10])
+
     if len(citations) < 8:
-        logger.warning("Only %d distinct citations – consider enriching analyses.", len(citations))
-
-    frameworks_sections_md = "\n\n".join(sections)
-
-    # --- 8.b · challenge table --------------------------------------------------
-    challenge_map = analyses.get("challenge_map", {}).get("challenges", [])
-    challenge_table_md = (
-        challenges_to_table(challenge_map) if challenge_map else "*Data unavailable*"
-    )
+        logger.warning(
+            "Only %d distinct citations – consider enriching analyses.", len(citations)
+        )
 
     # ---------- final prompt ----------
     report_prompt = as_token_limited_json(
@@ -498,3 +527,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

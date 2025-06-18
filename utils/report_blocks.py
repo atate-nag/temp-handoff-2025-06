@@ -3,20 +3,33 @@ from textwrap import indent
 import re
 
 # 5 Forces → bullets ----------------------------------------------------------
-def forces_to_md(forces: dict) -> str:
-    nice = {
-        "threat_of_entry":  "Threat of new entrants",
-        "supplier_power":   "Supplier power",
-        "buyer_power":      "Buyer power",
-        "threat_of_subs":   "Threat of substitutes",
-        "rivalry":          "Rivalry",
+# utils/report_blocks.py
+def forces_to_md(forces_json: dict) -> str:
+    """Convert the *new* forces JSON into a short bullet summary."""
+    key_map = {
+        "threat_of_entry": "Threat of new entrants",
+        "supplier_power": "Supplier power",
+        "buyer_power": "Buyer power",
+        "threat_of_substitutes": "Threat of substitutes",
+        "rivalry": "Rivalry among incumbents",
     }
-    out = []
-    for key, label in nice.items():
-        level = forces.get(key, "Data unavailable").title()
-        out.append(f"- **{label} – {level}**")
-    return "\n".join(out)
 
+    # ---- NEW: build lookup {force_key: rating_number} ----------------------
+    rating_lookup = {
+        item["force"]: item["rating"]
+        for item in forces_json.get("analysis", [])
+    }
+
+    out = []
+    for k, label in key_map.items():
+        rating_num = rating_lookup.get(k)
+        if rating_num is None:
+            out.append(f"- **{label}** – *Data unavailable*")
+        else:
+            qualitative = {1: "Very low", 2: "Low", 3: "Moderate",
+                           4: "High", 5: "Very high"}[rating_num]
+            out.append(f"- **{label} – {qualitative} ({rating_num}/5)**")
+    return "\n".join(out)
 
 # PEST bullets → short table --------------------------------------------------
 def pest_to_md(pest: dict) -> str:
@@ -41,27 +54,25 @@ def challenges_to_table(ch_list: list[dict]) -> str:
     return "\n".join([header, divider, *rows])
 
 
-# Utility to extract APA-style citations -------------------------------------
 import re
+from typing import Set
 
-#  (SomeSource, 2024)          ✔
-#  (Some-Source_123.pdf,2024)  ✔
-#  (WEF,2024a)                 ✔
-#  (foo bar)                   ✘  (no comma + year → ignored)
-CITE_RE = re.compile(
-    r"""\(
-        (?P<source>[A-Z][A-Za-z0-9_.-]+)   # 1+ word chars / _ . -
-        ,\s*                               # comma + optional space
-        (?P<year>\d{4}[a-z]? )             # 4-digit year, optional letter
-        \)""",
-    re.VERBOSE,
+_CITATION_RE = re.compile(
+    r"\([^\n()]+?,\s*(?:19|20)\d{2}\)",
+    re.UNICODE,
 )
 
-def grab_citations(text: str) -> set[str]:
+def grab_citations(text: str) -> Set[str]:
     """
-    Return every distinct citation string that looks like
-    '(SomeSource, 2024)'.
-    The whole '(Source, YYYY)' block is kept so the caller’s behaviour
-    stays unchanged.
+    Return **unique raw citation strings** like '(WEF, 2024)'.
+
+    • Matches tokens containing letters, digits, dots, underscores,
+      ampersands, hyphens and spaces.
+    • Allows any amount of whitespace after the comma.
+    • Safely handles file extensions ('.pdf') that sometimes follow the
+      source token.
     """
-    return {m.group(0) for m in CITE_RE.finditer(text)}
+    return set(_CITATION_RE.findall(text))
+
+
+print(grab_citations("(BIS, 2024) (S&P_Global_M&A_2024,2024)"))
