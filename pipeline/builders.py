@@ -125,10 +125,12 @@ def _run(agent, prompt: str, label: str, rounds: int = 1):
 def build_background(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
     return _run(background_agent, prompt, "Background")
 
+from schemas import TrendRadarResult
 @cached("trend_radar")
-def build_trend_radar(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
-    res = _run(trend_radar_agent, prompt, "Trend Radar")   # ← what you had
-
+def build_trend_radar(prompt: str, *, refresh: bool = False) -> TrendRadarResult:
+    """Call agent ➜ verify ➜ return typed object."""
+    res_dict = _run(trend_radar_agent, prompt, "Trend Radar")
+    res = TrendRadarResult.model_validate(res_dict)
     # ── new “silent placeholder” guard ────────────────────────────────
     import os
     from pathlib import Path
@@ -148,9 +150,11 @@ def build_trend_radar(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
 
     return res
 
+from schemas import PestResult
 @cached("pest")
-def build_pest(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
-    return _run(pest_agent, prompt, "PEST")
+def build_pest(prompt: str, *, refresh: bool = False) -> PestResult:
+    res_dict = _run(pest_agent, prompt, "PEST")
+    return PestResult.model_validate(res_dict)
 
 @cached("mini-crux")
 def build_mini_crux(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
@@ -216,46 +220,10 @@ def _to_int_rating(val):
     raise ValueError(f"Unrecognised rating: {val!r}")
 
 
-# def normalise_forces(doc: dict) -> dict:
-#     # ① wrap flat → obj
-#     if "analysis" not in doc:
-#         doc = {
-#             "analysis": [
-#                 {**doc.pop(k), "force": k} for k in FORCE_NAMES if k in doc
-#             ],
-#             **doc,
-#         }
-#
-#     # ② back-fill / clamp
-#     for f in doc["analysis"]:
-#         f["strength"] = int(f.get("strength", f["rating"]))
-#         f["strength"] = max(1, min(5, f["strength"]))
-#
-#     # ③ guarantee completeness
-#     present = {f["force"] for f in doc["analysis"]}
-#     missing  = FORCE_NAMES - present
-#     for m in missing:
-#         doc["analysis"].append({
-#             "force": m, "rating": 3, "direction": "↔", "drivers": [],
-#             "quant": {}, "strength": 3,
-#         })
-#
-#     doc["overall_pressure"] = round(
-#         sum(f["strength"] for f in doc["analysis"]) / 5
-#     )
-#
-#     return doc
-
-
-# def build_forces(prompt: str, *, refresh: bool=False) -> dict:
-#     raw = _run(forces_agent, prompt, "5-Forces")
-#     parsed = _safe_json(raw if isinstance(raw,str) else json.dumps(raw), "5-Forces")
-#     return normalise_forces(parsed)
-
-def build_forces(prompt: str, *, refresh: bool=False) -> dict:
-    raw = _run(forces_agent, prompt, "5-Forces")
-    assert json.loads(raw)
-    return raw
+from schemas import FiveForcesResult
+def build_forces(prompt: str, *, refresh: bool=False) -> FiveForcesResult:
+    raw_dict = _run(forces_agent, prompt, "5-Forces")
+    return FiveForcesResult.model_validate(raw_dict)
 
 @cached("vrio")
 def build_vrio(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:

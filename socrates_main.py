@@ -168,9 +168,11 @@ def build_background_bundle(
 
     # 2) run (cached) builders
 
-    raw = build_trend_radar(tr_prompt, refresh=needs_refresh("trend_radar"))
-    trend_radar_dict = build_trend_radar(tr_prompt, refresh=needs_refresh("trend_radar"))
-    pest_prompt = f"trend_radar : {trend_radar_dict} Company Profile: {company_profile}\n"
+    trend_radar = build_trend_radar(tr_prompt, refresh=needs_refresh("trend_radar"))
+    pest_prompt = (
+            f"trend_radar : {trend_radar.model_dump(mode='json')} "
+            f"Company Profile: {company_profile}\n"
+    )
     pest_dict = build_pest(pest_prompt, refresh=needs_refresh("pest"))
 
     background_dict = build_background(bg_prompt, refresh=needs_refresh("background"))
@@ -187,7 +189,7 @@ def build_background_bundle(
             }
             for t in c["top_trends"]
         ]
-        for c in trend_radar_dict["trend_clusters"]
+        for c in trend_radar.trend_clusters
     }
     radar_path = save_trend_radar_png(cats, company_name)
 
@@ -195,7 +197,7 @@ def build_background_bundle(
     background_bundle = {
         "company_overview": company_profile.get("overview", ""),
         "company_profile": company_profile,
-        "trend_radar": trend_radar_dict,
+        "trend_radar": trend_radar.model_dump(mode='json'),
         "pest": pest_dict,
         "finance": finance_dict,
         "frameworks_chosen": [],
