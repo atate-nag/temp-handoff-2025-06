@@ -6,6 +6,7 @@ from utils.token_tools import as_token_limited_json
 forces_agent = Agent(
     name="ForcesAnalyst",
     model="o3",
+    output_type=FiveForcesResult,
     instructions=r"""
 ╭─────────────────────────  BOARD-LEVEL MINDSET  ─────────────────────────╮
 You are briefing the client's board on a Porter’s Five Forces for the 

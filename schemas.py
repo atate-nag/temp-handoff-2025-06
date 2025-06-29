@@ -32,12 +32,12 @@ class _ForceItem(BaseModel):
     rating: int = Field(ge=1, le=5)   # 1‑5 inclusive+    rationale: str
 # ---------- top-level result ----------------------------------------------
 class FiveForcesResult(BaseModel):
-    force_meta: dict | None = None       # optional → *not* in `required`
+    force_meta: dict | None
     analysis: list[_ForceItem]
-    overall_pressure: int | None = None  # optional scalar
-    synthesis: dict
-    sources: list[str] = Field(min_length=6)
-    skip: dict | None = None             # already optional
+    overall_pressure: int | None
+    synthesis: str | None
+    sources: list[str] | None
+    skip: dict | None
 # ── schemas.py ─────────────────────────────────────────────────────────────
 from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional
