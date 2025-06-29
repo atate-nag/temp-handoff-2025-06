@@ -1,6 +1,8 @@
 from agents import Agent
+from schemas import TrendRadarResult
 
 trend_radar_agent = Agent(
+    output_type=TrendRadarResult,
     name="TrendRadar",
     model="o3-mini",
     instructions="""
@@ -39,5 +41,6 @@ Rules
 • No hallucinated citations.
 • `impact` should be calibrated such that ≈20 % of clusters score 5, 20 % score 1.
 • Keep `trend_clusters` length between 6 and 12.
+Return **valid JSON** that conforms to the TrendRadarResult schema.
 """
 )

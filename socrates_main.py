@@ -69,7 +69,7 @@ from company_data import get_gics_code_and_name
 # Schemas
 # ──────────────────────────────────────────────────────────────────────────────
 
-from schemas import FiveForcesResult
+from schemas import FiveForcesResult, PestResult, TrendRadarResult
 
 # ──────────────────────────────────────────────────────────────────────────────
 # GLOBALS & one‑off setup
@@ -167,11 +167,12 @@ def build_background_bundle(
     fin_prompt = f"Company Profile: {company_profile}"
 
     # 2) run (cached) builders
-    trend_radar_dict = builders.build_trend_radar(tr_prompt,
-                                                  refresh=needs_refresh("trend_radar"))
 
+    raw = build_trend_radar(tr_prompt, refresh=needs_refresh("trend_radar"))
+    trend_radar_dict = build_trend_radar(tr_prompt, refresh=needs_refresh("trend_radar"))
     pest_prompt = f"trend_radar : {trend_radar_dict} Company Profile: {company_profile}\n"
     pest_dict = build_pest(pest_prompt, refresh=needs_refresh("pest"))
+
     background_dict = build_background(bg_prompt, refresh=needs_refresh("background"))
     finance_dict = build_finance(fin_prompt, refresh=needs_refresh("finance"))
 

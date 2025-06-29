@@ -32,7 +32,6 @@ from local_agents.company_profile_agent import company_profile_agent
 # ===========
 from local_agents.five_forces_assessor_agent import five_forces_assessor_agent
 from local_agents.generic_assessor_agent import generic_assessor_agent
-from local_agents.forces_agent import validate_forces
 
 # ───────────────────────────────── helpers ──────────────────────────────────
 
@@ -254,7 +253,9 @@ def _to_int_rating(val):
 #     return normalise_forces(parsed)
 
 def build_forces(prompt: str, *, refresh: bool=False) -> dict:
-    return _run(forces_agent, prompt, "5-Forces")
+    raw = _run(forces_agent, prompt, "5-Forces")
+    assert json.loads(raw)
+    return raw
 
 @cached("vrio")
 def build_vrio(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
