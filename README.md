@@ -14,6 +14,24 @@ Agents SDK ≥ 0.4** and typed **Pydantic v2** schemas so that:
 4. Unit-tests lock the contracts so future changes are safe.
 
 ---
+> The code is **not production-grade**; it is a playground for schema-driven
+> agent orchestration, unit-tested JSON validation, and lightning-fast rebuilds
+> via aggressive caching.
+
+---
+
+## Current state
+
+| Area                       | Status | Notes |
+|----------------------------|--------|-------|
+| **Schemas** (`schemas.py`) | ✅     | `FiveForcesResult`, `PestResult`, `TrendRadarResult`, `InitialCruxResult` fully typed & unit-tested. |
+| **Agents** (`local_agents`) | ⚠️     | `forces_agent`, `pest_agent`, `trend_radar_agent`, `initial_crux_agent` migrated to `output_type=`; finance/background still raw → see **PR-4**. |
+| **Builders** (`pipeline/builders.py`) | ✅     | All above agents wrapped with `_run()` → JSON validated → cached. |
+| **Main Orchestration** (`socrates_main.py`) | ⚠️     | End-to-end run works again **except**: <br>• finance & background still return untyped dicts <br>• downstream report composer untouched. |
+| **Tests** (`tests/`) | ✅     | Green on `pytest -q` (3 schema suites). |
+| **CI / pre-commit** | ❌     | None yet. |
+
+
 
 ## Quick-start
 
