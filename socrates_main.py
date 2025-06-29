@@ -180,19 +180,18 @@ def build_background_bundle(
 
     # 3) draw radar image
     cats = {
-        c["short_name"]: [
+        cl.short_name: [
             {
                 "trend": t,
-                "importance": c["impact"],
+                "importance": cl.impact,
                 "likelihood": 3,
-                "readiness": 8 if c["direction"] == "opportunity" else 5,
+                "readiness": 8 if cl.direction == "opportunity" else 5,
             }
-            for t in c["top_trends"]
+            for t in cl.top_trends
         ]
-        for c in trend_radar.trend_clusters
+        for cl in trend_radar.trend_clusters
     }
     radar_path = save_trend_radar_png(cats, company_name)
-
     # 4) assemble bundle
     background_bundle = {
         "company_overview": company_profile.get("overview", ""),
