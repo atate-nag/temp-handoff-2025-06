@@ -133,7 +133,7 @@ def needs_refresh(tag: str) -> bool:
     # global REFRESH_CACHE retains the old “force everything” switch
     return REFRESH_CACHE or tag in REFRESH_ONLY
 
-REFRESH_CACHE = True  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
+REFRESH_CACHE = False  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
 def fix_citations(md:str)->str:
@@ -191,13 +191,15 @@ def build_background_bundle(
         ]
         for cl in trend_radar.trend_clusters
     }
+    print(json.dumps(cats, indent=2)[:800]) #sanity check of categories
+
     radar_path = save_trend_radar_png(cats, company_name)
     # 4) assemble bundle
     background_bundle = {
         "company_overview": company_profile.get("overview", ""),
         "company_profile": company_profile,
         "trend_radar": trend_radar.model_dump(mode='json'),
-        "pest": pest_dict,
+        "pest": pest_dict.model_dump(mode='json'),
         "finance": finance_dict,
         "frameworks_chosen": [],
         "frameworks_rationale_md": "",
@@ -344,7 +346,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         # analyses["forces"] = _index_forces(out)
         # print("Porter’s Five Forces analysis:", analyses["forces"])
 
-        result: FiveForcesResult = build_forces(forces_prompt, refresh=...)
+        result = build_forces(forces_prompt, refresh=needs_refresh("forces"))
         logger.debug("Parsed FiveForcesResult: %s", result.json(indent=2))
         analyses["forces"] = result
         print("Porter’s Five Forces analysis:", analyses["forces"])

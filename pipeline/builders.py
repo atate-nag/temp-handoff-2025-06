@@ -19,6 +19,7 @@ from local_agents.forces_agent         import forces_agent
 from local_agents.VRIO_agent           import vrio_agent
 from local_agents.blue_ocean_agent     import blue_ocean_agent
 from local_agents.bcg_matrix_agent     import bcg_matrix_agent
+from local_agents.initial_crux_agent import initial_crux_agent
 from local_agents.value_chain_agent    import value_chain_agent
 from local_agents.seven_s_agent        import seven_s_agent
 from local_agents.ansoff_agent         import ansoff_agent
@@ -32,6 +33,7 @@ from local_agents.company_profile_agent import company_profile_agent
 # ===========
 from local_agents.five_forces_assessor_agent import five_forces_assessor_agent
 from local_agents.generic_assessor_agent import generic_assessor_agent
+from pathlib import Path
 
 # ───────────────────────────────── helpers ──────────────────────────────────
 
@@ -107,6 +109,7 @@ def _run(agent, prompt: str, label: str, rounds: int = 1):
         initial_prompt=prompt,
         label=label,
         max_rounds=rounds,
+        response_format = {"type": "json_object"}
     )
 
     # ── SPECIAL-CASE: Five Forces needs pre-normalisation ────────────
@@ -129,19 +132,26 @@ from schemas import TrendRadarResult
 @cached("trend_radar")
 def build_trend_radar(prompt: str, *, refresh: bool = False) -> TrendRadarResult:
     res_dict = _run(trend_radar_agent, prompt, "Trend Radar")
-    return TrendRadarResult.model_validate(res_dict)
+    trend_radar = TrendRadarResult.model_validate(res_dict)
+    (Path(".debug") / "trend_radar.json").write_text(trend_radar.model_dump_json(indent=2))
+    return trend_radar
 
 from schemas import PestResult
 @cached("pest")
 def build_pest(prompt: str, *, refresh: bool = False) -> PestResult:
     res_dict = _run(pest_agent, prompt, "PEST")
-    return PestResult.model_validate(res_dict)
+    pest =  PestResult.model_validate(res_dict)
+    (Path(".debug") / "pest.json").write_text(pest.model_dump_json(indent=2))
+    return pest
+
 
 from schemas import InitialCruxResult
 @cached("mini-crux")
 def build_mini_crux(prompt: str, *, refresh: bool = False) -> InitialCruxResult:
-    min_crux_dict =_run(pest_agent, prompt, "Mini Crux")
-    return InitialCruxResult.model_validate(min_crux_dict)
+    mini_crux_dict =_run(initial_crux_agent, prompt, "Mini Crux")
+    mini_crux = InitialCruxResult.model_validate(mini_crux_dict)
+    (Path(".debug") / "mini-crux.json").write_text(mini_crux.model_dump_json(indent=2))
+    return mini_crux
 
 @cached("framework-selector")
 def build_framework_selector(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
@@ -204,9 +214,29 @@ def _to_int_rating(val):
 
 
 from schemas import FiveForcesResult
-def build_forces(prompt: str, *, refresh: bool=False) -> FiveForcesResult:
-    raw_dict = _run(forces_agent, prompt, "5-Forces")
-    return FiveForcesResult.model_validate(raw_dict)
+def build_forces(prompt: str | dict, *, refresh: bool = False) -> FiveForcesResult:
+    """
+    • Accept either a ready-made string *or* a dict/object.
+    • Always send a string to the LLM.
+    • Return a validated FiveForcesResult model.
+    """
+    # 🔑 1) Coerce to string for the chat API
+    if not isinstance(prompt, str):
+        import json
+        prompt = json.dumps(prompt, indent=2, ensure_ascii=False)
+
+    raw = _run(forces_agent, prompt, "5-Forces")          # still returns dict
+    forces = FiveForcesResult.model_validate(raw)         # enforce schema
+
+    # dev-dump (optional)
+    from pathlib import Path
+    Path(".debug").mkdir(exist_ok=True)
+    (Path(".debug") / "forces.json").write_text(
+        forces.model_dump_json(indent=2)
+    )
+    return forces
+
+
 
 @cached("vrio")
 def build_vrio(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:

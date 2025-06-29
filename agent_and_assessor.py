@@ -64,7 +64,8 @@ async def single_agent_assessor_loop(
     assessor_agent: Optional[Agent],
     initial_prompt: str,
     label: str,
-    max_rounds: int = 3
+    max_rounds: int = 3,
+    **run_kwargs,
 ) -> str:
     current_prompt = initial_prompt
     final_output = ""
@@ -73,8 +74,9 @@ async def single_agent_assessor_loop(
         # 1) Generate
         gen_result = await Runner.run(
             generator_agent,
-            input=[{"role": "user", "content": current_prompt}]
-        )
+            input = [{"role": "user", "content": current_prompt}],
+            ** run_kwargs,
+            )
         final_output = ItemHelpers.text_message_outputs(gen_result.new_items)
         print(f"[{label}] Round {round_num} - Generator output:\n{final_output}")
 
@@ -86,7 +88,8 @@ async def single_agent_assessor_loop(
         )
         verifier_result = await Runner.run(
             verifier_agent,
-            input=[{"role": "user", "content": verify_input}]
+            input=[{"role": "user", "content": verify_input}],
+            ** run_kwargs,
         )
         raw_vfb = ItemHelpers.text_message_outputs(verifier_result.new_items)
         try:
@@ -113,7 +116,8 @@ async def single_agent_assessor_loop(
         )
         assessor_result = await Runner.run(
             assessor_agent,
-            input=[{"role": "user", "content": assess_input}]
+            input=[{"role": "user", "content": assess_input}],
+            **run_kwargs,
         )
         afb = _coerce_to_eval(assessor_result.final_output)
         print(f"[{label}] Round {round_num} - Assessor score: {afb.score}")
@@ -133,7 +137,8 @@ async def single_agent_verify_assess_loop(
     assessor_agent: Optional[Agent],
     initial_prompt: str,
     label: str,
-    max_rounds: int = 3
+    max_rounds: int = 3,
+    **run_kwargs,
 ) -> str:
     current_prompt = initial_prompt
     final_output = ""
@@ -182,7 +187,8 @@ def run_single_workflow_with_verifier(
     assessor_agent: Optional[Agent],  # ←
     initial_prompt: str,
     label: str = "Sync Workflow",
-    max_rounds: int = 3
+    max_rounds: int = 3,
+    **run_kwargs,
 ) -> str:
     return asyncio.run(
         single_agent_verify_assess_loop(
@@ -192,6 +198,7 @@ def run_single_workflow_with_verifier(
             initial_prompt=initial_prompt,
             label=label,
             max_rounds=max_rounds,
+            **run_kwargs,
         )
     )
 

@@ -6,10 +6,10 @@ from utils.token_tools import as_token_limited_json
 forces_agent = Agent(
     name="ForcesAnalyst",
     model="o3",
-    output_type=FiveForcesResult,
     instructions=r"""
 ╭─────────────────────────  BOARD-LEVEL MINDSET  ─────────────────────────╮
-You are briefing Citigroup’s board on Porter’s Five Forces.  
+You are briefing the client's board on a Porter’s Five Forces for the 
+client's business. There is no rehearsal.
 Be numerate, cite sources, and flag the single most-salient force.        
 ╰──────────────────────────────────────────────────────────────────────────╯
 
@@ -33,6 +33,10 @@ RATING GUIDE
 If the crux is *internal only* return:
 
 {"skip":{"reason":"assumption_mismatch: crux not about external competition"}}
+⛔️ MUST include the following JSON keys:
+• "synthesis" – 2‑3 sentence narrative that integrates all five forces.
+• "sources" – array of ≥6 parenthetical citations used in evidence.
+Return ONLY valid JSON matching the schema.
 Return **valid JSON** that conforms to the FiveForcesResult schema.
 """
 )
