@@ -66,6 +66,12 @@ from local_agents.ansoff_agent import ansoff_agent
 from company_data import get_gics_code_and_name
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Schemas
+# ──────────────────────────────────────────────────────────────────────────────
+
+from schemas import FiveForcesResult
+
+# ──────────────────────────────────────────────────────────────────────────────
 # GLOBALS & one‑off setup
 # ──────────────────────────────────────────────────────────────────────────────
 load_dotenv()
@@ -100,6 +106,7 @@ for _ag in o3_agents:
 forces_agent.model = "o3"
 
 
+
 # logging ---------------------------------------------------------------------
 if "socrates_main" not in logging.root.manager.loggerDict:
     logging.config.fileConfig(
@@ -126,7 +133,7 @@ def needs_refresh(tag: str) -> bool:
     # global REFRESH_CACHE retains the old “force everything” switch
     return REFRESH_CACHE or tag in REFRESH_ONLY
 
-REFRESH_CACHE = False  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
+REFRESH_CACHE = True  # os.getenv("REFRESH_CACHE", "0") == "1"  # 1 - builders will run, 0 - use cached results
 def _cache_path(company: str, tag: str) -> Path:
     return CACHE_DIR / f"{company.replace(' ', '_')}_{tag}.pkl"
 def fix_citations(md:str)->str:
@@ -297,12 +304,9 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_chosen": chosen_fw,
         "frameworks_rationale_md": rationale_md,
     })
-    # Hack - hard force the 5 forces to be used
-
-    if "forces" not in background_dict["frameworks_chosen"]:
-        background_dict["frameworks_chosen"].insert(0, "forces")
-
-    logger.info("Frameworks chosen: %s", background_dict["frameworks_chosen"])
+    background_dict["frameworks_chosen"] = ["forces"] + [
+        fw for fw in background_dict["frameworks_chosen"] if fw != "forces"
+    ]
 
     spec_prompt = (
         f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n"
@@ -318,13 +322,31 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         idx["synthesis"] = forces_json.get("synthesis", {})
         return idx
 
+    def safe_build_forces(prompt: str) -> dict:
+        result = build_forces(prompt, refresh=needs_refresh("forces"))
+        if result.get("error") == "insufficient_data":
+            logger.warning("5-Forces agent said insufficient_data – retrying with shorter prompt")
+            short_prompt = as_token_limited_json(prompt, 5_000)  # 5 k tokens is always safe
+            result = build_forces(short_prompt, refresh=True)
+        return result
+
     analyses: Dict[str, Any] = {}
     if "forces" in specialist_agents:
-        out = build_forces(forces_prompt, refresh=True)
-        print("Porter’s Five Forces output:", out)
-        analyses["forces_raw"] = out
-        analyses["forces"] = _index_forces(out)
+        # out = build_forces(forces_prompt, refresh=True)
+        # out = safe_build_forces(forces_prompt)
+        # if out.get("error"):
+        #     out = {"analysis": [], "sources": [], "synthesis": {
+        #         "headline": "*Porter analysis unavailable due to data limits*"}}
+        # print("Porter’s Five Forces output:", out)
+        # analyses["forces_raw"] = out
+        # analyses["forces"] = _index_forces(out)
+        # print("Porter’s Five Forces analysis:", analyses["forces"])
+
+        result: FiveForcesResult = build_forces(forces_prompt, refresh=...)
+        logger.debug("Parsed FiveForcesResult: %s", result.json(indent=2))
+        analyses["forces"] = result
         print("Porter’s Five Forces analysis:", analyses["forces"])
+
     if "vrio" in specialist_agents:
         analyses["vrio"] = build_vrio(spec_prompt, refresh=needs_refresh("vrio"))
         print("VRIO analysis:", analyses["vrio"])
@@ -379,38 +401,6 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     }
 
     report_bundle["5-Forces"] = analyses.get("forces", {})
-
-    # framework_md = ""
-    # for fw in frameworks:  # frameworks = list like ["forces","pest"]
-    #     sec = report_bundle["analyses"].get(fw, {})
-    #     if not sec:
-    #         framework_md += f"## {fw.title()} – *Data unavailable*\n"
-    #     else:
-    #         if fw == "forces":
-    #             # inside run_strategy after you’ve loaded forces_json
-    #             forces = analyses["forces"]  # new nested structure
-    #             key_map = {
-    #                 "threat_of_entry": "Threat of new entrants",
-    #                 "supplier_power": "Supplier power",
-    #                 "buyer_power": "Buyer power",
-    #                 "threat_of_substitutes": "Threat of substitutes",
-    #                 "rivalry": "Rivalry",
-    #             }
-    #             bullets = []
-    #             for k, label in key_map.items():
-    #                 if k not in forces:
-    #                     continue
-    #                 meta = forces[k]  # now a dict
-    #                 bullets.append(
-    #                     f"- **{label} – {str(meta['rating']).title()}**: "
-    #                     f"{meta['drivers'][0] if meta.get('drivers') else ''}"
-    #                 )
-    #             framework_md = "\n".join(bullets)
-    #         elif fw == "pest":
-    #             framework_md += "## PEST Highlights\n" + sec.get("pest_summary_md", "*Data unavailable*") + "\n"
-    #         else:
-    #             framework_md += f"## {fw.upper()} Summary\n{sec.get('summary', '*Data unavailable*')}\n"
-
     challenge_tbl = report_bundle["challenge_map"].get("table_md", "*Data unavailable*")
 
     # --- 8.a · framework blocks -------------------------------------------------
@@ -422,7 +412,6 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     # ---- 2.a · frameworks_sections_md -----------------------------------------
     sections = []
 
-
     for key in background_dict["frameworks_chosen"]:
         data = analyses.get(key, {})
         if not data:
@@ -430,22 +419,22 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
             continue
 
         if key == "forces":
-            body = forces_to_md(analyses["forces"])  # now passes the indexed dict
+            body = forces_to_md(data)  # <= use the helper once
             sections.append(f"## Porter’s Five Forces\n{body}")
 
         elif key == "pest":
             body = pest_to_md(data.get("pest_bullets", {}))
             sections.append(f"## PEST Highlights\n{body}")
 
-        # add elif blocks for vrio / value_chain / etc. when they come online
+        # elif blocks for future frameworks …
 
+    frameworks_sections_md = "\n\n".join(sections) or "*Data unavailable*"
+    frameworks_sections_md = fix_citations(frameworks_sections_md)
     # ---- 2.b · challenge_table_md ---------------------------------------------
     challenge_list = analyses.get("challenge_map", {}).get("challenges", [])
     challenge_table_md = challenges_to_table(challenge_list)
 
     # ---- 2.c · citation sanity check ------------------------------------------
-    # build the markdown first
-    frameworks_sections_md = "\n\n".join(sections)
 
     # pull Porter citations
     porter_sources = report_bundle.get("5-Forces", {}).get("sources", [])
@@ -491,6 +480,15 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         long_report += f"\n\n![Capability Map]({os.path.basename(cap_path)})\n"
     if radar_path:
         long_report += f"\n\n![Trend‑Radar]({os.path.basename(radar_path)})\n"
+
+    # ── after the LLM has produced `long_report` ───────────────────────────
+    long_report = fix_citations(build_report(report_prompt,
+                                             refresh=needs_refresh("report")))
+
+    # 1.  Add Porter (and any other frameworks) *if* they aren’t already there
+    if "Porter’s Five Forces" not in long_report:
+        long_report = frameworks_sections_md + "\n\n" + long_report
+
 
     md_path = write_markdown(long_report, company_name)
     docx_path = md_to_docx(md_path, company_name)

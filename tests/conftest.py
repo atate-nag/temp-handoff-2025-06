@@ -1,7 +1,5 @@
-import sys
-import os
+# tests/conftest.py
+import sys, os, pathlib
 
-# Add the project root directory to the sys.path
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "socrates"))
-)
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
