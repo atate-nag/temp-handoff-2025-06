@@ -21,10 +21,7 @@ BASE_PAYLOAD = {
         "threat_of_substitutes", "rivalry"
     ]],
     "overall_pressure": 3,
-    "synthesis": {
-        "most_salient_force": "rivalry",
-        "headline": "Test headline"
-    },
+    "synthesis": "Rivalry among large global banks is intensifying, squeezing Citi’s margins.",
     "sources": [f"(Source{i}, 2024)" for i in range(6)],
     "skip": None
 }

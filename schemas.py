@@ -36,7 +36,7 @@ class FiveForcesResult(BaseModel):
     analysis: list[_ForceItem]
     overall_pressure: int | None
     synthesis: str | None
-    sources: list[str] | None
+    sources: list[str] = Field(min_length=6)
     skip: dict | None
 # ── schemas.py ─────────────────────────────────────────────────────────────
 from pydantic import BaseModel, Field, model_validator

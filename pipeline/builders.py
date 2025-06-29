@@ -109,7 +109,6 @@ def _run(agent, prompt: str, label: str, rounds: int = 1):
         initial_prompt=prompt,
         label=label,
         max_rounds=rounds,
-        response_format = {"type": "json_object"}
     )
 
     # ── SPECIAL-CASE: Five Forces needs pre-normalisation ────────────
@@ -150,7 +149,7 @@ from schemas import InitialCruxResult
 def build_mini_crux(prompt: str, *, refresh: bool = False) -> InitialCruxResult:
     mini_crux_dict =_run(initial_crux_agent, prompt, "Mini Crux")
     mini_crux = InitialCruxResult.model_validate(mini_crux_dict)
-    (Path(".debug") / "mini-crux.json").write_text(mini_crux.model_dump_json(indent=2))
+    (Path(".debug") / "mini_crux.json").write_text(mini_crux.model_dump_json(indent=2))
     return mini_crux
 
 @cached("framework-selector")
