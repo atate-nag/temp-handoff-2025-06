@@ -33,6 +33,7 @@ RATING GUIDE
 If the crux is *internal only* return:
 
 {"skip":{"reason":"assumption_mismatch: crux not about external competition"}}
+Return **valid JSON** that conforms to the FiveForcesResult schema.
 """
 )
 

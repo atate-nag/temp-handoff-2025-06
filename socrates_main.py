@@ -256,13 +256,13 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     # ── 3.  MINI‑CRUX --------------------------------------------------------
     pre_prompt = f"Background: {json.dumps(background_dict)}"
     f"Company Profile: {json.dumps(company_profile)}\n"
-    mini_crux_dict = build_mini_crux(pre_prompt, refresh=needs_refresh("mini_crux"))
+    mini_crux = build_mini_crux(pre_prompt, refresh=needs_refresh("mini_crux"))
     pre_prompt = f"Background: {json.dumps(background_dict)}"
-    logger.info("Initial Crux JSON: %s", mini_crux_dict)
+    logger.info("Initial Crux JSON: %s", mini_crux.model_dump(mode='json'))
 
     # ── 4.  Framework selector ----------------------------------------------
     sel_prompt = (
-        f"Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n "
+        f"Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\n "
         f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
     )
     selector_raw = build_framework_selector(sel_prompt, refresh=needs_refresh("framework_selector"))
@@ -312,12 +312,12 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     ]
 
     spec_prompt = (
-        f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\n"
+        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\n"
         f"Company Profile: {json.dumps(company_profile, indent=2)}\n"
         f"Run analysis for {company_name}"
     )
 
-    forces_prompt = generate_forces_prompt(company_profile, background_dict, mini_crux_dict, BG_TOKENS)
+    forces_prompt = generate_forces_prompt(company_profile, background_dict, mini_crux.model_dump(mode='json'), BG_TOKENS)
 
     def _index_forces(forces_json: Dict[str, Any]) -> Dict[str, Any]:
         """Turn the list under ['analysis'] into a dict keyed by force name."""
@@ -379,14 +379,14 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         print("Bowman’s Clock analysis:", analyses["bowman_clock"])
 
     challenge_prompt = (
-        f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses)}\n"
+        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\nAnalyses: {json.dumps(analyses)}\n"
         f"Trend Radar: {json.dumps(background_dict['trend_radar'])}"
     )
     challenge_dict = build_challenges(challenge_prompt, refresh=needs_refresh("challenges"))
     analyses["challenge_map"] = challenge_dict
 
     synth_prompt = (
-        f"Initial Crux: {as_token_limited_json(mini_crux_dict, BG_TOKENS)}\nAnalyses: {json.dumps(analyses, indent=2)}"
+        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\nAnalyses: {json.dumps(analyses, indent=2)}"
     )
     synth_dict = build_synth(synth_prompt, refresh=needs_refresh("synth"))
     analyses["synthesized_options"] = synth_dict
@@ -395,7 +395,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     report_bundle = {
         "company_overview": background_dict["company_overview"],
         "trend_radar": background_dict["trend_radar"],
-        "crux": as_token_limited_json(mini_crux_dict, BG_TOKENS),
+        "crux": as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS),
         "analyses": analyses,
         "challenge_map": analyses["challenge_map"],
         "synthesized_options": analyses["synthesized_options"],

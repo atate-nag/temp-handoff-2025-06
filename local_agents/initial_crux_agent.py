@@ -1,9 +1,11 @@
 # agents/initial_crux_agent.py
 from agents import Agent, Runner      # same base classes you already use
+from schemas import InitialCruxResult
 
 initial_crux_agent = Agent(
+    output_type = InitialCruxResult,
     name="Initial crux agent",
-    model="o3",                  # keep consistent with your other agents
+    model="o3",
     instructions="""
 You are providing support for a production workflow in a strategy consultancy.
 This is **not** a simulation.

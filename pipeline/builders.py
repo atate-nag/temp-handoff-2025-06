@@ -128,27 +128,8 @@ def build_background(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
 from schemas import TrendRadarResult
 @cached("trend_radar")
 def build_trend_radar(prompt: str, *, refresh: bool = False) -> TrendRadarResult:
-    """Call agent ➜ verify ➜ return typed object."""
     res_dict = _run(trend_radar_agent, prompt, "Trend Radar")
-    res = TrendRadarResult.model_validate(res_dict)
-    # ── new “silent placeholder” guard ────────────────────────────────
-    import os
-    from pathlib import Path
-
-    # 1️⃣ get or create a path
-    path = res.get("png_path")
-    if not path:
-        # deterministic fallback name (company slug or hash is fine too)
-        path = "Strategic Reports/placeholder_trend_radar.png"
-        res["png_path"] = path
-
-    # 2️⃣ if the file does NOT exist, make a 1×1 transparent PNG
-    if not os.path.exists(path):
-        from PIL import Image          # pillow is already in the venv
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        Image.new("RGBA", (1, 1), (255, 255, 255, 0)).save(path)
-
-    return res
+    return TrendRadarResult.model_validate(res_dict)
 
 from schemas import PestResult
 @cached("pest")
@@ -156,9 +137,11 @@ def build_pest(prompt: str, *, refresh: bool = False) -> PestResult:
     res_dict = _run(pest_agent, prompt, "PEST")
     return PestResult.model_validate(res_dict)
 
+from schemas import InitialCruxResult
 @cached("mini-crux")
-def build_mini_crux(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:
-    return _run(pest_agent, prompt, "Mini Crux")
+def build_mini_crux(prompt: str, *, refresh: bool = False) -> InitialCruxResult:
+    min_crux_dict =_run(pest_agent, prompt, "Mini Crux")
+    return InitialCruxResult.model_validate(min_crux_dict)
 
 @cached("framework-selector")
 def build_framework_selector(prompt: str, *, refresh: bool = False) -> Dict[str, Any]:

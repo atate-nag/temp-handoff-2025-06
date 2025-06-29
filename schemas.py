@@ -1,4 +1,5 @@
 # socrates/schemas.py
+from __future__ import annotations
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 
@@ -96,3 +97,47 @@ class TrendRadarResult(BaseModel):
     sources: Optional[List[str]] = Field(
         None, description="Optional flat list of unique citations")
     error: Optional[str] = None
+
+from typing import List, Optional
+from pydantic import BaseModel, Field, constr, field_validator
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helper: the nested Internal / External bullets
+# ──────────────────────────────────────────────────────────────────────────────
+class _InVsEx(BaseModel):
+    """Two short bullet lists that locate the crux’s drivers."""
+    internal: List[str] = Field(..., min_length=1, max_length=5)
+    external: List[str] = Field(..., min_length=1, max_length=5)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Main result object returned by `initial_crux_agent`
+# ──────────────────────────────────────────────────────────────────────────────
+class InitialCruxResult(BaseModel):
+    """
+    A single, board-level statement of the company’s strategic crux,
+    with tightly-sourced support and a split of internal vs external factors.
+    """
+    crux: constr(min_length=1, max_length=600)  # ≈ 75 words
+    evidence: List[str] = Field(
+        ...,
+        min_length=2,
+        description="APA-style citations e.g. '(BIS, 2024)'"
+    )
+    why_it_matters: constr(min_length=1, max_length=400)  # ≈ 50 words max
+    internal_vs_external: _InVsEx
+    error: Optional[str] = Field(
+        default=None,
+        description='Present *only* when the agent could not find sufficient evidence'
+    )
+
+    # ── quick sanity-check: every evidence item looks like "(Source, 2024)"
+    @field_validator("evidence")
+    @classmethod
+    def _validate_citation_format(cls, v: List[str]) -> List[str]:
+        import re
+        apa = re.compile(r"\([^)]+,\s?\d{4}\)")
+        if any(not apa.fullmatch(item.strip()) for item in v):
+            raise ValueError("All evidence items must match '(Source, YYYY)'")
+        return v
