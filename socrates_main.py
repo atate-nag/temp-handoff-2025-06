@@ -336,20 +336,10 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     analyses: Dict[str, Any] = {}
     if "forces" in specialist_agents:
-        # out = build_forces(forces_prompt, refresh=True)
-        # out = safe_build_forces(forces_prompt)
-        # if out.get("error"):
-        #     out = {"analysis": [], "sources": [], "synthesis": {
-        #         "headline": "*Porter analysis unavailable due to data limits*"}}
-        # print("Porter’s Five Forces output:", out)
-        # analyses["forces_raw"] = out
-        # analyses["forces"] = _index_forces(out)
-        # print("Porter’s Five Forces analysis:", analyses["forces"])
-
         result = build_forces(forces_prompt, refresh=needs_refresh("forces"))
-        logger.debug("Parsed FiveForcesResult: %s", result.json(indent=2))
+        logger.debug("Parsed FiveForcesResult: %s", result.model_dump(mode="json"))
         analyses["forces"] = result
-        print("Porter’s Five Forces analysis:", analyses["forces"])
+        print("Porter’s Five Forces analysis:", analyses["forces"].model_dump(mode="json"))
 
     if "vrio" in specialist_agents:
         analyses["vrio"] = build_vrio(spec_prompt, refresh=needs_refresh("vrio"))
@@ -379,15 +369,21 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         analyses["bowman_clock"] = build_bowman(spec_prompt, refresh=needs_refresh("bowman"))
         print("Bowman’s Clock analysis:", analyses["bowman_clock"])
 
+    serialisable_analyses = [
+        a.model_dump(mode="json") if hasattr(a, "model_dump") else a
+        for a in analyses
+    ]
     challenge_prompt = (
-        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\nAnalyses: {json.dumps(analyses)}\n"
+        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\n"
+        f"Analyses: {json.dumps(serialisable_analyses)}\n"
         f"Trend Radar: {json.dumps(background_dict['trend_radar'])}"
-    )
+        )
+
     challenge_dict = build_challenges(challenge_prompt, refresh=needs_refresh("challenges"))
     analyses["challenge_map"] = challenge_dict
 
     synth_prompt = (
-        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\nAnalyses: {json.dumps(analyses, indent=2)}"
+        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\nAnalyses: {json.dumps(serialisable_analyses, indent=2)}"
     )
     synth_dict = build_synth(synth_prompt, refresh=needs_refresh("synth"))
     analyses["synthesized_options"] = synth_dict
@@ -441,9 +437,14 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     # ---- 2.c · citation sanity check ------------------------------------------
 
     # pull Porter citations
-    porter_sources = report_bundle.get("5-Forces", {}).get("sources", [])
-
-    # optional: add them to the human-readable markdown
+    forces_entry = report_bundle.get("5-Forces")
+    if forces_entry is None:
+        porter_sources: list[str] = []
+    elif hasattr(forces_entry, "model_dump"):
+        porter_sources = (forces_entry.sources or [])
+    else:
+        porter_sources = forces_entry.get("sources", [])
+    # add them to the human-readable markdown
     refs_md = "## Sources\n" + " ".join(porter_sources)
     frameworks_sections_md += "\n\n" + refs_md
 
