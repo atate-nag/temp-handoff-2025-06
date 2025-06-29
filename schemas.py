@@ -22,15 +22,22 @@ class Synthesis(BaseModel):
     most_salient_force: str
     headline: str
 
+# --------------------------------------------------------------------------
+# Five‑Forces sub‑model (NEW)
+# --------------------------------------------------------------------------
+
+class _ForceItem(BaseModel):
+    """One competitive force analysis row."""
+    force: str
+    rating: int = Field(ge=1, le=5)   # 1‑5 inclusive+    rationale: str
 # ---------- top-level result ----------------------------------------------
 class FiveForcesResult(BaseModel):
-    force_meta: dict
-    analysis: List[Force]
-    overall_pressure: Optional[int]
-    synthesis: Synthesis
-    sources: List[str] = Field(min_length=6)
-    skip: Optional[dict] = None
-# ── schemas.py ────────────────────────────────────────────────────────────────
+    force_meta: dict | None = None       # optional → *not* in `required`
+    analysis: list[_ForceItem]
+    overall_pressure: int | None = None  # optional scalar
+    synthesis: dict
+    sources: list[str] = Field(min_length=6)
+    skip: dict | None = None             # already optional
 # ── schemas.py ─────────────────────────────────────────────────────────────
 from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional
