@@ -7,9 +7,12 @@ class Runner:
     @staticmethod
     async def run(agent, input=None, **kwargs):
         class _Res:
-            new_items = input or []
+            def __init__(self, items):
+                self.new_items = items or []
+                self.final_output = items or []
 
-        return _Res()
+        return _Res(input)
+
 
 
 class ItemHelpers:
