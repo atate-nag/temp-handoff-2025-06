@@ -212,20 +212,20 @@ def _to_int_rating(val):
     raise ValueError(f"Unrecognised rating: {val!r}")
 
 
-from schemas import FiveForcesResult
+from schemas import FiveForcesResult, Artifact, ArtifactKind
 
 @cached("forces")
-def build_forces(prompt: str, *, refresh: bool = False) -> FiveForcesResult:
-    """
-+    Strict interface: takes a **string prompt only** and returns a fully
-+    validated `FiveForcesResult` object.  Callers must handle any other
-+    prompt formats before invoking this function.
-+    """
-    if not isinstance(prompt, str):
-        raise TypeError("build_forces() now expects `prompt` to be a str")
+def build_forces(prompt: str, *, refresh=False) -> Artifact:
+    raw = _run(forces_agent, prompt, "5‑Forces")
+    model = FiveForcesResult.model_validate(raw)
 
-    raw = _run(forces_agent, prompt, "5-Forces")
-    return FiveForcesResult.model_validate(raw)
+    return Artifact(
+        id="5-forces",
+        kind=ArtifactKind.ANALYSIS,
+        payload=model.model_dump(mode="json"),
+        sources=model.sources or [],
+        tags=["porter", "competitive_dynamics"],
+    )
 
 
 @cached("vrio")

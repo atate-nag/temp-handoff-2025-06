@@ -42,20 +42,40 @@ class FiveForcesResult(BaseModel):
 from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional
 # schemas.py
-class StrategySection(BaseModel):
-    name: str
-    payload: dict
-    sources: list[str]
+from typing import Any
+from pydantic import BaseModel, Field
+from datetime import datetime
+from enum import Enum
 
-class StrategyBundle(BaseModel):
-    company: str
-    sections: list[StrategySection]
+
+class ArtifactKind(str, Enum):
+    ANALYSIS = "analysis"          # e.g. 5‑Forces, PEST, Trend Radar
+    DATASET  = "dataset"           # e.g. raw table, CSV, graph
+    TEXT     = "text"              # free‑form markdown, executive summary
+    OTHER    = "other"
+
+
+class Artifact(BaseModel):
+    id: str                        # short slug, e.g. "5-forces"
+    kind: ArtifactKind
+    payload: dict                  # always JSON‑serialisable
+    sources: list[str] = Field(default_factory=list)
+    tags: list[str]   = Field(default_factory=list)
+    meta: dict[str, Any] = Field(  # size, model name, whatever
+        default_factory=lambda: {"created": datetime.utcnow().isoformat()}
+    )
+
+class ArtifactCollection(BaseModel):
+    artifacts: list[Artifact]
+
+    @property
+    def lookup(self) -> dict[str, Artifact]:
+        """Quick dict access by id."""
+        return {a.id: a for a in self.artifacts}
 
     @property
     def all_sources(self) -> list[str]:
-        s = {src for sec in self.sections for src in sec.sources}
-        return sorted(s)
-
+        return sorted({src for a in self.artifacts for src in a.sources})
 
 class _PestCategory(BaseModel):
     bullets: List[str] = Field(
