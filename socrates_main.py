@@ -71,6 +71,27 @@ from company_data import get_gics_code_and_name
 
 from schemas import FiveForcesResult, PestResult, TrendRadarResult
 
+# --- TEMPORARY BRIDGE UNTIL ALL BUILDERS RETURN Artifact -----------------
+from schemas import Artifact, ArtifactKind
+
+def _ensure_artifact(id_: str, kind: ArtifactKind, obj) -> Artifact:
+    """
+    Convert legacy builder output (dict or Pydantic model) into an Artifact.
+    If `obj` is already an Artifact, return as‑is.
+    """
+    if isinstance(obj, Artifact):
+        return obj
+
+    # Convert to JSON‑serialisable dict
+    if hasattr(obj, "model_dump"):
+        payload = obj.model_dump(mode="json")
+    else:
+        payload = obj
+
+    sources = payload.get("sources", []) if isinstance(payload, dict) else []
+
+    return Artifact(id=id_, kind=kind, payload=payload, sources=sources)
+
 # ──────────────────────────────────────────────────────────────────────────────
 # GLOBALS & one‑off setup
 # ──────────────────────────────────────────────────────────────────────────────
@@ -318,77 +339,97 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         f"Run analysis for {company_name}"
     )
 
-    forces_prompt = generate_forces_prompt(company_profile, background_dict, mini_crux.model_dump(mode='json'), BG_TOKENS)
+    # ── 6. Build framework‑specific analyses  ────────────────────────────────────
 
-    def _index_forces(forces_json: Dict[str, Any]) -> Dict[str, Any]:
-        """Turn the list under ['analysis'] into a dict keyed by force name."""
-        idx = {item["force"]: item for item in forces_json.get("analysis", [])}
-        idx["synthesis"] = forces_json.get("synthesis", {})
-        return idx
+    forces_prompt = generate_forces_prompt(
+        company_profile,
+        background_dict,
+        mini_crux.model_dump(mode="json"),
+        BG_TOKENS,
+    )
 
-    # def safe_build_forces(prompt: str) -> dict:
-    #     result = build_forces(prompt, refresh=needs_refresh("forces"))
-    #     if result.get("error") == "insufficient_data":
-    #         logger.warning("5-Forces agent said insufficient_data – retrying with shorter prompt")
-    #         short_prompt = as_token_limited_json(prompt, 5_000)  # 5 k tokens is always safe
-    #         result = build_forces(short_prompt, refresh=True)
-    #     return result
+    # Temporary bridge until every builder returns Artifact
+    from schemas import Artifact, ArtifactKind
 
-    analyses: Dict[str, Any] = {}
+    def _ensure_artifact(art_id: str, kind: ArtifactKind, result_obj) -> Artifact:
+        if isinstance(result_obj, Artifact):
+            return result_obj
+        if hasattr(result_obj, "model_dump"):
+            payload = result_obj.model_dump(mode="json")
+        else:
+            payload = result_obj
+        srcs = payload.get("sources", []) if isinstance(payload, dict) else []
+        return Artifact(id=art_id, kind=kind, payload=payload, sources=srcs)
+
+    artifacts: list[Artifact] = []
+
+    # --- Forces (already migrated) ---------------------------------------------
     if "forces" in specialist_agents:
-        result = build_forces(forces_prompt, refresh=needs_refresh("forces"))
-        logger.debug("Parsed FiveForcesResult: %s", result.model_dump(mode="json"))
-        analyses["forces"] = result
-        print("Porter’s Five Forces analysis:", analyses["forces"].model_dump(mode="json"))
+        forces_art = build_forces(forces_prompt, refresh=needs_refresh("forces"))
+        artifacts.append(forces_art)
 
+    # --- Legacy builders still returning dict or Pydantic objects --------------
     if "vrio" in specialist_agents:
-        analyses["vrio"] = build_vrio(spec_prompt, refresh=needs_refresh("vrio"))
-        print("VRIO analysis:", analyses["vrio"])
-    if "blue" in specialist_agents:
-        analyses["blue_ocean"] = build_blue(spec_prompt, refresh=needs_refresh("blue"))
-        print("Blue Ocean analysis:", analyses["blue_ocean"])
-    if "bcg" in specialist_agents:
-        analyses["bcg"] = build_bcg(spec_prompt, refresh=needs_refresh("bcg"))
-        print("BCG Matrix analysis:", analyses["bcg"])
-    if "value" in specialist_agents:
-        analyses["value_chain"] = build_value(spec_prompt, refresh=needs_refresh("value"))
-        print("Value Chain analysis:", analyses["value_chain"])
-    if "7s" in specialist_agents:
-        analyses["seven_s"] = build_7s(spec_prompt, refresh=needs_refresh("7s"))
-        print("7S analysis:", analyses["seven_s"])
-    if "ansoff" in specialist_agents:
-        analyses["ansoff"] = build_ansoff(spec_prompt, refresh=needs_refresh("ansoff"))
-        print("Ansoff Matrix analysis:", analyses["ansoff"])
-    if "gem" in specialist_agents:
-        analyses["gem"] = build_gem(spec_prompt, refresh=needs_refresh("gem"))
-        print("GE/McKinsey Matrix analysis:", analyses["gem"])
-    if "core" in specialist_agents:
-        analyses["core_competence"] = build_core(spec_prompt, refresh=needs_refresh("core_competence"))
-        print("Core Competence analysis:", analyses["core_competence"])
-    if "bowman" in specialist_agents:
-        analyses["bowman_clock"] = build_bowman(spec_prompt, refresh=needs_refresh("bowman"))
-        print("Bowman’s Clock analysis:", analyses["bowman_clock"])
+        vrio_raw = build_vrio(spec_prompt, refresh=needs_refresh("vrio"))
+        artifacts.append(_ensure_artifact("vrio", ArtifactKind.ANALYSIS, vrio_raw))
 
-    serialisable_analyses = [
-        a.model_dump(mode="json") if hasattr(a, "model_dump") else a
-        for a in analyses
-    ]
+    if "blue" in specialist_agents:
+        blue_raw = build_blue(spec_prompt, refresh=needs_refresh("blue"))
+        artifacts.append(_ensure_artifact("blue_ocean", ArtifactKind.ANALYSIS, blue_raw))
+
+    if "bcg" in specialist_agents:
+        bcg_raw = build_bcg(spec_prompt, refresh=needs_refresh("bcg"))
+        artifacts.append(_ensure_artifact("bcg", ArtifactKind.ANALYSIS, bcg_raw))
+
+    if "value" in specialist_agents:
+        value_raw = build_value(spec_prompt, refresh=needs_refresh("value"))
+        artifacts.append(_ensure_artifact("value_chain", ArtifactKind.ANALYSIS, value_raw))
+
+    if "7s" in specialist_agents:
+        seven_raw = build_7s(spec_prompt, refresh=needs_refresh("7s"))
+        artifacts.append(_ensure_artifact("seven_s", ArtifactKind.ANALYSIS, seven_raw))
+
+    if "ansoff" in specialist_agents:
+        ansoff_raw = build_ansoff(spec_prompt, refresh=needs_refresh("ansoff"))
+        artifacts.append(_ensure_artifact("ansoff", ArtifactKind.ANALYSIS, ansoff_raw))
+
+    if "gem" in specialist_agents:
+        gem_raw = build_gem(spec_prompt, refresh=needs_refresh("gem"))
+        artifacts.append(_ensure_artifact("gem", ArtifactKind.ANALYSIS, gem_raw))
+
+    if "core" in specialist_agents:
+        core_raw = build_core(spec_prompt, refresh=needs_refresh("core_competence"))
+        artifacts.append(_ensure_artifact("core_competence", ArtifactKind.ANALYSIS, core_raw))
+
+    if "bowman" in specialist_agents:
+        bowman_raw = build_bowman(spec_prompt, refresh=needs_refresh("bowman"))
+        artifacts.append(_ensure_artifact("bowman_clock", ArtifactKind.ANALYSIS, bowman_raw))
+
+    # ── 7. Derive a shim `analyses` dict from current artifacts (temporary) -----
+    analyses: Dict[str, Any] = {art.id: art.payload for art in artifacts}
+
+    # ── 8. Build Challenges & Synth sections (still legacy) ---------------------
+
+    serialisable_analyses = [a.payload for a in artifacts]
+
     challenge_prompt = (
         f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\n"
         f"Analyses: {json.dumps(serialisable_analyses)}\n"
         f"Trend Radar: {json.dumps(background_dict['trend_radar'])}"
-        )
+    )
 
     challenge_dict = build_challenges(challenge_prompt, refresh=needs_refresh("challenges"))
     analyses["challenge_map"] = challenge_dict
 
     synth_prompt = (
-        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\nAnalyses: {json.dumps(serialisable_analyses, indent=2)}"
+        f"Initial Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\n"
+        f"Analyses: {json.dumps(serialisable_analyses, indent=2)}"
     )
     synth_dict = build_synth(synth_prompt, refresh=needs_refresh("synth"))
     analyses["synthesized_options"] = synth_dict
 
-    # ── 8.  Long‑form report (with Masters‑level assessor) -----------------
+    # keep using `analyses` for the report_bundle and downstream logic unchanged
+# ── 8.  Long‑form report (with Masters‑level assessor) -----------------
     report_bundle = {
         "company_overview": background_dict["company_overview"],
         "trend_radar": background_dict["trend_radar"],
@@ -407,9 +448,6 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     from utils.report_blocks import (
         forces_to_md, pest_to_md, challenges_to_table, grab_citations
     )
-
-
-    # ---- 2.a · frameworks_sections_md -----------------------------------------
     sections = []
 
     for key in background_dict["frameworks_chosen"]:
@@ -486,7 +524,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     if radar_path:
         long_report += f"\n\n![Trend‑Radar]({os.path.basename(radar_path)})\n"
 
-    # ── after the LLM has produced `long_report` ───────────────────────────
+    # ── after the LLM has produced long_report ───────────────────────────
     long_report = fix_citations(build_report(report_prompt,
                                              refresh=needs_refresh("report")))
 
@@ -498,7 +536,6 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     md_path = write_markdown(long_report, company_name)
     docx_path = md_to_docx(md_path, company_name)
     print("\nWord report saved →", docx_path)
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CLI entry‑point
