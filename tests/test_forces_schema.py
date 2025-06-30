@@ -7,6 +7,7 @@ def _dummy_force(name: str):
     return {
         "force": name,
         "rating": 3,
+        "rationale": "Sample rationale",
         "direction": "→ stable",
         "drivers": ["Dummy driver 1 (Source, 2024)",
                     "Dummy driver 2 (Source, 2024)",
