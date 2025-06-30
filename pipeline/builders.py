@@ -213,11 +213,22 @@ def _to_int_rating(val):
 
 
 from schemas import FiveForcesResult, Artifact, ArtifactKind
+from pydantic import ValidationError
+import json
 
 @cached("forces")
 def build_forces(prompt: str, *, refresh=False) -> Artifact:
     raw = _run(forces_agent, prompt, "5‑Forces")
-    model = FiveForcesResult.model_validate(raw)
+    try:
+        model = FiveForcesResult.model_validate(raw)
+    except ValidationError as e:
+        log.error("Forces output invalid: %s", e)
+        stub_path = Path(".debug") / "forces.json"
+        if stub_path.exists():
+            log.warning("Falling back to %s", stub_path)
+            model = FiveForcesResult.model_validate(json.loads(stub_path.read_text()))
+        else:
+            raise
 
     return Artifact(
         id="forces",
