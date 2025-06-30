@@ -82,7 +82,7 @@ def _safe_json(raw: str, label: str):
             return {"error": "invalid_json", "raw": fixed}
 
 ASSESSOR_MAP = {
-    "5-Forces":  five_forces_assessor_agent,
+    "forces":  five_forces_assessor_agent,
     "VRIO":      generic_assessor_agent,
     "Blue-Ocean":generic_assessor_agent,
     "BCG Matrix":generic_assessor_agent,
@@ -112,10 +112,10 @@ def _run(agent, prompt: str, label: str, rounds: int = 1):
     )
 
     # ── SPECIAL-CASE: Five Forces needs pre-normalisation ────────────
-    if label == "5-Forces":
-        parsed = _safe_json(raw.strip("` \n"), label)
-        # normalise BEFORE verifier / assessor results are surfaced
-        return normalise_forces(parsed)
+    # if label == "5-Forces":
+    #     parsed = _safe_json(raw.strip("` \n"), label)
+    #     # normalise BEFORE verifier / assessor results are surfaced
+    #     return normalise_forces(parsed)
 
     return raw if isinstance(raw, dict) else _safe_json(raw, label)
 
@@ -220,7 +220,7 @@ def build_forces(prompt: str, *, refresh=False) -> Artifact:
     model = FiveForcesResult.model_validate(raw)
 
     return Artifact(
-        id="5-forces",
+        id="forces",
         kind=ArtifactKind.ANALYSIS,
         payload=model.model_dump(mode="json"),
         sources=model.sources or [],

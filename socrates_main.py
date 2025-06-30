@@ -366,6 +366,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     # --- Forces (already migrated) ---------------------------------------------
     if "forces" in specialist_agents:
         forces_art = build_forces(forces_prompt, refresh=needs_refresh("forces"))
+        forces_art.id = "forces"
         artifacts.append(forces_art)
 
     # --- Legacy builders still returning dict or Pydantic objects --------------
@@ -441,7 +442,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         "frameworks_rationale_md": background_dict["frameworks_rationale_md"],
     }
 
-    report_bundle["5-Forces"] = analyses.get("forces", {})
+    report_bundle["forces"] = analyses.get("forces", {})
     challenge_tbl = report_bundle["challenge_map"].get("table_md", "*Data unavailable*")
 
     # --- 8.a · framework blocks -------------------------------------------------
@@ -475,7 +476,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     # ---- 2.c · citation sanity check ------------------------------------------
 
     # pull Porter citations
-    forces_entry = report_bundle.get("5-Forces")
+    forces_entry = report_bundle.get("forces")
     if forces_entry is None:
         porter_sources: list[str] = []
     elif hasattr(forces_entry, "model_dump"):
