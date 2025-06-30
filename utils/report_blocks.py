@@ -73,6 +73,3 @@ def grab_citations(text: str) -> Set[str]:
       source token.
     """
     return set(_CITATION_RE.findall(text))
-
-
-print(grab_citations("(BIS, 2024) (S&P_Global_M&A_2024,2024)"))

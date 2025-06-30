@@ -197,7 +197,7 @@ def get_subsections(data, section_name="content"):
     subsections = []
 
     if isinstance(data, dict):
-        print(data.keys())
+        # debug logging removed
         if isinstance(data["content"], dict):
             if section_name in data["content"].keys():
                 subsections.append((data["name"], data["content"][section_name]))
