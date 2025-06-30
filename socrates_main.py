@@ -74,6 +74,23 @@ from schemas import FiveForcesResult, PestResult, TrendRadarResult
 # --- TEMPORARY BRIDGE UNTIL ALL BUILDERS RETURN Artifact -----------------
 from schemas import Artifact, ArtifactKind
 
+# ---------------------------------------------------------------------------
+# Canonical registry of all specialist frameworks
+# ---------------------------------------------------------------------------
+FRAMEWORK_REGISTRY: dict[str, tuple[Agent, Agent]] = {
+    "forces":  (forces_agent, five_forces_assessor_agent),
+    "pest":    (pest_agent,   generic_assessor_agent),
+    "vrio":    (vrio_agent,   generic_assessor_agent),
+    "blue":    (blue_ocean_agent,    generic_assessor_agent),
+    "bcg":     (bcg_matrix_agent,    generic_assessor_agent),
+    "value":   (value_chain_agent,   generic_assessor_agent),
+    "7s":      (seven_s_agent,       generic_assessor_agent),
+    "ansoff":  (ansoff_agent,        generic_assessor_agent),
+    "gem":     (ge_mckinsey_agent,   generic_assessor_agent),
+    "core":    (core_competence_agent, generic_assessor_agent),
+    "bowman":  (bowman_clock_agent,  generic_assessor_agent),
+}
+
 def _ensure_artifact(id_: str, kind: ArtifactKind, obj) -> Artifact:
     """
     Convert legacy builder output (dict or Pydantic model) into an Artifact.
@@ -284,51 +301,35 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     # ── 4.  Framework selector ----------------------------------------------
     sel_prompt = (
-        f"Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\n "
-        f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}\n"
+        f"Crux: {as_token_limited_json(mini_crux.model_dump(mode='json'), BG_TOKENS)}\n"
+        f"Background: {as_token_limited_json(background_dict, BG_TOKENS)}"
     )
-    selector_raw = build_framework_selector(sel_prompt, refresh=needs_refresh("framework_selector"))
+    selector_flags = build_framework_selector(sel_prompt, refresh=needs_refresh("framework_selector"))
 
-    # Hack - use Porter’s Five Forces by default
-    selector_raw["use_porter"] = True
-
-    logger.info(f"Framework selector output (raw): {selector_raw}")
-    flags = selector_raw
-    # ── 5.  Map flags → specialist agents -----------------------------------
-    flag_to_agent: Dict[str, Tuple[str, Agent, Agent]] = {
-        "use_porter": ("forces", forces_agent, generic_assessor_agent),
-        "use_pest": ("pest", pest_agent, generic_assessor_agent),
-        "use_vrio": ("vrio", vrio_agent, generic_assessor_agent),
-        "use_blue_ocean": ("blue", blue_ocean_agent, generic_assessor_agent),
-        "use_bcg": ("bcg", bcg_matrix_agent, generic_assessor_agent),
-        "use_value_chain": ("value", value_chain_agent, generic_assessor_agent),
-        "use_seven_s": ("7s", seven_s_agent, generic_assessor_agent),
-        "use_ansoff": ("ansoff", ansoff_agent, generic_assessor_agent),
-        "use_gem": ("gem", ge_mckinsey_agent, generic_assessor_agent),
-        "use_core_comp": ("core", core_competence_agent, generic_assessor_agent),
-        "use_bowman": ("bowman", bowman_clock_agent, generic_assessor_agent),
-    }
-
-    specialist_agents: Dict[str, Tuple[Agent, Agent]] = {}
+    # OPTIONAL hard switch for a quick run
     if FORCES_ONLY:
-        specialist_agents["forces"] = (forces_agent, five_forces_assessor_agent)
+        selected_slugs = ["forces"]
     else:
-        for flag, trip in flag_to_agent.items():
-            if flags.get(flag):
-                key, agent, assessor = trip
-                specialist_agents[key] = (agent, assessor)
+        # keep at least Five‑Forces; add any others the selector flagged True
+        selected_slugs = ["forces"] + [
+            slug for flag, slug in [
+                ("use_pest", "pest"), ("use_vrio", "vrio"), ("use_blue_ocean", "blue"),
+                ("use_bcg", "bcg"), ("use_value_chain", "value"), ("use_seven_s", "7s"),
+                ("use_ansoff", "ansoff"), ("use_gem", "gem"), ("use_core_comp", "core"),
+                ("use_bowman", "bowman")
+            ] if selector_flags.get(flag)
+        ]
 
-    if not specialist_agents:
-        specialist_agents["forces"] = (forces_agent, generic_assessor_agent)
+    background_dict["frameworks_chosen"] = selected_slugs
+    logger.info("→ specialist frameworks selected: %s", selected_slugs)
 
-    print("→ specialist frameworks selected:", list(specialist_agents.keys()))
+    # map slug → (agent, assessor)
+    specialist_agents = {slug: FRAMEWORK_REGISTRY[slug] for slug in selected_slugs}
 
     # keep rationale for the report ----------------------------------------
-    chosen_fw, rationale_md = _extract_framework_rationale(flags)
-    background_dict.update({
-        "frameworks_chosen": chosen_fw,
-        "frameworks_rationale_md": rationale_md,
-    })
+    background_dict["frameworks_rationale_md"] = selector_flags.get(
+        "rationale_md", "*Rationale unavailable*"
+    )
     background_dict["frameworks_chosen"] = ["forces"] + [
         fw for fw in background_dict["frameworks_chosen"] if fw != "forces"
     ]
@@ -451,9 +452,12 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
     )
     sections = []
 
+    print("DEBUG: Frameworks chosen:", background_dict["frameworks_chosen"])
+
     for key in background_dict["frameworks_chosen"]:
         data = analyses.get(key, {})
         if not data:
+            print("DEBUG: No data for framework", key)
             sections.append(f"## {key.title()} – *Data unavailable*")
             continue
 
@@ -464,8 +468,8 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
                 by_force["synthesis"] = data.get("synthesis")
             else:  # already dict (future state)
                 by_force = data
-                body = forces_to_md(by_force)
-                sections.append(f"## Porter’s Five Forces\n{body}")
+            body = forces_to_md(by_force)
+            sections.append(f"## Porter’s Five Forces\n{body}")
         elif key == "pest":
             body = pest_to_md(data.get("pest_bullets", {}))
             sections.append(f"## PEST Highlights\n{body}")

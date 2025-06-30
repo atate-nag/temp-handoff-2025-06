@@ -18,7 +18,7 @@ BASE_PAYLOAD = {
     "force_meta": {"industry_scope": "Test", "time_horizon": "2025-2027"},
     "analysis": [_dummy_force(f) for f in [
         "threat_of_entry", "supplier_power", "buyer_power",
-        "threat_of_substitutes", "rivalry"
+        "threat_of_substitutes", "rivalry",
     ]],
     "overall_pressure": 3,
     "synthesis": "Rivalry among large global banks is intensifying, squeezing Citi’s margins.",

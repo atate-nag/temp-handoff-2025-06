@@ -9,7 +9,7 @@ Input ➜ Initial-Crux JSON  +  Background JSON.
 Return **only valid JSON** with EXACTLY these keys:
 
 {
-  "use_porter":       true|false,
+  "use_forces":       true|false,
   "use_pest":         true|false,
   "use_vrio":         true|false,
   "use_blue_ocean":   true|false,
@@ -22,7 +22,7 @@ Return **only valid JSON** with EXACTLY these keys:
   "use_bowman":       true|false,
 
   "rationale": {      //  NEW  ▶  one short line per framework that is *true*
-    "porter"      : "<≤30 words>",
+    "forces"      : "<≤30 words>",
     "pest"        : "<≤30 words>",
     "vrio"        : "<≤30 words>",
     "blue_ocean"  : "<…>",
