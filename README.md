@@ -43,3 +43,7 @@ pip install -r requirements.txt
 export OPENAI_API_KEY=sk-…
 pytest                        # all unit tests should pass
 python socrates_main.py       # generate a draft report for “Citigroup”
+```
+
+If tests fail due to missing modules (e.g. pydantic), run `pip install -r requirements.txt` again.
+
