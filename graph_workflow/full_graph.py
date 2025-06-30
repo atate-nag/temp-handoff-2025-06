@@ -28,14 +28,19 @@ OPENAI_ENDPOINT = os.getenv("OPENAI_ENDPOINT")
 OPENAI_EMBEDDINGS_URL = os.getenv("OPENAI_EMBEDDINGS_URL")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
-rag_graph = RAG_graph(
-    uri,
-    user,
-    password,
-    database,
-    OPENAI_API_KEY,
-    OPENAI_EMBEDDINGS_URL,
-)
+rag_graph = None
+if uri and user and password:
+    try:
+        rag_graph = RAG_graph(
+            uri,
+            user,
+            password,
+            database,
+            OPENAI_API_KEY,
+            OPENAI_EMBEDDINGS_URL,
+        )
+    except Exception:
+        rag_graph = None
 
 
 def remove_attribute_containing(subgraph, attribute):
