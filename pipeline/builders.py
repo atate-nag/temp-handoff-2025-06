@@ -213,28 +213,19 @@ def _to_int_rating(val):
 
 
 from schemas import FiveForcesResult
-def build_forces(prompt: str | dict, *, refresh: bool = False) -> FiveForcesResult:
+
+@cached("forces")
+def build_forces(prompt: str, *, refresh: bool = False) -> FiveForcesResult:
     """
-    • Accept either a ready-made string *or* a dict/object.
-    • Always send a string to the LLM.
-    • Return a validated FiveForcesResult model.
-    """
-    # 🔑 1) Coerce to string for the chat API
++    Strict interface: takes a **string prompt only** and returns a fully
++    validated `FiveForcesResult` object.  Callers must handle any other
++    prompt formats before invoking this function.
++    """
     if not isinstance(prompt, str):
-        import json
-        prompt = json.dumps(prompt, indent=2, ensure_ascii=False)
+        raise TypeError("build_forces() now expects `prompt` to be a str")
 
-    raw = _run(forces_agent, prompt, "5-Forces")          # still returns dict
-    forces = FiveForcesResult.model_validate(raw)         # enforce schema
-
-    # dev-dump (optional)
-    from pathlib import Path
-    Path(".debug").mkdir(exist_ok=True)
-    (Path(".debug") / "forces.json").write_text(
-        forces.model_dump_json(indent=2)
-    )
-    return forces
-
+    raw = _run(forces_agent, prompt, "5-Forces")
+    return FiveForcesResult.model_validate(raw)
 
 
 @cached("vrio")

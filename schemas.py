@@ -41,6 +41,21 @@ class FiveForcesResult(BaseModel):
 # ── schemas.py ─────────────────────────────────────────────────────────────
 from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional
+# schemas.py
+class StrategySection(BaseModel):
+    name: str
+    payload: dict
+    sources: list[str]
+
+class StrategyBundle(BaseModel):
+    company: str
+    sections: list[StrategySection]
+
+    @property
+    def all_sources(self) -> list[str]:
+        s = {src for sec in self.sections for src in sec.sources}
+        return sorted(s)
+
 
 class _PestCategory(BaseModel):
     bullets: List[str] = Field(

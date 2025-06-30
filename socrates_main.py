@@ -326,13 +326,13 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         idx["synthesis"] = forces_json.get("synthesis", {})
         return idx
 
-    def safe_build_forces(prompt: str) -> dict:
-        result = build_forces(prompt, refresh=needs_refresh("forces"))
-        if result.get("error") == "insufficient_data":
-            logger.warning("5-Forces agent said insufficient_data – retrying with shorter prompt")
-            short_prompt = as_token_limited_json(prompt, 5_000)  # 5 k tokens is always safe
-            result = build_forces(short_prompt, refresh=True)
-        return result
+    # def safe_build_forces(prompt: str) -> dict:
+    #     result = build_forces(prompt, refresh=needs_refresh("forces"))
+    #     if result.get("error") == "insufficient_data":
+    #         logger.warning("5-Forces agent said insufficient_data – retrying with shorter prompt")
+    #         short_prompt = as_token_limited_json(prompt, 5_000)  # 5 k tokens is always safe
+    #         result = build_forces(short_prompt, refresh=True)
+    #     return result
 
     analyses: Dict[str, Any] = {}
     if "forces" in specialist_agents:

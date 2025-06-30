@@ -2,6 +2,7 @@
 from agents import Agent
 from schemas import FiveForcesResult
 from utils.token_tools import as_token_limited_json
+import json
 
 forces_agent = Agent(
     name="ForcesAnalyst",
@@ -43,9 +44,10 @@ Return **valid JSON** that conforms to the FiveForcesResult schema.
 )
 
 def generate_forces_prompt(profile, bg, crux, token_budget):
-    return {
+    dict = {
         "company_profile": profile,
         "pest_bullets": bg["pest"]["pest_bullets"],
         "trend_clusters": bg["trend_radar"]["trend_clusters"],
-        "initial_crux": as_token_limited_json(crux, token_budget),
+        "initial_crux": as_token_limited_json(crux, token_budget)
     }
+    return json.dumps(dict, indent=2, ensure_ascii=False)
