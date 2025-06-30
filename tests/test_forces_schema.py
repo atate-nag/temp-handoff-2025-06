@@ -48,3 +48,13 @@ def test_missing_direction_fails():
     del bad["analysis"][0]["direction"]
     with pytest.raises(Exception):
         FiveForcesResult.model_validate(bad)
+
+
+def test_forces_to_md_real_payload_has_ratings():
+    import json
+    from utils.report_blocks import forces_to_md
+
+    payload = json.load(open(".debug/forces.json"))
+    md = forces_to_md(payload)
+    assert "(3/5)" in md
+    assert "Threat of new entrants" in md
