@@ -41,3 +41,9 @@ def test_too_few_sources_fails():
     bad["sources"] = ["(OnlyOne, 2024)"]
     with pytest.raises(Exception):
         FiveForcesResult.model_validate(bad)
+
+def test_missing_direction_fails():
+    bad = deepcopy(BASE_PAYLOAD)
+    del bad["analysis"][0]["direction"]
+    with pytest.raises(Exception):
+        FiveForcesResult.model_validate(bad)

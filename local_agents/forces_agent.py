@@ -28,6 +28,9 @@ TASK
 2. Rate each force 1-5 (see table below) and set direction ↑/→/↓.
 3. Fill **every** field of the FiveForcesResult schema  
    (the system has provided you that schema).
+4. Return each item in "analysis" with the key “force” set to one of:
+  "threat_of_entry", "supplier_power", "buyer_power",
+  "threat_of_substitutes", "competitive_rivalry".
 
 RATING GUIDE
 5 Very High (>15 % EBIT swing) … 1 Very Low (<1 %).

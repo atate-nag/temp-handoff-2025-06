@@ -30,6 +30,8 @@ class _ForceItem(BaseModel):
     """One competitive force analysis row."""
     force: str
     rating: int = Field(ge=1, le=5)   # 1‑5 inclusive+    rationale: str
+    direction: str | None = None  # NEW
+    evidence: list[str] | None = None  # NEW
 # ---------- top-level result ----------------------------------------------
 class FiveForcesResult(BaseModel):
     force_meta: dict | None
