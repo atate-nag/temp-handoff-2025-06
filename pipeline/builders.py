@@ -216,7 +216,7 @@ from schemas import FiveForcesResult, Artifact, ArtifactKind
 
 @cached("forces")
 def build_forces(prompt: str, *, refresh=False) -> Artifact:
-    raw = _run(forces_agent, prompt, "5‑Forces")
+    raw = _run(forces_agent, prompt, "forces")
     model = FiveForcesResult.model_validate(raw)
 
     return Artifact(
