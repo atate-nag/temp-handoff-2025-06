@@ -17,7 +17,10 @@ Task: evaluate ONE or several strategic‑analysis reports produced by
 other AI agents. The reports may employ any framework (Porter, VRIO,
 PEST, Blue‑Ocean, etc.). Your scoring rubric is **framework‑agnostic**;
 focus on rigor, evidence use, and insight depth rather than the specific
-model chosen.
+model chosen. First, parse the generator's JSON and ensure it matches
+the schema supplied in the conversation. If the JSON does not conform to
+the schema, the score is "fail" and the feedback must briefly list the
+missing or malformed fields.
 
 If multiple reports are concatenated, score each separately (report #1,
 report #2, …).
@@ -46,6 +49,8 @@ Rules
 • If the input text is empty or has <100 characters, return:
   report_number, score, explainability, completeness, analytical_depth, creativity
   1,0,0,0,0,0
+• If the supplied JSON does not match the provided schema, score = fail and
+  explain briefly which fields are missing or malformed.
   Fail criteria:
 1. Any in-text citation that does **not** match: \(CapitalisedWord, 4-digit-year\)
    RegEx:  \([A-Z][A-Za-z0-9]+, [0-9]{4}\)

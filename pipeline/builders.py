@@ -101,7 +101,7 @@ def _run(agent, prompt: str, label: str, rounds: int = 1):
     Call LLM generator + citation-verifier (+ optional assessor) and
     return parsed JSON/str.
     """
-    assessor = ASSESSOR_MAP.get(label)
+    assessor = ASSESSOR_MAP.get(label, generic_assessor_agent)
     raw = run_single_workflow_with_verifier(
         generator_agent=agent,
         verifier_agent=citation_verifier_agent,
