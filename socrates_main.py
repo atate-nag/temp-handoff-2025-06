@@ -462,13 +462,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
             continue
 
         if key == "forces":
-            # Convert list‑shaped 'analysis' to dict keyed by force name
-            if isinstance(data, dict) and isinstance(data.get("analysis"), list):
-                by_force = {item["force"]: item for item in data["analysis"]}
-                by_force["synthesis"] = data.get("synthesis")
-            else:  # already dict (future state)
-                by_force = data
-            body = forces_to_md(by_force)
+            body = forces_to_md(data)
             sections.append(f"## Porter’s Five Forces\n{body}")
         elif key == "pest":
             body = pest_to_md(data.get("pest_bullets", {}))
