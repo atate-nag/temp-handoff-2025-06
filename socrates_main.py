@@ -72,7 +72,7 @@ from company_data import get_gics_code_and_name
 from schemas import FiveForcesResult, PestResult, TrendRadarResult
 
 # --- TEMPORARY BRIDGE UNTIL ALL BUILDERS RETURN Artifact -----------------
-from schemas import Artifact, ArtifactKind
+from schemas import Artifact, ArtifactKind, ArtifactCollection
 
 # ---------------------------------------------------------------------------
 # Canonical registry of all specialist frameworks
@@ -407,8 +407,11 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
         bowman_raw = build_bowman(spec_prompt, refresh=needs_refresh("bowman"))
         artifacts.append(_ensure_artifact("bowman_clock", ArtifactKind.ANALYSIS, bowman_raw))
 
+    # Wrap results in a collection for easier lookup
+    artifact_bundle = ArtifactCollection(artifacts=artifacts)
+
     # ── 7. Derive a shim `analyses` dict from current artifacts (temporary) -----
-    analyses: Dict[str, Any] = {art.id: art.payload for art in artifacts}
+    analyses: Dict[str, Any] = {art.id: art.payload for art in artifact_bundle.artifacts}
 
     # ── 8. Build Challenges & Synth sections (still legacy) ---------------------
 
@@ -454,21 +457,19 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     print("DEBUG: Frameworks chosen:", background_dict["frameworks_chosen"])
 
+    all_sources = []
     for key in background_dict["frameworks_chosen"]:
-        data = analyses.get(key, {})
-        if not data:
+        art = artifact_bundle.lookup.get(key)
+        if not art:
             print("DEBUG: No data for framework", key)
             sections.append(f"## {key.title()} – *Data unavailable*")
             continue
 
+        data = art.payload
+        all_sources.extend(art.sources)
+
         if key == "forces":
-            # Convert list‑shaped 'analysis' to dict keyed by force name
-            if isinstance(data, dict) and isinstance(data.get("analysis"), list):
-                by_force = {item["force"]: item for item in data["analysis"]}
-                by_force["synthesis"] = data.get("synthesis")
-            else:  # already dict (future state)
-                by_force = data
-            body = forces_to_md(by_force)
+            body = forces_to_md(data)
             sections.append(f"## Porter’s Five Forces\n{body}")
         elif key == "pest":
             body = pest_to_md(data.get("pest_bullets", {}))
@@ -484,16 +485,7 @@ def run_strategy(company_name: str, problems_file: str, *, max_rounds: int = 3) 
 
     # ---- 2.c · citation sanity check ------------------------------------------
 
-    # pull Porter citations
-    forces_entry = report_bundle.get("forces")
-    if forces_entry is None:
-        porter_sources: list[str] = []
-    elif hasattr(forces_entry, "model_dump"):
-        porter_sources = (forces_entry.sources or [])
-    else:
-        porter_sources = forces_entry.get("sources", [])
-    # add them to the human-readable markdown
-    refs_md = "## Sources\n" + " ".join(porter_sources)
+    refs_md = "## Sources\n" + " ".join(sorted(set(all_sources)))
     frameworks_sections_md += "\n\n" + refs_md
 
     # now run the citation check
