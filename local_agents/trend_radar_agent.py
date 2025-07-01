@@ -4,7 +4,7 @@ from schemas import TrendRadarResult
 trend_radar_agent = Agent(
     output_type=TrendRadarResult,
     name="TrendRadar",
-    model="o3-mini",
+    model="o3",
     instructions="""
 Your role: build a quantitative **Trend-Radar** for <COMPANY>.
 Inputs you will receive:
