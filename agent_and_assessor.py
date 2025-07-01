@@ -151,6 +151,34 @@ async def single_agent_verify_assess_loop(
         final_output = ItemHelpers.text_message_outputs(gen_result.new_items)
         print(f"[{label}] Round {round_num} - Generator output:\n{final_output}")
 
+        # ----- Verification step -----
+        verify_input = (
+            f"Below is the generator's output (with citations):\n\n"
+            f"{final_output}\n\n"
+            "Focus ONLY on verifying that each citation correctly supports its claim."
+        )
+        verifier_result = await Runner.run(
+            verifier_agent,
+            input=[{"role": "user", "content": verify_input}]
+        )
+        raw_vfb = ItemHelpers.text_message_outputs(verifier_result.new_items)
+        try:
+            vfb_data = json.loads(raw_vfb)
+            vfb = VerificationFeedback(
+                valid=vfb_data.get("valid", False),
+                issues=vfb_data.get("issues", "")
+            )
+        except json.JSONDecodeError:
+            vfb = VerificationFeedback(
+                valid=False,
+                issues=f"Invalid verifier response: {raw_vfb}"
+            )
+        print(f"[{label}] Round {round_num} - Citations valid? {vfb.valid}")
+        if not vfb.valid:
+            print(f"[{label}] Round {round_num} - Verification issues:\n{vfb.issues}")
+            current_prompt = f"Verification issues:\n{vfb.issues}\n\n" + current_prompt
+            continue
+
         assessment_input = (
             f"Below is the generator's output:\n\n{final_output}\n\n"
             f"Evaluate it; return a 'score' and 'feedback'."
